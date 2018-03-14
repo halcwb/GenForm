@@ -1,0 +1,11 @@
+# Ignore git
+.git*
+
+# Ignore local builds
+./*/*/bin*
+./*/*/obj*
+
+# Ignore local paket cache
+paket-files*
+packages*
+

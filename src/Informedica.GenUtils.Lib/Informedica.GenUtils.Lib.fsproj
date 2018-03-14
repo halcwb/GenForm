@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Reflection.fs" />
+    <Compile Include="NullCheck.fs" />
+    <Compile Include="String.fs" />
+    <Compile Include="Option.fs" />
+    <Compile Include="List.fs" />
+    <Compile Include="BigRational.fs" />
+    <None Include="scripts\references.fsx" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
