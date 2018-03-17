@@ -6,7 +6,10 @@ storage: none
 source https://api.nuget.org/v3/index.json
 
 nuget MathNet.Numerics.FSharp
-# nuget Argu ~> 4
 nuget Expecto
 nuget FsCheck
 nuget Expecto.FsCheck
+
+nuget Newtonsoft.Json
+nuget FSharp.Data
+nuget FSharpComposableQuery prerelease
