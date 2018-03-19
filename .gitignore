@@ -85,3 +85,10 @@ publishnuget.cmd
 !/docs/files/img/
 !/docs/files/img/*.png
 
+# Cache folder
+!/cache/
+
+# Resource folder
+!/resource
+!/resource/zindex/
+!/resource/productrange/
