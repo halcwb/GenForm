@@ -10,7 +10,7 @@ module String =
     open Informedica.GenUtils.Lib
 
     /// Apply `f` to string `s`
-    let apply f (s: String) = f s
+    let apply f (s: string) = f s
     
     /// Utility to enable type inference
     let get = apply id

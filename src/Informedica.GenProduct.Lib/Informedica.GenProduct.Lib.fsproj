@@ -22,6 +22,8 @@
     <Compile Include="GenericProduct.fs" />
     <Compile Include="ProductRange.fs" />
     <Compile Include="GenPresProduct.fs" />
+    <Compile Include="DoseRule.fs" />
+    <Compile Include="ATCGroup.fs" />
     <None Include="Scripts/references.fsx" />
     <None Include="Scripts\Script.fsx" />
   </ItemGroup>

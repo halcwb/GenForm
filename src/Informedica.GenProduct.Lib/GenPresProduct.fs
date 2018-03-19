@@ -2,6 +2,7 @@
 
 module GenPresProduct =
     
+    open Informedica.GenUtils.Lib.BCL
     open Informedica.GenUtils.Lib
 
     type GenPresProduct =
@@ -59,7 +60,6 @@ module GenPresProduct =
 
     let get : int list -> GenPresProduct [] = Memoization.memoize _get
 
-
     let getAssortment () = 
         ProductRange.data ()
         |> Seq.map (fun d -> d.GPK)
@@ -67,6 +67,20 @@ module GenPresProduct =
         |> List.filter Option.isSome
         |> List.map Option.get
         |> get
+
+
+    let toString (gpp : GenPresProduct) =
+        gpp.Name + " " + gpp.Shape + " " + (gpp.Route |> String.concat "/")
+
+    let filter n s r =
+        getAssortment()
+        |> Array.filter (fun gpp ->
+            gpp.Name  |> String.equalsCapInsens n && 
+            gpp.Shape |> String.equalsCapInsens s && 
+            gpp.Route |> Array.exists (fun r' -> r' |> String.equalsCapInsens r)
+
+        )
+        
 
 (*
     let getPediatric () =
