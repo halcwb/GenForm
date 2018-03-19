@@ -11,5 +11,5 @@ nuget FsCheck
 nuget Expecto.FsCheck
 
 nuget Newtonsoft.Json
-nuget FSharp.Data
-nuget FSharpComposableQuery prerelease
+# nuget FSharp.Data
+# nuget FSharpComposableQuery prerelease

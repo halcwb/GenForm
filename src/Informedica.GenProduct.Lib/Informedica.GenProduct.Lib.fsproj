@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Int32.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="File.fs" />
+    <Compile Include="Json.fs" />
+    <Compile Include="Parser.fs" />
+    <Compile Include="BST001T.fs" />
+    <Compile Include="BST000T.fs" />
+    <Compile Include="CodeGen.fs" />
+    <Compile Include="Zindex.fs" />
+    <Compile Include="Names.fs" />
+    <Compile Include="Substance.fs" />
+    <Compile Include="ConsumerProduct.fs" />
+    <Compile Include="TradeProduct.fs" />
+    <Compile Include="PrescriptionProduct.fs" />
+    <Compile Include="GenericProduct.fs" />
+    <Compile Include="ProductRange.fs" />
+    <Compile Include="GenPresProduct.fs" />
+    <None Include="Scripts/references.fsx" />
+    <None Include="Scripts\Script.fsx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Scripts\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
+    <ProjectReference Include="..\Informedica.GenUtils.Lib\Informedica.GenUtils.Lib.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

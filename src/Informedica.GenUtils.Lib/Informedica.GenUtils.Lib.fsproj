@@ -1,16 +1,25 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Folder Include="BCL\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Memoization.fs" />
     <Compile Include="Reflection.fs" />
     <Compile Include="NullCheck.fs" />
-    <Compile Include="String.fs" />
+    <Compile Include="BCL\Char.fs" />
+    <Compile Include="BCL\String.fs" />
+    <Compile Include="BCL\Int32.fs" />
+    <Compile Include="BCL\Double.fs" />
+    <Compile Include="BCL\BigRational.fs" />
     <Compile Include="Option.fs" />
+    <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
-    <Compile Include="BigRational.fs" />
     <None Include="scripts\references.fsx" />
+    <Compile Include="Seq.fs" />
+    <Compile Include="File.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

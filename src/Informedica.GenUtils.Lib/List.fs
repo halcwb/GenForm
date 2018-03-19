@@ -3,7 +3,9 @@
 /// Additional utitilty functions
 /// for lists
 module List =
-    
+
+    open Informedica.GenUtils.Lib.BCL
+
     /// Replace an element **x** in a list **xs**
     /// when the **pred** function returns `true`. </br>
     /// Note: will only replace the *first* element
@@ -17,5 +19,31 @@ module List =
 
     /// Calling distinct on a list **xs**
     let distinct xs = xs |> Seq.ofList |> Seq.distinct |> Seq.toList
+
+    let listFilter p xs =
+        xs
+        |> List.filter (fun r -> 
+            r |> List.exists (fun x -> p x )) 
+
+    let collectLists p xs =
+        xs
+        |> List.collect (fun r -> 
+            r
+            |> List.filter (fun x -> p x))
+
+    let pickList pl (xs: 'a List) =
+        match pl with
+        | [] -> xs
+        | _ -> [ for i in pl -> xs.[i] ]
+
+    let inline toString xs =
+        match xs with
+        | [] -> "[]"
+        | _ ->
+            let s =
+                xs 
+                |> List.fold (fun s x -> s + (string) x + ";") "["
+            (s
+            |> String.subString 0 ((s |> String.length) - 1)) + "]"
 
 

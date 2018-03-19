@@ -137,43 +137,43 @@ let tests =
 
         test "subString of a null string will yield" {
             null
-            |> String.substring 0 1
+            |> String.subString 0 1
             |> equals "" "returns an empty string"
         }    
 
         test "subString of an empty string will yield" {
             ""
-            |> String.substring 0 1
+            |> String.subString 0 1
             |> equals "" "returns an empty string"
         }    
 
         test "subString 0 1 of abc string will yield" {
             "abc"
-            |> String.substring 0 1
+            |> String.subString 0 1
             |> equals "a" "returns a"
         }
 
         test "subString 1 1 of abc string will yield" {
             "abc"
-            |> String.substring 1 1
+            |> String.subString 1 1
             |> equals "b" "returns b"
         }
 
         test "subString 0 0 of abc string will yield" {
             "abc"
-            |> String.substring 0 0
+            |> String.subString 0 0
             |> equals "" "returns an empty string"
         }
 
         test "subString 1 -1 of abc string will yield" {
             "abc"
-            |> String.substring 1 -1
+            |> String.subString 1 -1
             |> equals "a" "returns an a"
         }
 
         test "subString 1 -2 of abc string will yield" {
             "abc"
-            |> String.substring 1 -2
+            |> String.subString 1 -2
             |> equals "" "returns an empty string"
         }
 

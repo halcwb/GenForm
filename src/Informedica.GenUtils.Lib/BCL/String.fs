@@ -5,6 +5,8 @@
 module String = 
 
     open System
+    open System.Text.RegularExpressions
+
     open Informedica.GenUtils.Lib
 
     /// Apply `f` to string `s`
@@ -17,6 +19,7 @@ module String =
     let splitAt c s = 
         s |> NullCheck.nullOrDef (fun s' -> (s' |> get).Split([|c|])) [||] 
         
+    let arrayConcat (cs : char[]) = String.Concat(cs)
 
     /// Check if string `s2` contains string `s1`
     let contains= 
@@ -56,7 +59,7 @@ module String =
         o |> NullCheck.nullOrDef (fun o' ->  o'.ToString()) ""
 
     /// Get a substring starting at `start` with length `length`
-    let substring start length = 
+    let subString start length = 
         let sub s =
             if start < 0 || s |> String.length < start + length || start + length < 0  then ""
             else
@@ -67,13 +70,13 @@ module String =
 
     /// Get the first character of a string
     /// as a string
-    let firstStringChar = substring 0 1
+    let firstStringChar = subString 0 1
 
     /// Return the rest of a string as a string
     let restString s = 
         if s = "" then ""
         else
-            substring 1 ((s |> length) - 1) s
+            subString 1 ((s |> length) - 1) s
 
     /// Make the first char of a string upper case
     let firstToUpper = firstStringChar >> toUpper
@@ -107,7 +110,7 @@ module String =
         let sw s1 s2 =
             if s2 |> String.length > (s1 |> String.length) then false
             else
-                s1 |> substring 0 (s2 |> String.length) |> eqs s2
+                s1 |> subString 0 (s2 |> String.length) |> eqs s2
         NullCheck.nullOrDef2 sw false s1 s2
 
     /// Check whether **s1** starts with
@@ -117,3 +120,20 @@ module String =
     /// Check whether **s1** starts with
     /// **s2** caps insensitive
     let startsWithCapsInsens = startsWithEqs equalsCapInsens
+
+    let regex s = new Regex(s)
+
+    /// Count the number of times character
+    /// c appears in string t
+    let countChar c t =
+        if String.IsNullOrEmpty(c) then "Cannot count empty string in text: '" + t + "'" |> failwith
+        (c |> regex).Matches(t).Count
+
+    /// Count the number of times that a 
+    /// string t starts with character c
+    let countFirstChar c t =
+        let _, count = 
+            if String.IsNullOrEmpty(t) then (false, 0)
+            else
+                t |> Seq.fold(fun (flag, dec) c' -> if c' = c && flag then (true, dec + 1) else (false, dec)) (true, 0) 
+        count

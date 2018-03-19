@@ -54,16 +54,23 @@ publishnuget.cmd
 
 # Add fsharp source files
 !*.fs
+!*.fsx
 
 # Add source files
 !/scripts/
 !/src/
 !/src/Informedica.GenUtils.Lib/
 !/src/Informedica.GenUtils.Lib/Scripts/
+!/src/Informedica.GenUnits.Lib/
+!/src/Informedica.GenUnits.Lib/Scripts/
+!/src/Informedica.GenProduct.Lib/
+!/src/Informedica.GenProduct.Lib/Scripts/
 
 # Add test files
 !/tests/
 !/tests/Informedica.GenUtils.Tests/
+!/tests/Informedica.GenUnits.Tests/
+!/tests/Informedica.GenProduct.Tests/
 
 # Ignore generated documentation files
 /docs/content/**/*.md
