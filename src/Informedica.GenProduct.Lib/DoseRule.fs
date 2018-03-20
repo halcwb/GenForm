@@ -94,11 +94,6 @@ module DoseRule =
 
         let s = s |> adds "" r.Gender
 
-        let s = 
-            match r.MinAge with
-            | Some x -> s + "Min. Leeftijd: " + (string x) + " maanden" + del
-            | None   -> s
-
         let s = s |> minMaxToString "Leeftijd" "maanden" 1 r.Age
         let s = s |> minMaxToString "Gewicht" "kg" 2 r.Weight
         let s = s |> minMaxToString "BSA" "m2" 2 r.BSA
@@ -439,4 +434,44 @@ module DoseRule =
 
     let get : unit -> DoseRule [] = Memoization.memoize _get
 
-    
+    let toString2 (dr : DoseRule) =
+        let addString lbl s = 
+            if s = "" then ""
+            else
+                lbl + ": " + s + ", "
+
+        let freqToString (fr: Frequency) =
+            (fr.Frequency |> string) + " " + (fr.Time |> string)
+
+        let optToString pre post o = 
+            let s =
+                if o |> Option.isSome then o |> Option.get |> string else "" 
+            if s = "" then "" else pre + " " +  s + " " + post
+
+        let minMaxToString u (mm: MinMax) = 
+            let s =
+                match mm.Min, mm.Max with
+                | None, None -> ""
+                | Some min, None -> "vanaf " + (min |> string)
+                | None, Some max ->
+                    if max = 0. then "" else "tot " + (max |> string)
+                | Some min, Some max -> (min |> string) + " - " + (max |> string)
+            if s = "" then "" else s + " " + u
+
+        if dr.GenericProduct |> Array.length = 1 then
+            dr.GenericProduct.[0].Name + ": "
+        else ""
+        + (addString "Indicatie" dr.Indication)
+        + (addString "Geslacht" dr.Gender)
+        + (addString "Leeftijd" (dr.Age |> minMaxToString "maanden"))
+        + (addString "Oppervlak" (dr.BSA |> minMaxToString "m2"))
+        + (addString "Gewicht" (dr.Weight |> minMaxToString "kg"))
+        + (addString "Frequentie" (dr.Freq |> freqToString))
+        + (addString "Dosering" (dr.Norm |> minMaxToString dr.Unit))
+        + (addString "Dose Per kg" (dr.NormKg |> minMaxToString dr.Unit))
+        + (addString "Dose Per m2" (dr.NormM2 |> minMaxToString dr.Unit))
+        + (addString "Grens Per kg" (dr.AbsKg |> minMaxToString dr.Unit))
+        + (addString "Grens Per m2" (dr.AbsM2 |> minMaxToString dr.Unit))
+        + (addString "Abs grens" (dr.Abs |> minMaxToString dr.Unit))
+        |> String.remove 1
+

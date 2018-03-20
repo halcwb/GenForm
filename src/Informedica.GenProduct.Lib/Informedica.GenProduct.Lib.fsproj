@@ -24,6 +24,7 @@
     <Compile Include="GenPresProduct.fs" />
     <Compile Include="DoseRule.fs" />
     <Compile Include="ATCGroup.fs" />
+    <Compile Include="RuleFinder.fs" />
     <None Include="Scripts/references.fsx" />
     <None Include="Scripts\Script.fsx" />
   </ItemGroup>

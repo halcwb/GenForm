@@ -55,6 +55,7 @@ let inline times x1 x2 = x2 * x1
 (2000N.toVU Volume_MilliLiter) + (48N.toVU Volume_Liter)
 |> toString
 
+
 // calculate dopamine infusion for 10 kg weight
 // take 5 ml of dopamine 200 mg/5 ml ampul
 // (5 ml * 200 mg / 5 ml) = 200 mg

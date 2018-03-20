@@ -1,7 +1,4 @@
 ﻿#load "references.fsx"
-open Informedica.GenProduct.Lib.GenericProduct
-open Informedica.GenProduct.Lib.GenericProduct
-open Informedica.GenProduct.Lib.DoseRule
 
 #time
 
@@ -78,7 +75,7 @@ GenPresProduct.getAssortment ()
 |> Seq.iter (fun n -> printfn "%s" n)
 
 
-GenPresProduct.filter "paracetamol" "zetpil" "rectaal"
+GenPresProduct.filter "gentamicine" "injectievloeistof" ""
 |> Array.map GenPresProduct.toString
 |> Array.iter (printfn "%s")
 
@@ -86,65 +83,25 @@ GenPresProduct.filter "paracetamol" "zetpil" "rectaal"
 DoseRule.get ()
 |> Array.length
 
-// Get all dose rules for paracetamol
+
+
+
+// Get all possible dose units
 DoseRule.get()
-|> Array.filter (fun dr ->
-    dr.GenericProduct |> Array.exists (fun gp -> gp.Name |> String.startsWithCapsInsens "paracetamol")
-)
-|> Array.length
-
-let toString (dr : DoseRule.DoseRule) =
-    let addString lbl s = 
-        if s = "" then ""
-        else
-            lbl + ": " + s + ", "
-
-    let freqToString (fr: DoseRule.Frequency) =
-        (fr.Frequency |> string) + " " + (fr.Time |> string)
-
-    let optToString pre post o = 
-        let s =
-            if o |> Option.isSome then o |> Option.get |> string else "" 
-        if s = "" then "" else pre + " " +  s + " " + post
-
-    let minMaxToString u (mm: DoseRule.MinMax) = 
-        let s =
-            match mm.Min, mm.Max with
-            | None, None -> ""
-            | Some min, None -> "vanaf " + (min |> string)
-            | None, Some max ->
-                if max = 0. then "" else "tot " + (max |> string)
-            | Some min, Some max -> (min |> string) + " - " + (max |> string)
-        if s = "" then "" else s + " " + u
-
-    if dr.GenericProduct |> Array.length = 1 then
-        dr.GenericProduct.[0].Name + ": "
-    else ""
-    + (addString "Indicatie" dr.Indication)
-    + (addString "Geslacht" dr.Gender)
-    + (addString "Leeftijd" (dr.Age |> minMaxToString "maanden"))
-    + (addString "Oppervlak" (dr.BSA |> minMaxToString "m2"))
-    + (addString "Min. Leeftijd" (dr.MinAge |> optToString "vanaf" "maanden"))
-    + (addString "Gewicht" (dr.Weight |> minMaxToString "kg"))
-    + (addString "Frequentie" (dr.Freq |> freqToString))
-    + (addString "Dosering" (dr.Norm |> minMaxToString dr.Unit))
-    + (addString "Dose Per kg" (dr.NormKg |> minMaxToString dr.Unit))
-    + (addString "Dose Per m2" (dr.NormM2 |> minMaxToString dr.Unit))
-    + (addString "Grens Per kg" (dr.AbsKg |> minMaxToString dr.Unit))
-    + (addString "Grens Per m2" (dr.AbsM2 |> minMaxToString dr.Unit))
-    + (addString "Abs grens" (dr.Abs |> minMaxToString dr.Unit))
-
-
-GenPresProduct.filter "paracetamol" "zetpil" "rectaal"
-|> Array.collect (fun gpp -> 
-    gpp.GenericProducts 
-    |> Array.map (fun gp -> gp.Id)
-)
-|> Array.collect (fun gpk ->
-    DoseRule.get()
-    |> Array.filter (fun dr -> dr.GenericProduct |> Array.exists (fun gp -> gp.Id = gpk) 
-    )
-    |> Array.map toString
-    |> Array.distinct
-)
+|> Array.map (fun dr -> dr.Unit)
+|> Array.distinct
 |> Array.iter (printfn "%s")
+
+
+// Create a rule filter
+let filter = RuleFinder.createFilter (Some 0.) (Some 1.6) None None "gentamicine" "" "iv"
+
+// Get all products using the filter
+GenPresProduct.filter filter.Generic filter.Shape filter.Route
+
+
+// Get all dose rules for the filter
+RuleFinder.find filter
+//|> Array.filter (fun dr -> dr.CareGroup = "intensieve")
+|> RuleFinder.convertToResult
+|> ignore

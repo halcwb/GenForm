@@ -135,4 +135,5 @@
 #load @"/Users/hal/Development/GenFormService/src/Informedica.GenProduct.Lib/GenPresProduct.fs"
 #load @"/Users/hal/Development/GenFormService/src/Informedica.GenProduct.Lib/DoseRule.fs"
 #load @"/Users/hal/Development/GenFormService/src/Informedica.GenProduct.Lib/ATCGroup.fs"
+#load @"/Users/hal/Development/GenFormService/src/Informedica.GenProduct.Lib/RuleFinder.fs"
 

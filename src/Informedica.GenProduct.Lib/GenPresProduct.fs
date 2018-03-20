@@ -76,8 +76,8 @@ module GenPresProduct =
         getAssortment()
         |> Array.filter (fun gpp ->
             gpp.Name  |> String.equalsCapInsens n && 
-            gpp.Shape |> String.equalsCapInsens s && 
-            gpp.Route |> Array.exists (fun r' -> r' |> String.equalsCapInsens r)
+            (s = "" || gpp.Shape |> String.equalsCapInsens s) && 
+            (r = "" || gpp.Route |> Array.exists (fun r' -> r' |> String.equalsCapInsens r))
 
         )
         

@@ -78,6 +78,10 @@ module String =
         else
             subString 1 ((s |> length) - 1) s
 
+    let remove n s =
+        let l = String.length s - n
+        if l < 0 then "" else s |> subString 0 l
+
     /// Make the first char of a string upper case
     let firstToUpper = firstStringChar >> toUpper
 
