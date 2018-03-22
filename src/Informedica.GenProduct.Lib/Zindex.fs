@@ -1,5 +1,5 @@
-﻿namespace Informedica.GenProduct.Lib
 
+namespace Informedica.GenProduct.Lib
 
 /// <summary>
 /// <para>BST004T: Bestand 004 Artikelen</para>
@@ -13,7 +13,7 @@
 /// <para>BST641T: Bestand 641 Doseringen Basis-Artikelkeuze</para>
 /// <para>BST642T: Bestand 642 Doseringen Uitzonderingen op Basis</para>
 /// <para>BST643T: Bestand 643 Categorieen</para>
-/// <para>BST644T: Bestand 644 Dosisgegevens</para>
+/// <para>BST649T: Bestand 649 Dosisgegevens - Nieuw per 01/11/2016</para>
 /// <para>BST701T: Bestand 701 Ingegeven samenstellingen</para>
 /// <para>BST711T: Bestand 711 Generieke producten</para>
 /// <para>BST715T: Bestand 715 Generieke samenstellingen</para>
@@ -25,23 +25,25 @@
 /// <para>BST902T: Bestand 902 Thesauri totaal</para>
 /// <para>BST920T: Bestand 920 Teksten (oud, zonder blok structuur)</para>
 /// </summary>
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Zindex =
 
     open Informedica.GenUtils.Lib.BCL
     open Informedica.GenUtils.Lib
+
+    
+
+
     
     /// <summary>
     /// <para> Tabel: BST004T: Bestand 004 Artikelen </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   ATKODE:     ZI-nummer </para>
-    /// <para> 2.   HPKODE:     HandelsProduktKode (HPK) </para>
-    /// <para> 3.   ATNMNR:     Artikelnaamnummer </para>
-    /// <para> 4.   VPDLOM:     Deelverpakking omschrijving kode </para>
-    /// <para> 5.   VPDLHV:     Hoeveelheid per deelverpakking </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	ATKODE: 	ZI-nummer </para>
+    /// <para> 2.	HPKODE: 	Handels Product Kenmerken (HPK) code </para>
+    /// <para> 3.	ATNMNR: 	Artikelnaamnummer </para>
+    /// <para> 4.	VPDLOM: 	Deelverpakking omschrijving kode </para>
+    /// <para> 5.	VPDLHV: 	Hoeveelheid per deelverpakking </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST004T =
 
         let name = "BST004T"
@@ -81,19 +83,17 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST020T: Bestand 020 Namen </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   NMNR:   Naamnummer </para>
-    /// <para> 2.   NMMEMO:     Memokode </para>
-    /// <para> 3.   NMETIK:     Etiketnaam </para>
-    /// <para> 4.   NMNM40:     Korte handelsnaam </para>
-    /// <para> 5.   NMNAAM:     Naam volledig </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	NMNR: 	Naamnummer </para>
+    /// <para> 2.	NMMEMO: 	Memokode </para>
+    /// <para> 3.	NMETIK: 	Etiketnaam </para>
+    /// <para> 4.	NMNM40: 	Korte handelsnaam </para>
+    /// <para> 5.	NMNAAM: 	Naam volledig </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST020T =
 
         let name = "BST020T"
@@ -133,25 +133,23 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST031T: Bestand 031 Handelsproducten </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   HPKODE:     HandelsProduktKode (HPK) </para>
-    /// <para> 2.   PRKODE:     PRK-code </para>
-    /// <para> 3.   HPNAMN:     Handelsproduktnaamnummer </para>
-    /// <para> 4.   MSNAAM:     Merkstamnaam </para>
-    /// <para> 5.   FSNAAM:     Firmastamnaam </para>
-    /// <para> 6.   GRP001:     FTK 1 </para>
-    /// <para> 7.   GRP002:     FTK 2 </para>
-    /// <para> 8.   GRP003:     FTK 3 </para>
-    /// <para> 9.   GRP004:     FTK 4 </para>
-    /// <para> 10.  GRP005:     FTK 5 </para>
-    /// <para> 11.  HPDEEL:     Deelbaarheid aantal </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	HPKODE: 	Handels Product Kenmerken (HPK) code </para>
+    /// <para> 2.	PRKODE: 	PRK-code </para>
+    /// <para> 3.	HPNAMN: 	Handelsproduktnaamnummer </para>
+    /// <para> 4.	MSNAAM: 	Merkstamnaam </para>
+    /// <para> 5.	FSNAAM: 	Firmastamnaam </para>
+    /// <para> 6.	GRP001: 	FTK 1 </para>
+    /// <para> 7.	GRP002: 	FTK 2 </para>
+    /// <para> 8.	GRP003: 	FTK 3 </para>
+    /// <para> 9.	GRP004: 	FTK 4 </para>
+    /// <para> 10.	GRP005: 	FTK 5 </para>
+    /// <para> 11.	HPDEEL: 	Deelbaarheid aantal </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST031T =
 
         let name = "BST031T"
@@ -203,16 +201,14 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST050T: Bestand 050 Voorschrijfproducten (PRK) </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   PRKODE:     PRK-code </para>
-    /// <para> 2.   PRNMNR:     Naamnummer prescriptie product </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	PRKODE: 	PRK-code </para>
+    /// <para> 2.	PRNMNR: 	Naamnummer prescriptie product </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST050T =
 
         let name = "BST050T"
@@ -246,19 +242,17 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST051T: Bestand 051 Voorschrijfpr. geneesmiddel identific. </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   PRKODE:     PRK-code </para>
-    /// <para> 2.   GPKODE:     Generiekeproductcode (GPK) </para>
-    /// <para> 3.   HPEMBT:     Emballagetype kode </para>
-    /// <para> 4.   XPEHHV:     Basiseenheid product kode </para>
-    /// <para> 5.   HPGALG:     HPK-grootte algemeen </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	PRKODE: 	PRK-code </para>
+    /// <para> 2.	GPKODE: 	Generiekeproductcode (GPK) </para>
+    /// <para> 3.	HPEMBT: 	Emballagetype kode </para>
+    /// <para> 4.	XPEHHV: 	Basiseenheid product kode </para>
+    /// <para> 5.	HPGALG: 	HPK-grootte algemeen </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST051T =
 
         let name = "BST051T"
@@ -298,16 +292,14 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST360T: Bestand 360 t-tabel (tijdseenheid) </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   TTEHNR:     Uniek nummer per tijdseenheid </para>
-    /// <para> 2.   TTEHOM:     Omschrijving tijdseenheid </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	TTEHNR: 	Uniek nummer per tijdseenheid </para>
+    /// <para> 2.	TTEHOM: 	Omschrijving tijdseenheid </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST360T =
 
         let name = "BST360T"
@@ -341,16 +333,14 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST380T: Bestand 380 ICPC - 1 </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   ICPCNR1:    ICPC1-nummer </para>
-    /// <para> 2.   ICPCTXT:    ICPC-omschrijvingen </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	ICPCNR1: 	ICPC1-nummer </para>
+    /// <para> 2.	ICPCTXT: 	ICPC-omschrijvingen </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST380T =
 
         let name = "BST380T"
@@ -384,17 +374,15 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST640T: Bestand 640 Doseringen Basis-Algemeen </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   GPKODE:     Generiekeproductcode (GPK) </para>
-    /// <para> 2.   GPDGST:     Toegestaan voor geslacht </para>
-    /// <para> 3.   GPRISC:     Kode hoog risico overdosering </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	GPKODE: 	Generiekeproductcode (GPK) </para>
+    /// <para> 2.	GPDGST: 	Toegestaan voor geslacht </para>
+    /// <para> 3.	GPRISC: 	Kode hoog risico overdosering </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST640T =
 
         let name = "BST640T"
@@ -430,20 +418,18 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST641T: Bestand 641 Doseringen Basis-Artikelkeuze </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   GPKODE:     Generiekeproductcode (GPK) </para>
-    /// <para> 2.   PRKODE:     PRK-code </para>
-    /// <para> 3.   HPKODE:     HandelsProduktKode (HPK) </para>
-    /// <para> 4.   GPDCTH:     Thesaurus soort-doseringscode (1004) </para>
-    /// <para> 5.   GPDCOD:     Soort-doseringscode </para>
-    /// <para> 6.   GPDBAS:     Dosis-basisnummer </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	GPKODE: 	Generiekeproductcode (GPK) </para>
+    /// <para> 2.	PRKODE: 	PRK-code </para>
+    /// <para> 3.	HPKODE: 	Handels Product Kenmerken (HPK) code </para>
+    /// <para> 4.	GPDCTH: 	Thesaurus soort-doseringscode (1004) </para>
+    /// <para> 5.	GPDCOD: 	Soort-doseringscode </para>
+    /// <para> 6.	GPDBAS: 	Dosis-basisnummer </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST641T =
 
         let name = "BST641T"
@@ -485,20 +471,19 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST642T: Bestand 642 Doseringen Uitzonderingen op Basis </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   GPDBAS:     Dosis-basisnummer </para>
-    /// <para> 2.   GPDZCO:     Zorggroep-codering </para>
-    /// <para> 3.   ICPCNR1:    ICPC1-nummer </para>
-    /// <para> 4.   ICPCTO:     Verbijzondering </para>
-    /// <para> 5.   GPKTWG:     Toedieningsweg code </para>
-    /// <para> 6.   GPDCAT:     Dosis-categorienummer </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	GPDBAS: 	Dosis-basisnummer </para>
+    /// <para> 2.	GPDID1: 	Identificerend volgnummer </para>
+    /// <para> 3.	GPDZCO: 	Zorggroep-codering </para>
+    /// <para> 4.	ICPCNR1: 	ICPC1-nummer </para>
+    /// <para> 5.	ICPCTO: 	Verbijzondering </para>
+    /// <para> 6.	GPKTWG: 	Toedieningsweg code </para>
+    /// <para> 7.	GPDCAT: 	Dosis-categorienummer </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST642T =
 
         let name = "BST642T"
@@ -507,6 +492,7 @@ module Zindex =
             {
                 MUTKOD : int
                 GPDBAS : int
+                GPDID1 : int
                 GPDZCO : int
                 ICPCNR1 : int
                 ICPCTO : int
@@ -515,10 +501,11 @@ module Zindex =
             }
 
 
-        let create mutkod gpdbas gpdzco icpcnr1 icpcto gpktwg gpdcat  =
+        let create mutkod gpdbas gpdid1 gpdzco icpcnr1 icpcto gpktwg gpdcat  =
             {
                 MUTKOD = mutkod |> ((Parser.parseValue "N" "") >> Int32.parse)
                 GPDBAS = gpdbas |> ((Parser.parseValue "N" "") >> Int32.parse)
+                GPDID1 = gpdid1 |> ((Parser.parseValue "N" "") >> Int32.parse)
                 GPDZCO = gpdzco |> ((Parser.parseValue "N" "") >> Int32.parse)
                 ICPCNR1 = icpcnr1 |> ((Parser.parseValue "N" "") >> Int32.parse)
                 ICPCTO = icpcto |> ((Parser.parseValue "N" "") >> Int32.parse)
@@ -529,37 +516,35 @@ module Zindex =
     
         let posl = BST001T.getPosl name
 
-        let pickList = [1;2;5;6;8;12;13]
+        let pickList = [1;2;3;5;6;8;12;13]
          
         let _records _ =
             Parser.getData name posl pickList
-            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5) (xs |> Array.item 6))
+            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5) (xs |> Array.item 6) (xs |> Array.item 7))
 
         let records : unit -> BST642T [] = Memoization.memoize _records
 
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST643T: Bestand 643 Categorieen </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   GPDCAT:     Dosis-categorienummer </para>
-    /// <para> 2.   GPDID2:     Identificerend recordnummer </para>
-    /// <para> 3.   GPDLFM:     Leeftijd in maanden vanaf </para>
-    /// <para> 4.   GPDLFX:     Leeftijd in maanden tot </para>
-    /// <para> 5.   GPDKGM:     Gewicht in KG vanaf </para>
-    /// <para> 6.   GPDKGX:     Gewicht in KG tot </para>
-    /// <para> 7.   GPDM2M:     Lichaamsoppervlakte in M2 vanaf </para>
-    /// <para> 8.   GPDM2X:     Lichaamsoppervlakte in M2 tot </para>
-    /// <para> 9.   GPDFAA:     Frequentie  aantal </para>
-    /// <para> 10.  GPDFEE:     Frequentie  tijdseenheid </para>
-    /// <para> 11.  GPDDEN:     Basisset voor Denekamp berekening (J/N) </para>
-    /// <para> 12.  GPDDNR:     Dosisnummer </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	GPDCAT: 	Dosis-categorienummer </para>
+    /// <para> 2.	GPDID2: 	Identificerend recordnummer </para>
+    /// <para> 3.	GPDLFM: 	Leeftijd in maanden vanaf </para>
+    /// <para> 4.	GPDLFX: 	Leeftijd in maanden tot </para>
+    /// <para> 5.	GPDKGM: 	Gewicht in KG vanaf </para>
+    /// <para> 6.	GPDKGX: 	Gewicht in KG tot </para>
+    /// <para> 7.	GPDM2M: 	Lichaamsoppervlakte in M2 vanaf </para>
+    /// <para> 8.	GPDM2X: 	Lichaamsoppervlakte in M2 tot </para>
+    /// <para> 9.	GPDFAA: 	Frequentie  aantal </para>
+    /// <para> 10.	GPDFEE: 	Frequentie  tijdseenheid </para>
+    /// <para> 11.	GPDDEN: 	Basisset voor Denekamp berekening (J/N) </para>
+    /// <para> 12.	GPDDNR: 	Dosisnummer </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST643T =
 
         let name = "BST643T"
@@ -613,66 +598,64 @@ module Zindex =
     
 
 
-
     
     /// <summary>
-    /// <para> Tabel: BST644T: Bestand 644 Dosisgegevens </para>
+    /// <para> Tabel: BST649T: Bestand 649 Dosisgegevens - Nieuw per 01/11/2016 </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   GPDDNR:     Dosisnummer </para>
-    /// <para> 2.   GPDCNM:     Norm minimum </para>
-    /// <para> 3.   GPDCNX:     Norm maximum </para>
-    /// <para> 4.   GPDCAM:     Absoluut minimum </para>
-    /// <para> 5.   GPDCAX:     Absoluut maximum </para>
-    /// <para> 6.   GPDKNM:     Norm minimum per KG </para>
-    /// <para> 7.   GPDKNX:     Norm maximum per KG </para>
-    /// <para> 8.   GPDKAM:     Absoluut minimum per KG </para>
-    /// <para> 9.   GPDKAX:     Absoluut maximum per KG </para>
-    /// <para> 10.  GPDMNM:     Norm minimum per M2 </para>
-    /// <para> 11.  GPDMNX:     Norm maximum per M2 </para>
-    /// <para> 12.  GPDMAM:     Absoluut minimum per M2 </para>
-    /// <para> 13.  GPDMAX:     Absoluut maximum per M2 </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	GPDDNR: 	Dosisnummer </para>
+    /// <para> 2.	GPNRMMIN: 	Norm minimum </para>
+    /// <para> 3.	GPNRMMAX: 	Norm maximum </para>
+    /// <para> 4.	GPABSMIN: 	Absoluut minimum </para>
+    /// <para> 5.	GPABSMAX: 	Absoluut maximum </para>
+    /// <para> 6.	GPNRMMINK: 	Norm minimum per KG </para>
+    /// <para> 7.	GPNRMMAXK: 	Norm maximum per KG </para>
+    /// <para> 8.	GPABSMINK: 	Absoluut minimum per KG </para>
+    /// <para> 9.	GPABSMAXK: 	Absoluut maximum per KG </para>
+    /// <para> 10.	GPNRMMINM: 	Norm minimum per M2 </para>
+    /// <para> 11.	GPNRMMAXM: 	Norm maximum per M2 </para>
+    /// <para> 12.	GPABSMINM: 	Absoluut minimum per M2 </para>
+    /// <para> 13.	GPABSMAXM: 	Absoluut maximum per M2 </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-    module BST644T =
+    module BST649T =
 
-        let name = "BST644T"
+        let name = "BST649T"
 
-        type BST644T =
+        type BST649T =
             {
                 MUTKOD : int
                 GPDDNR : int
-                GPDCNM : float
-                GPDCNX : float
-                GPDCAM : float
-                GPDCAX : float
-                GPDKNM : float
-                GPDKNX : float
-                GPDKAM : float
-                GPDKAX : float
-                GPDMNM : float
-                GPDMNX : float
-                GPDMAM : float
-                GPDMAX : float
+                GPNRMMIN : float
+                GPNRMMAX : float
+                GPABSMIN : float
+                GPABSMAX : float
+                GPNRMMINK : float
+                GPNRMMAXK : float
+                GPABSMINK : float
+                GPABSMAXK : float
+                GPNRMMINM : float
+                GPNRMMAXM : float
+                GPABSMINM : float
+                GPABSMAXM : float
             }
 
 
-        let create mutkod gpddnr gpdcnm gpdcnx gpdcam gpdcax gpdknm gpdknx gpdkam gpdkax gpdmnm gpdmnx gpdmam gpdmax  =
+        let create mutkod gpddnr gpnrmmin gpnrmmax gpabsmin gpabsmax gpnrmmink gpnrmmaxk gpabsmink gpabsmaxk gpnrmminm gpnrmmaxm gpabsminm gpabsmaxm  =
             {
                 MUTKOD = mutkod |> ((Parser.parseValue "N" "") >> Int32.parse)
                 GPDDNR = gpddnr |> ((Parser.parseValue "N" "") >> Int32.parse)
-                GPDCNM = gpdcnm |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDCNX = gpdcnx |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDCAM = gpdcam |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDCAX = gpdcax |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDKNM = gpdknm |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDKNX = gpdknx |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDKAM = gpdkam |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDKAX = gpdkax |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDMNM = gpdmnm |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDMNX = gpdmnx |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDMAM = gpdmam |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
-                GPDMAX = gpdmax |> ((Parser.parseValue "N" "(3,3)") >> Double.parse)
+                GPNRMMIN = gpnrmmin |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPNRMMAX = gpnrmmax |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPABSMIN = gpabsmin |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPABSMAX = gpabsmax |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPNRMMINK = gpnrmmink |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPNRMMAXK = gpnrmmaxk |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPABSMINK = gpabsmink |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPABSMAXK = gpabsmaxk |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPNRMMINM = gpnrmminm |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPNRMMAXM = gpnrmmaxm |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPABSMINM = gpabsminm |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
+                GPABSMAXM = gpabsmaxm |> ((Parser.parseValue "N" "(8,3)") >> Double.parse)
             }
 
     
@@ -684,24 +667,22 @@ module Zindex =
             Parser.getData name posl pickList
             |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5) (xs |> Array.item 6) (xs |> Array.item 7) (xs |> Array.item 8) (xs |> Array.item 9) (xs |> Array.item 10) (xs |> Array.item 11) (xs |> Array.item 12) (xs |> Array.item 13))
 
-        let records : unit -> BST644T [] = Memoization.memoize _records
+        let records : unit -> BST649T [] = Memoization.memoize _records
 
     
-
 
 
     
     /// <summary>
     /// <para> Tabel: BST701T: Bestand 701 Ingegeven samenstellingen </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   HPKODE:     HandelsProduktKode (HPK) </para>
-    /// <para> 2.   GNMWHS:     Aanduiding werkzaam/hulpstof (W/H) </para>
-    /// <para> 3.   GNMINH:     Hoeveelheid werkzame stof </para>
-    /// <para> 4.   XNMINE:     Eenh.hoeveelheid werkzame stof kode </para>
-    /// <para> 5.   GNSTAM:     Stamnaamcode (SNK) </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	HPKODE: 	Handels Product Kenmerken (HPK) code </para>
+    /// <para> 2.	GNMWHS: 	Aanduiding werkzaam/hulpstof (W/H) </para>
+    /// <para> 3.	GNMINH: 	Hoeveelheid werkzame stof </para>
+    /// <para> 4.	XNMINE: 	Eenh.hoeveelheid werkzame stof kode </para>
+    /// <para> 5.	GNSTAM: 	Stamnaamcode (SNK) </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST701T =
 
         let name = "BST701T"
@@ -741,24 +722,22 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST711T: Bestand 711 Generieke producten </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   GPKODE:     Generiekeproductcode (GPK) </para>
-    /// <para> 2.   GSKODE:     GSK-code </para>
-    /// <para> 3.   GPKTVR:     Farmaceutische vorm code </para>
-    /// <para> 4.   GPKTWG:     Toedieningsweg code </para>
-    /// <para> 5.   GPNMNR:     Naamnummer volledige GPK-naam </para>
-    /// <para> 6.   GPMLCI:     Min. leeftijd als contra-indicatie </para>
-    /// <para> 7.   GPMLCT:     Min.leeftijd als CI tekstnummer </para>
-    /// <para> 8.   SPKODE:     SuperProduktKode (SPK) </para>
-    /// <para> 9.   ATCODE:     ATC-code </para>
-    /// <para> 10.  XPEHHV:     Basiseenheid product kode </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	GPKODE: 	Generiekeproductcode (GPK) </para>
+    /// <para> 2.	GSKODE: 	GSK-code </para>
+    /// <para> 3.	GPKTVR: 	Farmaceutische vorm code </para>
+    /// <para> 4.	GPKTWG: 	Toedieningsweg code </para>
+    /// <para> 5.	GPNMNR: 	Naamnummer volledige GPK-naam </para>
+    /// <para> 6.	GPMLCI: 	Min. leeftijd als contra-indicatie </para>
+    /// <para> 7.	GPMLCT: 	Min.leeftijd als CI tekstnummer </para>
+    /// <para> 8.	SPKODE: 	SuperProduktKode (SPK) </para>
+    /// <para> 9.	ATCODE: 	ATC-code </para>
+    /// <para> 10.	XPEHHV: 	Basiseenheid product kode </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST711T =
 
         let name = "BST711T"
@@ -808,20 +787,18 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST715T: Bestand 715 Generieke samenstellingen </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   GNMWHS:     Aanduiding werkzaam/hulpstof (W/H) </para>
-    /// <para> 2.   GSKODE:     GSK-code </para>
-    /// <para> 3.   GNNKPK:     Volledige generieke naam kode </para>
-    /// <para> 4.   GNMOMH:     Omgerekende hoeveelheid </para>
-    /// <para> 5.   XNMOME:     Eenh omgerekende hoeveelheid kode </para>
-    /// <para> 6.   XPEHHV:     Basiseenheid product kode </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	GNMWHS: 	Aanduiding werkzaam/hulpstof (W/H) </para>
+    /// <para> 2.	GSKODE: 	GSK-code </para>
+    /// <para> 3.	GNNKPK: 	Volledige generieke naam kode </para>
+    /// <para> 4.	GNMOMH: 	Omgerekende hoeveelheid </para>
+    /// <para> 5.	XNMOME: 	Eenh omgerekende hoeveelheid kode </para>
+    /// <para> 6.	XPEHHV: 	Basiseenheid product kode </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST715T =
 
         let name = "BST715T"
@@ -863,16 +840,14 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST720T: Bestand 720 Superprodukten </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   SPKODE:     SuperProduktKode (SPK) </para>
-    /// <para> 2.   SSKODE:     SSK-kode </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	SPKODE: 	SuperProduktKode (SPK) </para>
+    /// <para> 2.	SSKODE: 	SSK-kode </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST720T =
 
         let name = "BST720T"
@@ -906,17 +881,15 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST725T: Bestand 725 Stamnaam + stamtoedieningsweg </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   SSKODE:     SSK-kode </para>
-    /// <para> 2.   GNSTAM:     Stamnaamcode (SNK) </para>
-    /// <para> 3.   SSKTWG:     Stamtoedieningsweg code </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	SSKODE: 	SSK-kode </para>
+    /// <para> 2.	GNSTAM: 	Stamnaamcode (SNK) </para>
+    /// <para> 3.	SSKTWG: 	Stamtoedieningsweg code </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST725T =
 
         let name = "BST725T"
@@ -952,19 +925,17 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST750T: Bestand 750 Generieke namen </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   GNGNK:  GeneriekeNaamKode (GNK) </para>
-    /// <para> 2.   GNGNAM:     Generieke naam </para>
-    /// <para> 3.   GNFORM:     Bruto formule </para>
-    /// <para> 4.   GNMOLE:     Molekuulgewicht (echt) </para>
-    /// <para> 5.   GNMOLS:     Molekuulgewicht voor samenstelling </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	GNGNK: 	GeneriekeNaamKode (GNK) </para>
+    /// <para> 2.	GNGNAM: 	Generieke naam </para>
+    /// <para> 3.	GNFORM: 	Bruto formule </para>
+    /// <para> 4.	GNMOLE: 	Molekuulgewicht (echt) </para>
+    /// <para> 5.	GNMOLS: 	Molekuulgewicht voor samenstelling </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST750T =
 
         let name = "BST750T"
@@ -1004,16 +975,14 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST760T: Bestand 760 Enkelvoudige toedieningswegen HPK </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   HPKODE:     HandelsProduktKode (HPK) </para>
-    /// <para> 2.   ENKTDW:     Enkelvoudige toedieningsweg itemnr </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	HPKODE: 	Handels Product Kenmerken (HPK) code </para>
+    /// <para> 2.	ENKTDW: 	Enkelvoudige toedieningsweg itemnr </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST760T =
 
         let name = "BST760T"
@@ -1047,18 +1016,16 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST801T: Bestand 801 ATC codes </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   ATCODE:     ATC-code </para>
-    /// <para> 2.   ATOMS:  ATC-Nederlandse omschrijving </para>
-    /// <para> 3.   ATOMSE:     ATC-Engelse omschrijving </para>
-    /// <para> 4.   ATKIND:     ATC-indicator </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	ATCODE: 	ATC-code </para>
+    /// <para> 2.	ATOMS: 	ATC-Nederlandse omschrijving </para>
+    /// <para> 3.	ATOMSE: 	ATC-Engelse omschrijving </para>
+    /// <para> 4.	ATKIND: 	ATC-indicator </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST801T =
 
         let name = "BST801T"
@@ -1096,18 +1063,16 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST902T: Bestand 902 Thesauri totaal </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   TSNR:   Thesaurusnummer (in nieuwe thesauri) </para>
-    /// <para> 2.   TSITNR:     Thesaurus itemnummer (in nieuwe thesauri) </para>
-    /// <para> 3.   THNM25:     Naam item 25 posities </para>
-    /// <para> 4.   THNM50:     Naam item 50 posities </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	TSNR: 	Thesaurusnummer (in nieuwe thesauri) </para>
+    /// <para> 2.	TSITNR: 	Thesaurus itemnummer (in nieuwe thesauri) </para>
+    /// <para> 3.	THNM25: 	Naam item 25 posities </para>
+    /// <para> 4.	THNM50: 	Naam item 50 posities </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST902T =
 
         let name = "BST902T"
@@ -1145,18 +1110,16 @@ module Zindex =
     
 
 
-
     
     /// <summary>
     /// <para> Tabel: BST920T: Bestand 920 Teksten (oud, zonder blok structuur) </para>
     /// <para> --------------- </para>
-    /// <para> 0.   MUTKOD:     Mutatiecode </para>
-    /// <para> 1.   TXMOD:  Tekstmodule </para>
-    /// <para> 2.   TXKODE:     Tekst nivo kode </para>
-    /// <para> 3.   TXSRTT:     Tekstsoort </para>
-    /// <para> 4.   TXRGL:  Tekst </para>
+    /// <para> 0.	MUTKOD: 	Mutatiecode </para>
+    /// <para> 1.	TXMOD: 	Tekstmodule </para>
+    /// <para> 2.	TXKODE: 	Tekst nivo kode </para>
+    /// <para> 3.	TXSRTT: 	Tekstsoort </para>
+    /// <para> 4.	TXRGL: 	Tekst </para>
     /// </summary>
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module BST920T =
 
         let name = "BST920T"
@@ -1190,4 +1153,7 @@ module Zindex =
             |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4))
 
         let records : unit -> BST920T [] = Memoization.memoize _records
+
+    
+
     

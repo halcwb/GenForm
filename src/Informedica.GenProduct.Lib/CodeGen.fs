@@ -8,9 +8,7 @@ module CodeGen =
     [<Literal>]
     let codeString = """
 
-
     {comment}
-    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
     module {n} =
 
         let name = "{n}"
@@ -33,6 +31,7 @@ module CodeGen =
 
     [<Literal>]
     let zindexCode = """
+namespace Informedica.GenProduct.Lib
 
 {comment}
 module Zindex =
@@ -75,9 +74,9 @@ module Zindex =
             ("BST380T", [1;2;4])
             ("BST640T", [1;2;6;8])
             ("BST641T", [1..7])
-            ("BST642T", [1;2;5;6;8;12;13])
+            ("BST642T", [1;2;3;5;6;8;12;13])
             ("BST643T", [1..13])
-            ("BST644T", [1..14])
+            ("BST649T", [1..14])
             ("BST701T", [1;2;4;6;8;9])
             ("BST711T", [1;2;3;5;7;8;11;12;17;20;22])
             ("BST715T", [1..7])

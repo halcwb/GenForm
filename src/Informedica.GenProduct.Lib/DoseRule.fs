@@ -17,6 +17,7 @@ module DoseRule =
             PrescriptionProduct : Product[] 
             TradeProduct : Product[]
             Route : string
+            IndicationId : int
             Indication : string
             MinAge : int Option
             HighRisk : bool
@@ -88,28 +89,28 @@ module DoseRule =
         let s = s |> adds "Groep" r.CareGroup
         let s = s |> adds "Type" r.DoseType
         let s = s |> adds "Route" r.Route 
-        let s = s |> adds "Indicatie" r.Indication 
+        let s = s |> adds "Indicatie" ((r.IndicationId |> string) + ". " + r.Indication) 
 
         let s = if r.HighRisk then s + "Hig Risk " else s
 
         let s = s |> adds "" r.Gender
 
         let s = s |> minMaxToString "Leeftijd" "maanden" 1 r.Age
-        let s = s |> minMaxToString "Gewicht" "kg" 2 r.Weight
-        let s = s |> minMaxToString "BSA" "m2" 2 r.BSA
+        let s = s |> minMaxToString "Gewicht" "kg" 3 r.Weight
+        let s = s |> minMaxToString "BSA" "m2" 3 r.BSA
 
         let s = 
             if r.Freq.Frequency <= 0. then s
             else
                 s + "Freq: " + (string r.Freq.Frequency) + " " + r.Freq.Time + del
 
-        let s = s |> minMaxToString "Norm" r.Unit 2 r.Norm
-        let s = s |> minMaxToString "Norm/Kg" r.Unit 2 r.NormKg
-        let s = s |> minMaxToString "Abs" r.Unit 2 r.Abs
-        let s = s |> minMaxToString "Abs/Kg" r.Unit 2 r.AbsKg
+        let s = s |> minMaxToString "Norm" r.Unit 3 r.Norm
+        let s = s |> minMaxToString "Norm/Kg" r.Unit 3 r.NormKg
+        let s = s |> minMaxToString "Abs" r.Unit 3 r.Abs
+        let s = s |> minMaxToString "Abs/Kg" r.Unit 3 r.AbsKg
 
-        let s = s |> minMaxToString "Norm/m2" r.Unit 2 r.NormM2
-        let s = s |> minMaxToString "Abs/m2" r.Unit 2 r.AbsM2
+        let s = s |> minMaxToString "Norm/m2" r.Unit 3 r.NormM2
+        let s = s |> minMaxToString "Abs/m2" r.Unit 3 r.AbsM2
         
         let s = s |> String.subString 0 ((s |> String.length) - (del |> String.length))
         s
@@ -121,7 +122,7 @@ module DoseRule =
     let createFrequency fr tm = { Frequency = fr; Time = tm }
     let createMinMax mn mx = { Min = mn; Max = mx }
 
-    let create id gr us dt gp pr tr rt ic ma hr sx ag wt bs fr no ab nk ak nm am un =
+    let create id gr us dt gp pr tr rt ci ic ma hr sx ag wt bs fr no ab nk ak nm am un =
         {
             Id = id
             CareGroup = gr
@@ -131,6 +132,7 @@ module DoseRule =
             PrescriptionProduct = pr
             TradeProduct = tr
             Route = rt
+            IndicationId = ci
             Indication = ic
             MinAge = ma
             HighRisk = hr
@@ -159,6 +161,7 @@ module DoseRule =
             PrescriptionProduct = Array.empty
             TradeProduct = Array.empty
             Route = ""
+            IndicationId = 0
             Indication = ""
             MinAge = None
             HighRisk = false
@@ -240,11 +243,56 @@ module DoseRule =
         Memoization.memoize _getTradeProducts
 
 
+    let getICPCRoute (icp : Zindex.BST642T.BST642T) =
+        Zindex.BST902T.records ()
+        |> Array.tryFind (fun tx ->
+            tx.MUTKOD <> 1 &&
+            tx.TSNR = 7 &&
+            tx.TSITNR = icp.GPKTWG
+        )
+        |> (fun r -> 
+            if r |> Option.isNone then ""
+            else r.Value.THNM50.Trim())
+
+    let getDoseType (bas : Zindex.BST641T.BST641T) =
+        Zindex.BST902T.records ()
+        |> Array.tryFind (fun tx ->
+            tx.MUTKOD <> 1 &&
+            tx.TSNR = bas.GPDCTH &&
+            tx.TSITNR = bas.GPDCOD
+        )
+        |> (fun r -> 
+            if r |> Option.isNone then ""
+            else r.Value.THNM50.Trim())
+
+    let getICPCText (icp : Zindex.BST642T.BST642T) =
+        Zindex.BST380T.records ()
+        |> Array.tryFind (fun i ->
+            i.ICPCNR1 = icp.ICPCNR1
+        ) 
+        |> (fun r ->
+            if r.IsNone then ""
+            else r.Value.ICPCTXT.Trim()
+        )
+
+    let getFrequency (cat: Zindex.BST643T.BST643T) = 
+        Zindex.BST360T.records ()
+        |> Array.tryFind (fun tx -> 
+            tx.MUTKOD <> 1 &&
+            tx.TTEHNR = cat.GPDFEE 
+        )
+        |> (fun r -> 
+            if r |> Option.isNone then ""
+            else r.Value.TTEHOM.Trim())
+
+        |> String.replace "om de dag" "per 2 dagen"
+        |> String.replace "per half uur" "per 30 minuten"
+        |> createFrequency cat.GPDFAA
+
+
     let parse () =
 
         let noRoute = "TOEDIENINGSWEG NIET INGEVULD"
-
-        let gpks = getGenericProducts ()
 
         let minMax min max = 
             let min = if min = 0. then None else Some min
@@ -269,57 +317,20 @@ module DoseRule =
                 (x.GPKODE, x.GPMLCI, at.ToString()))
 
         query {
-            for dos in  Zindex.BST644T.records () do
+            // get all dose records
+            for dos in  Zindex.BST649T.records () do
+            // get 1 to 1 all category records
             join cat in Zindex.BST643T.records ()
                 on (dos.GPDDNR = cat.GPDDNR)
+            // get many to 1 all dose indications
             join icp in Zindex.BST642T.records () 
                 on (cat.GPDCAT = icp.GPDCAT)
+            // get many to 1 all prescription and trade products
             join bas in Zindex.BST641T.records () 
                 on (icp.GPDBAS = bas.GPDBAS)
+            // get many to 1 all generic products
             join vas in Zindex.BST640T.records ()
                 on (bas.GPKODE = vas.GPKODE)
-
-            let funit = 
-                Zindex.BST360T.records ()
-                |> Array.tryFind (fun tx -> 
-                    tx.MUTKOD <> 1 &&
-                    tx.TTEHNR = cat.GPDFEE 
-                )
-                |> (fun r -> 
-                    if r |> Option.isNone then ""
-                    else r.Value.TTEHOM.Trim())
-
-            let route =
-                Zindex.BST902T.records ()
-                |> Array.tryFind (fun tx ->
-                    tx.MUTKOD <> 1 &&
-                    tx.TSNR = 7 &&
-                    tx.TSITNR = icp.GPKTWG
-                )
-                |> (fun r -> 
-                    if r |> Option.isNone then ""
-                    else r.Value.THNM50.Trim())
-
-            let doseType =
-                Zindex.BST902T.records ()
-                |> Array.tryFind (fun tx ->
-                    tx.MUTKOD <> 1 &&
-                    tx.TSNR = bas.GPDCTH &&
-                    tx.TSITNR = bas.GPDCOD
-                )
-                |> (fun r -> 
-                    if r |> Option.isNone then ""
-                    else r.Value.THNM50.Trim())
-
-            let icpc =
-                Zindex.BST380T.records ()
-                |> Array.tryFind (fun i ->
-                    i.ICPCNR1 = icp.ICPCNR1
-                ) 
-                |> (fun r ->
-                    if r.IsNone then ""
-                    else r.Value.ICPCTXT.Trim()
-                )
 
             where (dos.MUTKOD <> 1 &&
                    cat.MUTKOD <> 1 &&
@@ -332,9 +343,10 @@ module DoseRule =
                 { 
                     empty with 
                         Id = dos.GPDDNR
-                        Route = route
-                        DoseType = doseType
-                        Indication = icpc
+                        Route = getICPCRoute icp
+                        DoseType = getDoseType bas
+                        IndicationId = icp.GPDID1
+                        Indication = getICPCText icp
                         HighRisk = vas.GPRISC = "*"
                         Gender =
                             if vas.GPDGST = 1 then "M"
@@ -351,18 +363,13 @@ module DoseRule =
                         Age = minMax cat.GPDLFM cat.GPDLFX
                         Weight = minMax cat.GPDKGM cat.GPDKGX
                         BSA = minMax cat.GPDM2M cat.GPDM2X
-                        Freq = 
-                            let u = 
-                                funit 
-                                |> String.replace "om de dag" "per 2 dagen"
-                                |> String.replace "per half uur" "per 30 minuten"
-                            createFrequency cat.GPDFAA u
-                        Norm = minMax dos.GPDCNM dos.GPDCNX
-                        Abs = minMax dos.GPDCAM dos.GPDCAX 
-                        NormKg = minMax dos.GPDKNM dos.GPDKNX
-                        AbsKg = minMax dos.GPDKAM dos.GPDKAX
-                        NormM2 = minMax dos.GPDMNM dos.GPDMNX
-                        AbsM2 = minMax dos.GPDMAM dos.GPDMAX
+                        Freq = getFrequency cat
+                        Norm = minMax dos.GPNRMMIN dos.GPNRMMAX
+                        Abs = minMax dos.GPABSMIN dos.GPABSMAX 
+                        NormKg = minMax dos.GPNRMMINK dos.GPNRMMAXK
+                        AbsKg = minMax dos.GPABSMINK dos.GPABSMAXK
+                        NormM2 = minMax dos.GPNRMMINM dos.GPNRMMAXM
+                        AbsM2 = minMax dos.GPABSMINM dos.GPABSMAXM
                 })      
         }
         |> Seq.toArray
@@ -475,3 +482,30 @@ module DoseRule =
         + (addString "Abs grens" (dr.Abs |> minMaxToString dr.Unit))
         |> String.remove 1
 
+    let indications_ () =
+        // Get all distinct indciations
+        Zindex.BST642T.records ()
+        |> Array.map getICPCText
+        |> Array.distinct
+        |> Array.sort
+
+    let indications = Memoization.memoize indications_
+
+
+    let routes_ () =
+        Zindex.BST642T.records ()
+        |> Array.map getICPCRoute
+        |> Array.distinct
+        |> Array.sort
+
+
+    let routes = Memoization.memoize routes_
+
+
+    let frequencies_ () =
+        Zindex.BST643T.records ()
+        |> Array.map getFrequency
+        |> Array.distinct
+        |> Array.sortBy (fun f -> (f.Time, f.Frequency))
+
+    let frequencies = Memoization.memoize frequencies_

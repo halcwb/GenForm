@@ -17,9 +17,9 @@
     <Compile Include="Option.fs" />
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
-    <None Include="scripts\references.fsx" />
     <Compile Include="Seq.fs" />
     <Compile Include="File.fs" />
+    <None Include="scripts\references.fsx" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
