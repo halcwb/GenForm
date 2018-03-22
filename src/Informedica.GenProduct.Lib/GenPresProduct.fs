@@ -52,6 +52,10 @@ module GenPresProduct =
         if File.productCache |> File.exists then
             File.productCache
             |> Json.getCache 
+            |> Array.filter (fun gpp -> 
+                gpp.GenericProducts
+                |> Array.exists (fun gp -> gpks |> List.exists ((=) gp.Id))
+            )
         else 
             printfn "No cache creating GenPresProduct"
             let gsps = parse gpks

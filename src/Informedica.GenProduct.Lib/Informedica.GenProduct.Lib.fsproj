@@ -37,5 +37,5 @@
     <ProjectReference Include="../Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
     <ProjectReference Include="../Informedica.GenUtils.Lib\Informedica.GenUtils.Lib.fsproj" />
   </ItemGroup>
-  <Import Project="../../.paket/Paket.Restore.targets" />
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

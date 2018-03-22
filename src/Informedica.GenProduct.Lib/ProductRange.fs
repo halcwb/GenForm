@@ -1,5 +1,6 @@
 ﻿namespace Informedica.GenProduct.Lib
 
+open Informedica.GenUtils.Lib
 module ProductRange =
 
     open System
@@ -46,12 +47,10 @@ module ProductRange =
             Indications = inds
         }
 
-    let data _ = 
+    let data_ () = 
         File.readAllLines productFile
         |> Array.skip 1
-        |> Array.map (String.splitAt ';')
-        |> Array.map (fun sa -> 
-//            printfn "%s" (sa |> Array.toString)
+        |> Array.map  ((String.splitAt ';') >> (fun sa -> 
             create (sa.[0] |> Int32.tryParse)
                    sa.[1]
                    sa.[2]
@@ -66,5 +65,7 @@ module ProductRange =
                    (sa.[11] |> Double.tryParse)
                    sa.[12]
                    sa.[13]
+            )
         )
- 
+
+    let data = Memoization.memoize data_

@@ -157,6 +157,7 @@ module RuleFinder =
             Shape = shp
             Route = rte
         }
+    let createGPKRouteFilter gpk rte = createFilter None None None gpk "" "" rte
 
     let find (filter: Filter) =
         let r = filter.Route |> createRoute 

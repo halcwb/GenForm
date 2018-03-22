@@ -14,6 +14,11 @@ open Informedica.GenProduct.Lib
 // File
 File.exists <| File.GStandPath + "BST000T"
 
+// ProductRange
+ProductRange.data ()
+|> Array.filter (fun d -> d.GPK |> Option.isNone)
+|> Array.iter (printfn "%A")
+
 // Substance
 Substance.get()
 |> Array.sortBy (fun s -> s.Name)
@@ -44,7 +49,6 @@ DoseRule.get()
 |> Array.map (fun dr -> dr.Unit)
 |> Array.distinct
 |> Array.iter (printfn "%s")
-
 
 
 // Get all dose rules for the filter
