@@ -39,6 +39,25 @@ module DoseRule =
     and Frequency = { Frequency: float; Time: string }
     and MinMax = { Min: float Option; Max: float Option }
 
+
+    let optionChoose cp x1 x2 = 
+        match x1, x2 with
+        | None, None -> None
+        | Some _, None -> x1
+        | None, Some _ -> x2
+        | Some x1', Some x2' -> if cp x1' x2' then x1' |> Some else x2' |> Some
+
+    let optionMin = optionChoose (<=)
+
+    let optionMax = optionChoose (>=)
+
+    let foldMinMax xs = 
+        xs |> Array.fold (fun { Min = min; Max = max} (acc: MinMax) ->
+            { Min = optionMin acc.Min min; Max = optionMax acc.Max max }
+        ) { Min = None; Max = None }
+
+
+
     let toString del (r: DoseRule)  =
         let minMaxToString n u p (mm: MinMax) s =
             let mms =
@@ -118,9 +137,24 @@ module DoseRule =
     let minmax = { Min = None; Max = None }
 
     let createProduct id nm : Product = { Id = id; Name = nm }
+
     let createGenericProduct id nm rt un = { Id = id; Name = nm; Route = rt; Unit = un }
+
     let createFrequency fr tm = { Frequency = fr; Time = tm }
-    let createMinMax mn mx = { Min = mn; Max = mx }
+
+    let createMinMax mn mx =
+    
+        let chkmx =
+            mx
+            |> string
+            |> String.forall (fun c -> c = '9' || c = '.')
+
+        if mx < mn then minmax
+        else
+            let mn = if mn = 0. then None else Some mn
+            let mx = if mx = 0. || chkmx then None else Some mx
+        
+            { Min = mn; Max = mx }
 
     let create id gr us dt gp pr tr rt ci ic ma hr sx ag wt bs fr no ab nk ak nm am un =
         {
@@ -294,11 +328,6 @@ module DoseRule =
 
         let noRoute = "TOEDIENINGSWEG NIET INGEVULD"
 
-        let minMax min max = 
-            let min = if min = 0. then None else Some min
-            let max = if max >= 999. then None else Some max
-            createMinMax min max
-
         let getMinAge = 
             let tts =
                 Zindex.BST920T.records ()
@@ -360,21 +389,21 @@ module DoseRule =
                             if icp.ICPCTO = 0 then ""
                             elif icp.ICPCTO = 1 then "Profylactisch"
                             else "Therapeutisch"
-                        Age = minMax cat.GPDLFM cat.GPDLFX
-                        Weight = minMax cat.GPDKGM cat.GPDKGX
-                        BSA = minMax cat.GPDM2M cat.GPDM2X
-                        Freq = getFrequency cat
-                        Norm = minMax dos.GPNRMMIN dos.GPNRMMAX
-                        Abs = minMax dos.GPABSMIN dos.GPABSMAX 
-                        NormKg = minMax dos.GPNRMMINK dos.GPNRMMAXK
-                        AbsKg = minMax dos.GPABSMINK dos.GPABSMAXK
-                        NormM2 = minMax dos.GPNRMMINM dos.GPNRMMAXM
-                        AbsM2 = minMax dos.GPABSMINM dos.GPABSMAXM
+                        Age    = createMinMax cat.GPDLFM cat.GPDLFX
+                        Weight = createMinMax cat.GPDKGM cat.GPDKGX
+                        BSA    = createMinMax cat.GPDM2M cat.GPDM2X
+                        Freq   = getFrequency cat
+                        Norm   = createMinMax dos.GPNRMMIN dos.GPNRMMAX
+                        Abs    = createMinMax dos.GPABSMIN dos.GPABSMAX 
+                        NormKg = createMinMax dos.GPNRMMINK dos.GPNRMMAXK
+                        AbsKg  = createMinMax dos.GPABSMINK dos.GPABSMAXK
+                        NormM2 = createMinMax dos.GPNRMMINM dos.GPNRMMAXM
+                        AbsM2  = createMinMax dos.GPABSMINM dos.GPABSMAXM
                 })      
         }
         |> Seq.toArray
         // Get minage
-        |> Array.map (fun (bas, r) -> 
+        |> Array.map ((fun (bas, r) -> 
             let r =
                 {
                     r with
@@ -383,9 +412,9 @@ module DoseRule =
                             |> Array.tryFind (fun (gpk, _, _) -> gpk = gpk)
                             |> (fun a -> match a with | Some (_, a, _) -> a |> Some | None -> None)
                 }
-            (bas, r))
+            (bas, r)
         // Get generic products
-        |> Array.map (fun (bas, r) ->
+        ) >> (fun (bas, r) ->
             let (gpk, _, _) = bas
             let gpks = 
                 getGenericProducts ()
@@ -407,18 +436,18 @@ module DoseRule =
                         Route = rt
                         Unit = un
                 }
-            (bas, r))
+            (bas, r)
         // Get prescription products
-        |> Array.map (fun (bas, r) ->
+         ) >> (fun (bas, r) ->
             let (_, prk, _) = bas
             let prks = 
                 getPresciptionProducts ()
                 |> Array.filter (fun pp ->
                     pp.Id = prk
                 )
-            (bas, { r with PrescriptionProduct = prks }))
+            (bas, { r with PrescriptionProduct = prks })
         // Get trade products
-        |> Array.map (fun (bas, r) ->
+        ) >> (fun (bas, r) ->
             let (_, _, hpk) = bas
             let hpks = 
                 getTradeProducts ()
@@ -426,17 +455,17 @@ module DoseRule =
                     tp.Id = hpk
                 )
             { r with TradeProduct = hpks }
-        )
+        ))
 
 
     let _get () =
-        if File.ruleCache |> File.exists then
-            File.ruleCache
+        if FilePath.ruleCache |> File.exists then
+            FilePath.ruleCache
             |> Json.getCache
         else 
             printfn "No cache creating DoseRule"
             let rules = parse ()
-            rules |> Json.cache File.ruleCache 
+            rules |> Json.cache FilePath.ruleCache 
             rules
 
     let get : unit -> DoseRule [] = Memoization.memoize _get

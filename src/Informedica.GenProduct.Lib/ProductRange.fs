@@ -1,14 +1,9 @@
 ﻿namespace Informedica.GenProduct.Lib
 
-open Informedica.GenUtils.Lib
 module ProductRange =
 
-    open System
-    open Informedica.GenUtils.Lib.BCL
     open Informedica.GenUtils.Lib
-
-    [<Literal>]
-    let productFile = @"../../resource/productrange/AssortimentDB.csv"
+    open Informedica.GenUtils.Lib.BCL
 
     // GPK;ATC;HoofdGroep;SubGroep;Generiek;Product;Etiket;Vorm;Route;Sterkte;Eenheid;StandDose;DoseEenheid;Indicaties;InFormDb
     type ProductRange =
@@ -48,7 +43,7 @@ module ProductRange =
         }
 
     let data_ () = 
-        File.readAllLines productFile
+        File.readAllLines FilePath.formulary
         |> Array.skip 1
         |> Array.map  ((String.splitAt ';') >> (fun sa -> 
             create (sa.[0] |> Int32.tryParse)
@@ -68,4 +63,4 @@ module ProductRange =
             )
         )
 
-    let data = Memoization.memoize data_
+    let data : unit -> ProductRange [] = Memoization.memoize data_

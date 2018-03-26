@@ -1,4 +1,4 @@
-﻿namespace Informedica.GenUtils.Lib
+﻿namespace Informedica.GenUtils.Lib.BCL
 
 /// Helper functions for `BigRational`
 module BigRational = 
@@ -128,5 +128,103 @@ module BigRational =
         | _ when op |> opIsSubtr -> Subtr
         | _ -> CannotMatchOperator |> raiseExc
 
+    let fromFloat f =
+        let n, d = Double.floatToFract f
+        BigRational.FromBigInt(n) / d
+
+    let calculate n1 o n2 = 
+        match n1, n2 with
+        |Some x1, Some x2 -> x1 |> o <| x2 |> Some
+        |_ -> None
+    
+    let inline triangular n = (n * (n + (n/n))) / ((n + n) / n)  
+
+    let farey n asc =
+        seq {
+            let p = if asc then ref 0I else ref 1I
+            let q = ref 1I
+            let p' = if asc then ref 1I else ref (n - 1I)
+            let q' = ref n
+            yield (!p, !q)
+            while (asc && not (!p = 1I && !q = 1I)) || (not asc && !p > 0I) do
+                let c = (!q + n) / !q'
+                let p'' = c * !p' - !p
+                let q'' = c * !q' - !q
+                p := !p'
+                q := !q'
+                p' := p''
+                q' := q''
+                yield (!p, !q) }
+
+    let calcConc max conc =
+        seq { for f in (farey max false) do
+                let fn, fd = f
+                let r = (fn |> BigRational.FromBigInt) / (fd |> BigRational.FromBigInt)
+                yield r * conc } |> Seq.cache
 
 
+    let rec BigPow (a:bigint) (p:bigint) :bigint =
+      match p with
+        | _ when (p = 0I) -> 1I
+        | _ when (p >= 1I) -> a * (BigPow (a) (p - 1I))
+        | _ -> failwith "Shouldn't Happen"
+ 
+    let ( ** ) : bigint -> bigint -> bigint = BigPow
+
+    let inline divisorsOfN2 zero one two n =
+        let n = abs n
+        match n with
+        | _ when n = zero-> []
+        | _ -> List.append ([one..(n/two)] |> List.filter(fun x -> n % x = zero)) [n]
+        
+    let divisorsOfBigInt = divisorsOfN2 0I 1I 2I
+
+    let divisorsOfN n = 
+        let n = abs n
+        match n with
+        | _ when n = 0N-> []
+        | _ -> List.append ([1N..(n/2N)] |> List.filter(fun x -> (n.Numerator % x.Numerator) = 0I)) [n]
+
+    let inline isDividerOf3 zero dividend divider =
+        dividend % divider = zero
+    let isDividerOf  (dividend:BigRational) (divider:BigRational) = isDividerOf3 0I dividend.Numerator divider.Numerator
+    let isDividerOf2 (dividend:bigint)      (divider:bigint)      = isDividerOf3 0I dividend           divider
+
+    let reduceRatio n d = 
+        let num   = n / (gcd n d)
+        let denom = d / (gcd n d)
+        (num, denom)        
+
+    let numdenom (v:BigRational) = (v.Numerator |> BigRational.FromBigInt, v.Denominator |> BigRational.FromBigInt) 
+
+    let numdenomRatio (v:BigRational) = (v.Numerator |> BigRational.FromBigInt, v.Denominator |> BigRational.FromBigInt)
+
+    let valueToFactorRatio v r =
+        let vn, vd = numdenomRatio v
+        let toBigR = BigRational.FromBigInt
+
+        match r with
+        | (Some n, true,  Some d, true)                            -> (n, d)
+        | (Some n, false, Some d, false)                           -> let r = (vn * d) / (vd * n)
+                                                                      ((r.Numerator |> toBigR) * n), ((r.Denominator |> toBigR) * d)  
+        | (None   , _ ,   Some d, true) when (vd |> isDividerOf d) -> (vn * (d / vd), d)
+        | (None   , _ ,   Some d, false)                           -> ((d / (gcd d vd)) * vn, (d / (gcd d vd)) * vd)
+        | (Some n, true,  None,   _ )   when (vn |> isDividerOf n) -> (n, (n / vn) * vd)  
+        | (Some n, false, None,   _ )                              -> ((n / (gcd n vn)) * vn, (n / (gcd n vn)) * vd) 
+        | (None,   _ ,    None,   _ )                              -> (vn, vd)                              
+        | _                                                        -> (0N, 0N)
+
+    let valueToFactorRatio2 v r = 
+        let n, nv, d, dv = r
+        let toBigR x = match x with |Some i -> i |> BigRational.FromBigInt |> Some |None -> None
+        let n, d = (n |> toBigR, nv, d |> toBigR, dv) |> valueToFactorRatio v
+        (n.Numerator, d.Numerator)
+
+    let toNumListDenom (vl: BigRational list) =
+        let d = 
+            vl |> List.map(fun v -> v.Denominator)
+            |> Seq.distinct
+            |> Seq.toList
+            |> Seq.fold(fun p d -> d * p) 1I
+            |> BigRational.FromBigInt
+        (vl |> List.map(fun v -> v * d), d)      

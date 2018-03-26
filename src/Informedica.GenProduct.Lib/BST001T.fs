@@ -56,7 +56,7 @@ module BST001T =
     let pickList = [1..2] @ [4..5] @ [7..11]
 
     let data _ =  
-        File.GStandPath + "/" + name
+        FilePath.GStandPath + "/" + name
         |> File.readAllLines 
         |> Array.filter (String.length >> ((<) 10))
         |> Array.map (Parser.splitRecord posl)

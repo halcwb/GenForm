@@ -135,38 +135,61 @@ module RuleFinder =
             | Some min, None -> n >= min
             | None, Some max -> n <= max
             | Some min, Some max -> n >= min && n <= max
-        
-    type Filter =
+
+    type PatientFilter =
         {
             Age: Age
             Weight: Weight
             BSA: BSA
-            GPK: int Option
+        }
+
+    type ProductFilter =
+        | GPKRoute of (int * string)
+        | GenericShapeRoute of GenericShapeRoute
+    and GenericShapeRoute = 
+        {
             Generic: string
             Shape: string
             Route: string
         }
+    
+
+    type Filter =
+        {
+            Patient: PatientFilter
+            Product: ProductFilter
+        }
 
     let createFilter age wght bsa gpk gen shp rte =
+        let pat = { Age = age; Weight = wght; BSA = bsa }
+        let prod = 
+            if gpk |> Option.isSome then
+                (gpk |> Option.get, rte)
+                |> GPKRoute
+            else
+                {
+                    Generic = gen
+                    Shape = shp
+                    Route = rte
+                } |> GenericShapeRoute
         {
-            Age = age
-            Weight = wght
-            BSA = bsa
-            GPK = gpk
-            Generic = gen
-            Shape = shp
-            Route = rte
+            Patient = pat
+            Product = prod
         }
     let createGPKRouteFilter gpk rte = createFilter None None None gpk "" "" rte
 
-    let find (filter: Filter) =
-        let r = filter.Route |> createRoute 
+    let find { Patient = pat; Product = prod } =
+        let r = 
+            match prod with
+            | GPKRoute (_, route)       -> route
+            | GenericShapeRoute gsr -> gsr.Route 
+            |> createRoute 
         if r = NoRoute then Array.empty
         else
-            match filter.GPK with
-            | Some gpk -> [|gpk|]
-            | None ->
-                GenPresProduct.filter filter.Generic filter.Shape filter.Route
+            match prod with
+            | GPKRoute (gpk, _) -> [| gpk |]
+            | GenericShapeRoute gsr ->
+                GenPresProduct.filter gsr.Generic gsr.Shape gsr.Route
                 |> Array.collect (fun gpp -> 
                     gpp.GenericProducts 
                     |> Array.map (fun gp -> gp.Id)
@@ -176,10 +199,10 @@ module RuleFinder =
                 |> Array.filter (fun dr -> 
                     dr.CareGroup = "intensieve"
                     && dr.GenericProduct |> Array.exists (fun gp -> gp.Id = gpk)
-                    && dr.Route |> eqsRoute r
-                    && dr.Age |> inRange filter.Age
-                    && dr.Weight |> inRange filter.Weight
-                    && dr.BSA |> inRange filter.BSA
+                    && dr.Route  |> eqsRoute r
+                    && dr.Age    |> inRange pat.Age
+                    && dr.Weight |> inRange pat.Weight
+                    && dr.BSA    |> inRange pat.BSA
                 )
                 |> Array.distinct
             )
@@ -207,6 +230,7 @@ module RuleFinder =
             AbsKg: DoseRule.MinMax
             NormM2: DoseRule.MinMax
             AbsM2: DoseRule.MinMax
+            Unit: string
         }
 
     let createResult drs ds =
@@ -215,7 +239,7 @@ module RuleFinder =
             Doses = ds
         }
 
-    let createFreqDose freq norm abs normKg absKg normM2 absM2 =
+    let createFreqDose freq norm abs normKg absKg normM2 absM2 un =
         {
             Freq = freq
             NormDose = norm
@@ -224,34 +248,23 @@ module RuleFinder =
             AbsKg = absKg
             NormM2 = normM2
             AbsM2 = absM2
+            Unit = un
         }
      
 
     let convertToResult (drs : DoseRule.DoseRule  []) =
 
-        let optionChoose cp x1 x2 = 
-            match x1, x2 with
-            | None, None -> None
-            | Some _, None -> x1
-            | None, Some _ -> x2
-            | Some x1', Some x2' -> if cp x1' x2' then x1' |> Some else x2' |> Some
-
-        let optionMin = optionChoose (<=)
-
-        let optionMax = optionChoose (>=)
-
-        let foldMinMax xs = 
-            xs |> Array.fold (fun { DoseRule.Min = min; DoseRule.Max = max} (acc: DoseRule.MinMax) ->
-                { Min = optionMin acc.Min min; Max = optionMax acc.Max max }
-            ) { DoseRule.Min = None; DoseRule.Max = None }
-
         let multMinMax f n { DoseRule.Min = min; DoseRule.Max = max } =
             let m = f * n
-            match min, max with
-            | None, None -> { DoseRule.Min = min; DoseRule.Max = max}
-            | Some min', None -> { Min = (min' * m |> Some); Max = max}
-            | None, Some max' -> { Min = None; Max = (max' * m |> Some)}
-            | Some min', Some max' -> { Min = (min' * m |> Some); Max = (max' * m |> Some)}
+
+            let mn, mx = 
+                match min, max with
+                | None, None           -> (0., 0.)
+                | Some min', None      -> (min' * m, 0.)
+                | None, Some max'      -> (0., max' * m )
+                | Some min', Some max' -> (min' * m, max' * m)
+
+            DoseRule.createMinMax mn mx
 
         let gpks (dr : DoseRule.DoseRule) = 
             dr.GenericProduct 
@@ -270,7 +283,7 @@ module RuleFinder =
                         |> Array.head).SubstanceQuantity
                     dr.Norm |> multMinMax dr.Freq.Frequency n)
                 )
-            |> foldMinMax
+            |> DoseRule.foldMinMax
 
         let abs drs' = 
             drs'
@@ -283,7 +296,7 @@ module RuleFinder =
                         |> Array.head).SubstanceQuantity
                     dr.Abs |> multMinMax dr.Freq.Frequency n)
                 )
-            |> foldMinMax
+            |> DoseRule.foldMinMax
 
         let normKg drs' = 
             drs'
@@ -296,7 +309,7 @@ module RuleFinder =
                         |> Array.head).SubstanceQuantity
                     dr.NormKg |> multMinMax dr.Freq.Frequency n)
                 )
-            |> foldMinMax
+            |> DoseRule.foldMinMax
 
         let absKg drs' = 
             drs'
@@ -309,7 +322,7 @@ module RuleFinder =
                         |> Array.head).SubstanceQuantity
                     dr.AbsKg |> multMinMax dr.Freq.Frequency n)
                 )
-            |> foldMinMax
+            |> DoseRule.foldMinMax
 
         let normM2 drs' = 
             drs'
@@ -322,7 +335,7 @@ module RuleFinder =
                         |> Array.head).SubstanceQuantity
                     dr.NormM2 |> multMinMax dr.Freq.Frequency n)
                 )
-            |> foldMinMax
+            |> DoseRule.foldMinMax
 
         let absM2 drs' = 
             drs'
@@ -335,7 +348,24 @@ module RuleFinder =
                         |> Array.head).SubstanceQuantity
                     dr.AbsM2 |> multMinMax dr.Freq.Frequency n)
                 )
-            |> foldMinMax
+            |> DoseRule.foldMinMax
+
+        let un drs' =
+            drs'
+            |> Array.fold (fun acc dr ->
+                dr
+                |> gpks
+                |> Array.fold (fun acc' gp ->
+                    gp.Substances
+                    |> Array.fold (fun acc'' s ->
+                        if acc'' = "" then s.SubstanceUnit
+                        else
+                            if acc'' <> s.SubstanceUnit then "_"
+                            else s.SubstanceUnit
+                    ) acc'
+                ) acc
+            ) ""
+            |> (fun u -> if u = "_" then "" else u)
 
         let freqs =
             drs
@@ -345,8 +375,9 @@ module RuleFinder =
                 let drs' =
                     drs
                     |> Array.filter (fun dr -> dr.Freq = fr)
-                createFreqDose fr (drs' |> norm) (drs' |> abs) (drs' |> normKg) (drs' |> absKg) (drs' |> normM2) (drs' |> absM2) 
+                createFreqDose fr (drs' |> norm) (drs' |> abs) (drs' |> normKg) (drs' |> absKg) (drs' |> normM2) (drs' |> absM2) (drs' |> un)
             )
+
 
         createResult (drs |> Array.map (DoseRule.toString ", ")) freqs 
 

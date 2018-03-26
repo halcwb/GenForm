@@ -14,7 +14,7 @@ module Parser =
      
     let getData name posl pick =
         let data =
-            File.GStandPath + "/" + name
+            FilePath.GStandPath + "/" + name
             |> File.readAllLines 
             |> Array.filter (String.length >> ((<) 10))
             |> Array.map (splitRecord posl)

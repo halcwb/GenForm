@@ -1,5 +1,6 @@
 ﻿namespace Informedica.GenProduct.Lib
 
+open System.ComponentModel
 module GenPresProduct =
     
     open Informedica.GenUtils.Lib.BCL
@@ -12,19 +13,25 @@ module GenPresProduct =
             Route : string []
             Pharmacologic : string []
             GenericProducts : GenericProduct.GenericProduct []
+            DisplayName: string
+            Synonyms: string []
         }
 
-    let create nm sh rt ph gps =
+    let create nm sh rt ph gps dpn sns =
         {
             Name = nm
             Shape = sh
             Route = rt
             Pharmacologic = ph
             GenericProducts = gps
+            DisplayName = dpn
+            Synonyms = sns
         }
 
-    let parse gpks =
-        GenericProduct.get gpks
+    let parse (prs : ProductRange.ProductRange []) =
+        let gpks =  prs |> Array.map (fun pr -> pr.GPK |> Option.get)
+
+        GenericProduct.get (gpks |> Array.toList)
         |> Array.map (fun gp -> 
             let n = 
                 gp.Substances 
@@ -38,6 +45,21 @@ module GenPresProduct =
         |> Array.groupBy (fun (key, gp) -> key)
         |> Array.map (fun ((nm, sh, rt), xs) -> 
             let gps = xs |> Array.map (fun (_, gp) -> gp)
+            let dpn = 
+                prs 
+                |> Array.filter (fun pr -> 
+                    if pr.GPK |> Option.isNone then false
+                    else
+                        gps
+                        |> Array.exists (fun gp ->
+                            pr.GPK |> Option.get = gp.Id
+                        )
+                        
+                )
+                |> Array.fold (fun acc pr ->
+                    if acc = "" then pr.Generic
+                    else acc
+                ) ""
             let ph = 
                 gps 
                 |> Array.collect (fun gp -> 
@@ -46,30 +68,30 @@ module GenPresProduct =
                         atc.ATCODE.Trim() = gp.ATC.Substring(0, 5))
                     |> Array.map (fun atc -> atc.ATOMS))
                 |> Array.distinct
-            create nm sh rt ph gps)
+            create nm sh rt ph gps dpn [||])
 
-    let _get gpks = 
-        if File.productCache |> File.exists then
-            File.productCache
+    let _get (prs : ProductRange.ProductRange []) = 
+        if FilePath.productCache |> File.exists then
+            FilePath.productCache
             |> Json.getCache 
             |> Array.filter (fun gpp -> 
                 gpp.GenericProducts
-                |> Array.exists (fun gp -> gpks |> List.exists ((=) gp.Id))
+                |> Array.exists (fun gp -> 
+                    prs 
+                    |> Array.exists (fun pr -> pr.GPK |> Option.get = gp.Id)
+                )
             )
-        else 
+        else
             printfn "No cache creating GenPresProduct"
-            let gsps = parse gpks
-            gsps |> Json.cache File.productCache
+            let gsps = parse prs
+            gsps |> Json.cache FilePath.productCache
             gsps
 
-    let get : int list -> GenPresProduct [] = Memoization.memoize _get
+    let get = Memoization.memoize _get
 
     let getAssortment () = 
         ProductRange.data ()
-        |> Seq.map (fun d -> d.GPK)
-        |> Seq.toList
-        |> List.filter Option.isSome
-        |> List.map Option.get
+        |> Array.filter (fun pr -> pr.GPK |> Option.isSome)
         |> get
 
 
@@ -77,7 +99,7 @@ module GenPresProduct =
         gpp.Name + " " + gpp.Shape + " " + (gpp.Route |> String.concat "/")
 
     let filter n s r =
-        getAssortment()
+        getAssortment ()
         |> Array.filter (fun gpp ->
             gpp.Name  |> String.equalsCapInsens n && 
             (s = "" || gpp.Shape |> String.equalsCapInsens s) && 

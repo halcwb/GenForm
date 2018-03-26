@@ -65,6 +65,7 @@ module Api =
         |> f v
 
     let createVU v u = create (fun v u -> u |> CU.create 1N |> VU.create v) v u
+    
     let createCU v u = create (fun v u -> u |> CU.create v) v u
 
     let fromString = VU.fromString

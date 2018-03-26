@@ -10,7 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Reflection.fs" />
-    <Compile Include="NullCheck.fs" />
     <Compile Include="String.fs" />
     <Compile Include="List.fs" />
     <Compile Include="BigRational.fs" />

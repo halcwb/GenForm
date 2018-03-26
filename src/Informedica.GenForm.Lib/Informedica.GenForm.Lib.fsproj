@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Library.fs" />
     <None Include="scripts/references.fsx" />
+    <None Include="scripts/genform-files.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenUtils.Lib\Informedica.GenUtils.Lib.fsproj" />

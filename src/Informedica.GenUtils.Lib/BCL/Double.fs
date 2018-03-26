@@ -3,6 +3,9 @@
 module Double =
 
     open System
+    open System.Numerics
+
+    open MathNet.Numerics
 
     let parse s = Double.Parse(s, Globalization.CultureInfo.InvariantCulture)
 
@@ -35,3 +38,13 @@ module Double =
     /// match a minimum of non zero digits n
     let fixPrecision n (f: float) =
         Math.Round(f, f |> getPrecision n)
+
+    let floatHasDecimals (v: float) = 
+        v > float(BigInteger v)
+
+    let floatToFract v =
+        let rec fract (v:float) m =
+            match v |> floatHasDecimals with
+            |false  -> (BigInteger(v) , m)
+            |true -> fract (v * 10.) (m * 10N)
+        fract v 1N

@@ -4,10 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Int32.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="File.fs" />
+    <Compile Include="FilePath.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="BST001T.fs" />
@@ -26,6 +23,7 @@
     <Compile Include="ATCGroup.fs" />
     <Compile Include="RuleFinder.fs" />
     <None Include="Scripts/references.fsx" />
+    <None Include="Scripts/genproduct-files.fsx" />
     <None Include="Scripts/Script.fsx" />
     <None Include="Scripts/gencoderefs.fsx" />
     <None Include="Scripts/GenCode.fsx" />

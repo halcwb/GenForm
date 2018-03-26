@@ -3,7 +3,7 @@ module BigRationalTests
 open Expecto
 
 open MathNet.Numerics
-open Informedica.GenUtils.Lib
+open Informedica.GenUtils.Lib.BCL
 
 [<Tests>]
 let tests =

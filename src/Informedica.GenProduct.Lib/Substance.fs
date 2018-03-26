@@ -20,7 +20,7 @@ module Substance =
             MoleReal = mr
         }
 
-    let cache (sbs : Substance []) = Json.cache File.substanceCache sbs
+    let cache (sbs : Substance []) = Json.cache FilePath.substanceCache sbs
 
     let parse () =
         Zindex.BST750T.records ()
@@ -29,13 +29,13 @@ module Substance =
             create r.GNGNK r.GNGNAM r.GNMOLE r.GNMOLS)
         
     let _get _ =
-        if File.substanceCache  |> File.exists then
-            File.substanceCache
+        if FilePath.substanceCache  |> File.exists then
+            FilePath.substanceCache
             |> Json.getCache
         else
             printfn "No cache creating Substance"
             let substs = parse ()
-            substs |> Json.cache File.substanceCache
+            substs |> Json.cache FilePath.substanceCache
             substs
 
     let get : unit -> Substance [] =

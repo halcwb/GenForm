@@ -173,13 +173,13 @@ module AtcGroup =
         |> Array.distinct
 
     let _get () =
-        if File.groupCache |> File.exists then
-            File.groupCache
+        if FilePath.groupCache |> File.exists then
+            FilePath.groupCache
             |> Json.getCache
         else 
             printfn "No cache creating AtcGroup"
             let grps = parse ()
-            grps |> Json.cache File.groupCache
+            grps |> Json.cache FilePath.groupCache
             grps
 
     let get : unit -> AtcGroup [] = Memoization.memoize _get
