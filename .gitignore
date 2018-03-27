@@ -32,6 +32,7 @@ publishnuget.cmd
 # Add paket 
 !/.paket/
 !/.paket/paket.exe
+!/.paket/*.targets
 
 # Add dependencies file
 !paket.dependencies
