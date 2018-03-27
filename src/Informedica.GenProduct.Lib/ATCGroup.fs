@@ -1,11 +1,11 @@
 namespace Informedica.GenProduct.Lib
 
-module AtcGroup =
+module ATCGroup =
 
-    open System
+    open Informedica.GenUtils.Lib.BCL
     open Informedica.GenUtils.Lib
 
-    type AtcGroup =
+    type ATCGroup =
         {
             ATC1 : string
             AnatomicalGroup : string
@@ -182,5 +182,11 @@ module AtcGroup =
             grps |> Json.cache FilePath.groupCache
             grps
 
-    let get : unit -> AtcGroup [] = Memoization.memoize _get
+    let get : unit -> ATCGroup [] = Memoization.memoize _get
+
+    let findByATC5 atc =
+        get ()
+        |> Array.filter (fun g ->
+            g.ATC5 |> String.equalsCapInsens atc
+        )
 

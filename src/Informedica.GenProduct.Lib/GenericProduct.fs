@@ -88,7 +88,7 @@ module GenericProduct =
         else 
             [| Names.getThes p.GPKTWG 7 Names.TwentyFive |]
             
-    let _get gpks = 
+    let private _get gpks = 
         Zindex.BST711T.records ()
         |> Array.filter (fun gp -> 
             gp.MUTKOD <> 1 &&

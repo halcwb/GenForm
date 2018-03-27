@@ -1,6 +1,5 @@
 ﻿namespace Informedica.GenProduct.Lib
 
-open System.ComponentModel
 module GenPresProduct =
     
     open Informedica.GenUtils.Lib.BCL
@@ -28,7 +27,7 @@ module GenPresProduct =
             Synonyms = sns
         }
 
-    let parse (prs : ProductRange.ProductRange []) =
+    let private parse (prs : ProductRange.ProductRange []) =
         let gpks =  prs |> Array.map (fun pr -> pr.GPK |> Option.get)
 
         GenericProduct.get (gpks |> Array.toList)
@@ -70,7 +69,7 @@ module GenPresProduct =
                 |> Array.distinct
             create nm sh rt ph gps dpn [||])
 
-    let _get (prs : ProductRange.ProductRange []) = 
+    let private _get (prs : ProductRange.ProductRange []) = 
         if FilePath.productCache |> File.exists then
             FilePath.productCache
             |> Json.getCache 
@@ -87,7 +86,7 @@ module GenPresProduct =
             gsps |> Json.cache FilePath.productCache
             gsps
 
-    let get = Memoization.memoize _get
+    let private get = Memoization.memoize _get
 
     let getAssortment () = 
         ProductRange.data ()
@@ -106,6 +105,14 @@ module GenPresProduct =
             (r = "" || gpp.Route |> Array.exists (fun r' -> r' |> String.equalsCapInsens r))
 
         )
+
+    let findByGPK gpk =
+        getAssortment ()
+        |> Array.filter (fun gpp ->
+            gpp.GenericProducts
+            |> Array.exists (fun gp -> gp.Id = gpk)
+        )
+       
         
 
 (*

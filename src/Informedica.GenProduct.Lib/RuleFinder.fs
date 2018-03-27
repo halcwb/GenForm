@@ -184,6 +184,7 @@ module RuleFinder =
             | GPKRoute (_, route)       -> route
             | GenericShapeRoute gsr -> gsr.Route 
             |> createRoute 
+
         if r = NoRoute then Array.empty
         else
             match prod with
@@ -218,6 +219,7 @@ module RuleFinder =
     // E
     type RuleResult =
         {
+            Product: GenPresProduct.GenPresProduct
             DoseRules: string []
             Doses: FreqDose []
         }
@@ -233,8 +235,9 @@ module RuleFinder =
             Unit: string
         }
 
-    let createResult drs ds =
+    let createResult gpp drs ds =
         {
+            Product = gpp
             DoseRules = drs
             Doses = ds
         }
@@ -253,131 +256,157 @@ module RuleFinder =
      
 
     let convertToResult (drs : DoseRule.DoseRule  []) =
-
-        let multMinMax f n { DoseRule.Min = min; DoseRule.Max = max } =
-            let m = f * n
-
-            let mn, mx = 
-                match min, max with
-                | None, None           -> (0., 0.)
-                | Some min', None      -> (min' * m, 0.)
-                | None, Some max'      -> (0., max' * m )
-                | Some min', Some max' -> (min' * m, max' * m)
-
-            DoseRule.createMinMax mn mx
-
-        let gpks (dr : DoseRule.DoseRule) = 
-            dr.GenericProduct 
-            |> Array.map (fun gp -> gp.Id) 
-            |> Array.toList
-            |> GenericProduct.get
-
-        let norm drs' = 
-            drs'
-            |> Array.collect (fun dr -> 
-                dr
-                |> gpks
-                |> Array.map (fun gp ->
-                    let n = 
-                        (gp.Substances
-                        |> Array.head).SubstanceQuantity
-                    dr.Norm |> multMinMax dr.Freq.Frequency n)
-                )
-            |> DoseRule.foldMinMax
-
-        let abs drs' = 
-            drs'
-            |> Array.collect (fun dr -> 
-                dr
-                |> gpks
-                |> Array.map (fun gp ->
-                    let n = 
-                        (gp.Substances
-                        |> Array.head).SubstanceQuantity
-                    dr.Abs |> multMinMax dr.Freq.Frequency n)
-                )
-            |> DoseRule.foldMinMax
-
-        let normKg drs' = 
-            drs'
-            |> Array.collect (fun dr -> 
-                dr
-                |> gpks
-                |> Array.map (fun gp ->
-                    let n = 
-                        (gp.Substances
-                        |> Array.head).SubstanceQuantity
-                    dr.NormKg |> multMinMax dr.Freq.Frequency n)
-                )
-            |> DoseRule.foldMinMax
-
-        let absKg drs' = 
-            drs'
-            |> Array.collect (fun dr -> 
-                dr
-                |> gpks
-                |> Array.map (fun gp ->
-                    let n = 
-                        (gp.Substances
-                        |> Array.head).SubstanceQuantity
-                    dr.AbsKg |> multMinMax dr.Freq.Frequency n)
-                )
-            |> DoseRule.foldMinMax
-
-        let normM2 drs' = 
-            drs'
-            |> Array.collect (fun dr -> 
-                dr
-                |> gpks
-                |> Array.map (fun gp ->
-                    let n = 
-                        (gp.Substances
-                        |> Array.head).SubstanceQuantity
-                    dr.NormM2 |> multMinMax dr.Freq.Frequency n)
-                )
-            |> DoseRule.foldMinMax
-
-        let absM2 drs' = 
-            drs'
-            |> Array.collect (fun dr -> 
-                dr
-                |> gpks
-                |> Array.map (fun gp ->
-                    let n = 
-                        (gp.Substances
-                        |> Array.head).SubstanceQuantity
-                    dr.AbsM2 |> multMinMax dr.Freq.Frequency n)
-                )
-            |> DoseRule.foldMinMax
-
-        let un drs' =
-            drs'
-            |> Array.fold (fun acc dr ->
-                dr
-                |> gpks
-                |> Array.fold (fun acc' gp ->
-                    gp.Substances
-                    |> Array.fold (fun acc'' s ->
-                        if acc'' = "" then s.SubstanceUnit
-                        else
-                            if acc'' <> s.SubstanceUnit then "_"
-                            else s.SubstanceUnit
-                    ) acc'
-                ) acc
-            ) ""
-            |> (fun u -> if u = "_" then "" else u)
-
-        let freqs =
+        // Alle dose rules should apply to the same 
+        // GenPresProduct
+        let gpp =
             drs
-            |> Array.map (fun dr -> dr.Freq)
-            |> Array.distinct
-            |> Array.map (fun fr ->
-                let drs' =
-                    drs
-                    |> Array.filter (fun dr -> dr.Freq = fr)
-                createFreqDose fr (drs' |> norm) (drs' |> abs) (drs' |> normKg) (drs' |> absKg) (drs' |> normM2) (drs' |> absM2) (drs' |> un)
+            |> Array.collect (fun dr ->
+                dr.GenericProduct
+                |> Array.map (fun gp -> gp.Id)
             )
+            |> Array.distinct
+            |> Array.collect GenPresProduct.findByGPK
+            |> (fun gpps ->
+                if gpps |> Array.isEmpty then None
+                else
+                    gpps
+                    |> Array.fold (fun acc gpp -> 
+                        match acc with
+                        | Some gpp' -> if gpp' = gpp then acc else None
+                        | None -> None
+                    ) (Some gpps.[0])
+            ) 
+            |> (fun r -> printfn "Unique gpp %A" r; r)
 
+        match gpp with
+        | Some gpp' ->
+            let multMinMax f n { DoseRule.Min = min; DoseRule.Max = max } =
+                let m = f * n
 
-        createResult (drs |> Array.map (DoseRule.toString ", ")) freqs 
+                let mn, mx = 
+                    match min, max with
+                    | None, None           -> (0., 0.)
+                    | Some min', None      -> (min' * m, 0.)
+                    | None, Some max'      -> (0., max' * m )
+                    | Some min', Some max' -> (min' * m, max' * m)
+
+                DoseRule.createMinMax mn mx
+
+            let gpks (dr : DoseRule.DoseRule) = 
+                dr.GenericProduct 
+                |> Array.map (fun gp -> gp.Id) 
+                |> Array.toList
+                |> GenericProduct.get
+
+            let norm drs' = 
+                drs'
+                |> Array.collect (fun dr -> 
+                    dr
+                    |> gpks
+                    |> Array.map (fun gp ->
+                        let n = 
+                            (gp.Substances
+                            |> Array.head).SubstanceQuantity
+                        dr.Norm |> multMinMax dr.Freq.Frequency n)
+                    )
+                |> DoseRule.foldMinMax
+
+            let abs drs' = 
+                drs'
+                |> Array.collect (fun dr -> 
+                    dr
+                    |> gpks
+                    |> Array.map (fun gp ->
+                        let n = 
+                            (gp.Substances
+                            |> Array.head).SubstanceQuantity
+                        dr.Abs |> multMinMax dr.Freq.Frequency n
+                    )
+                )
+                |> DoseRule.foldMinMax
+
+            let normKg drs' = 
+                drs'
+                |> Array.collect (fun dr -> 
+                    dr
+                    |> gpks
+                    |> Array.map (fun gp ->
+                        let n = 
+                            (gp.Substances
+                            |> Array.head).SubstanceQuantity
+                        dr.NormKg |> multMinMax dr.Freq.Frequency n)
+                    )
+                |> DoseRule.foldMinMax
+
+            let absKg drs' = 
+                drs'
+                |> Array.collect (fun dr -> 
+                    dr
+                    |> gpks
+                    |> Array.map (fun gp ->
+                        let n = 
+                            (gp.Substances
+                            |> Array.head).SubstanceQuantity
+                        dr.AbsKg |> multMinMax dr.Freq.Frequency n)
+                    )
+                |> DoseRule.foldMinMax
+
+            let normM2 drs' = 
+                drs'
+                |> Array.collect (fun dr -> 
+                    dr
+                    |> gpks
+                    |> Array.map (fun gp ->
+                        let n = 
+                            (gp.Substances
+                            |> Array.head).SubstanceQuantity
+                        dr.NormM2 |> multMinMax dr.Freq.Frequency n)
+                    )
+                |> DoseRule.foldMinMax
+
+            let absM2 drs' = 
+                drs'
+                |> Array.collect (fun dr -> 
+                    dr
+                    |> gpks
+                    |> Array.map (fun gp ->
+                        let n = 
+                            (gp.Substances
+                            |> Array.head).SubstanceQuantity
+                        dr.AbsM2 |> multMinMax dr.Freq.Frequency n)
+                    )
+                |> DoseRule.foldMinMax
+
+            let un drs' =
+                drs'
+                |> Array.fold (fun acc dr ->
+                    dr
+                    |> gpks
+                    |> Array.fold (fun acc' gp ->
+                        gp.Substances
+                        |> Array.fold (fun acc'' s ->
+                            if acc'' = "" then s.SubstanceUnit
+                            else
+                                if acc'' <> s.SubstanceUnit then "_"
+                                else s.SubstanceUnit
+                        ) acc'
+                    ) acc
+                ) ""
+                |> (fun u -> if u = "_" then "" else u)
+
+            let freqs =
+                drs
+                |> Array.map (fun dr -> dr.Freq)
+                |> Array.distinct
+                |> Array.map (fun fr ->
+                    let drs' =
+                        drs
+                        |> Array.filter (fun dr -> dr.Freq = fr)
+                    createFreqDose fr (drs' |> norm) (drs' |> abs) (drs' |> normKg) (drs' |> absKg) (drs' |> normM2) (drs' |> absM2) (drs' |> un)
+                )
+
+            createResult gpp' (drs |> Array.map (DoseRule.toString ", ")) freqs 
+            |> Some
+        
+        | None -> None
 

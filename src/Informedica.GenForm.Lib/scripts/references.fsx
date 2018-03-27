@@ -116,4 +116,4 @@
 #r @"/Users/hal/.nuget/packages/netstandard.library/2.0.1/build/netstandard2.0/ref/System.Xml.dll"
 #r @"/Users/hal/.nuget/packages/netstandard.library/2.0.1/build/netstandard2.0/ref/System.dll"
 #r @"/Users/hal/.nuget/packages/netstandard.library/2.0.1/build/netstandard2.0/ref/netstandard.dll"
-#load @"/Users/hal/Development/GenFormService/src/Informedica.GenForm.Lib/Library.fs"
+#load @"/Users/hal/Development/GenFormService/src/Informedica.GenForm.Lib/Dto.fs"

@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Library.fs" />
+    <Compile Include="Dto.fs" />
     <None Include="scripts/references.fsx" />
     <None Include="scripts/genform-files.fsx" />
   </ItemGroup>
