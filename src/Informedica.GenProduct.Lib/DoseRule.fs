@@ -56,8 +56,6 @@ module DoseRule =
             { Min = optionMin acc.Min min; Max = optionMax acc.Max max }
         ) { Min = None; Max = None }
 
-
-
     let toString del (r: DoseRule)  =
         let minMaxToString n u p (mm: MinMax) s =
             let mms =

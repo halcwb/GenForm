@@ -276,7 +276,6 @@ module RuleFinder =
                         | None -> None
                     ) (Some gpps.[0])
             ) 
-            |> (fun r -> printfn "Unique gpp %A" r; r)
 
         match gpp with
         | Some gpp' ->

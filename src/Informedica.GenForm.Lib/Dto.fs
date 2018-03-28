@@ -384,7 +384,6 @@ module Dto =
         let age = 
             let dt = DateTime(dto.BirthYear, dto.BirthMonth, dto.BirthDay)
             ((DateTime.Now - dt).Days |> float) / 30.
-            |> (fun n -> printfn "%f" n; n)
             |> Some
 
         let bsa =

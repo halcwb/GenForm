@@ -1,2 +1,7 @@
-namespace Informedica.GenProduct.Tests
+module Informedica.GenProduct.Tests
 
+open Expecto
+
+[<EntryPoint>]
+let main argv =
+    Tests.runTestsInAssembly defaultConfig argv
