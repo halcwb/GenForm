@@ -61,6 +61,7 @@ publishnuget.cmd
 !/scripts/
 !/src/
 !/src/Informedica.GenUtils.Lib/
+!/src/Informedica.GenUtils.Lib/BCL/
 !/src/Informedica.GenUtils.Lib/Scripts/
 !/src/Informedica.GenUnits.Lib/
 !/src/Informedica.GenUnits.Lib/Scripts/
