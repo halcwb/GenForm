@@ -154,6 +154,8 @@ NUGET
       Microsoft.AspNetCore.Server.Kestrel.Transport.Abstractions (>= 2.0.2)
       Microsoft.Extensions.Logging.Abstractions (>= 2.0.1)
       Microsoft.Extensions.Options (>= 2.0.1)
+    Microsoft.AspNetCore.TestHost (2.0.2)
+      Microsoft.AspNetCore.Hosting (>= 2.0.2)
     Microsoft.AspNetCore.WebUtilities (2.0.2)
       Microsoft.Net.Http.Headers (>= 2.0.2)
       System.Text.Encodings.Web (>= 4.4)

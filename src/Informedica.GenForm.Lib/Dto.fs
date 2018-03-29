@@ -7,7 +7,6 @@ module Dto =
 
     open Informedica.GenUtils.Lib
     open Informedica.GenUtils.Lib.BCL
-    open Informedica.GenUnits.Lib
     open Informedica.GenProduct.Lib
     
 
@@ -119,6 +118,53 @@ module Dto =
             AbsMaxPerDose = 0.
             Rules = ""
         }
+
+
+    let testDto = 
+
+        let by, bm, bd =
+            let n = 
+                DateTime.now ()
+                |> DateTime.addYears -1
+            n.Year, n.Month, n.Day
+            
+        {
+            BirthYear = by
+            BirthMonth = bm
+            BirthDay = bd
+            WeightKg = 10.
+            BirthWeightGram = 3000.
+            LengthCm = 70.
+            Gender = "Test"
+            GestAgeWeeks = 40
+            GestAgeDays = 1
+            GPK = "000000"
+            ATC = "Test"
+            TherapyGroup = "Test"
+            TherapySubGroup = "Test"
+            Generic = "Test"
+            TradeProduct = "Test"
+            Shape = "Test"
+            Label = "Test"
+            Concentration = 1.
+            ConcentrationUnit = "mg/ml"
+            Multiple = 0.
+            MultipleUnit = "mcg"
+            Route = "oraal"
+            Indication = "Test"
+            Frequency = "2 x / 3 dagen"
+            PerDose = false
+            PerKg = true
+            PerM2 = false
+            NormDose = 10.
+            MinDose = 5.
+            MaxDose = 20.
+            AbsMaxTotal = 500.
+            AbsMaxPerDose = 50.
+            Rules = "Test"
+        }
+
+
 
     type Mapping = FormMap | GStandMap | PedMap
 

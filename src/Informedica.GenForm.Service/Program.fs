@@ -4,44 +4,56 @@ module Main =
     
     open System
     open System.IO
-    open Microsoft.AspNetCore.Http
     open Microsoft.AspNetCore.Builder
     open Microsoft.AspNetCore.Hosting
-    open Microsoft.AspNetCore.Authentication
+    open Microsoft.AspNetCore.Http
     open Microsoft.AspNetCore.Cors.Infrastructure
-    open Microsoft.Extensions.Configuration
     open Microsoft.Extensions.Logging
     open Microsoft.Extensions.DependencyInjection
-    open Microsoft.AspNetCore.Server.Kestrel.Core
-    open Microsoft.AspNetCore.Server.Kestrel
     open Giraffe
 
     open Newtonsoft
     open Informedica.GenForm.Lib
 
     open HttpsConfig
-
-    let response =
-        let test = 
-            { Dto.dto with
-                BirthYear = 2017
-                BirthMonth = 3
-                BirthDay = 2
-                WeightKg = 10.
-                LengthCm = 70.
-                GPK = "100331"
-                MultipleUnit = "mg"
-                Route = "or"
-            }
-
-        Dto.findRules test
-        |> Option.get
-        |> sprintf "%A"
         
+    type RuleRequest () =
+        member val bty = 0 with get, set
+        member val btm = 0 with get, set
+        member val btd = 0 with get, set
+        member val wth = 0. with get, set
+        member val hgt = 0. with get, set
+        member val gpk = "" with get, set
+        member val rte = "" with get, set
+
+
+    let handleRequest =
+        fun (next : HttpFunc) (ctx : HttpContext) ->    
+            let dto = 
+                let req = ctx.BindQueryString<RuleRequest>()
+                { Dto.dto with
+                    BirthYear = req.bty
+                    BirthMonth = req.btm
+                    BirthDay = req.btd
+                    WeightKg = req.wth
+                    LengthCm = req.hgt
+                    GPK = req.gpk
+                    Route = req.rte
+                }
+            dto
+            |> (fun dto -> printfn "request: %A" dto; dto)
+            |> Dto.findRules
+            |> (fun dto' -> printfn "response: %A" dto'; dto')
+            |> (fun dto' -> 
+                    match dto' with 
+                    | Some r -> json r next ctx
+                    | None   -> json dto next ctx
+                )
 
     let webApp =
         choose [
-            route "/" >=> text response ]
+            route "/test" >=> json Dto.testDto
+            route "/request" >=> handleRequest ]
 
 
     // ---------------------------------
