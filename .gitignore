@@ -76,6 +76,7 @@ publishnuget.cmd
 !/tests/Informedica.GenUtils.Tests/
 !/tests/Informedica.GenUnits.Tests/
 !/tests/Informedica.GenProduct.Tests/
+!/tests/Informedica.GenForm.Service.Tests/
 
 # Ignore generated documentation files
 /docs/content/**/*.md
