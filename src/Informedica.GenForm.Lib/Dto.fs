@@ -4,10 +4,12 @@ namespace Informedica.GenForm.Lib
 module Dto =
 
     open System
+    open MathNet.Numerics
 
     open Informedica.GenUtils.Lib
     open Informedica.GenUtils.Lib.BCL
     open Informedica.GenProduct.Lib
+    open Informedica.GenUnits.Lib
     
 
     // Private m_BD As Date
@@ -166,13 +168,17 @@ module Dto =
 
 
 
-    type Mapping = FormMap | GStandMap | PedMap
+    type Mapping = FormMap | GStandMap | PedMap  | StandMap
 
     let mapping path m1 m2 s =
         let i1, i2 =
             match m1, m2 with
-            | FormMap, GStandMap -> 0, 1
-            | GStandMap, FormMap -> 1, 0
+            | FormMap,   GStandMap -> 0, 1
+            | GStandMap, FormMap   -> 1, 0
+            | FormMap,   StandMap  -> 0, 3
+            | GStandMap, StandMap  -> 1, 3
+            | StandMap,  FormMap   -> 3, 0
+            | StandMap,  GStandMap -> 1, 3
             | _ -> 0, 0
 
         File.readAllLines path
@@ -189,7 +195,6 @@ module Dto =
 
     let frequencyMapping = mapping (Environment.CurrentDirectory + "/" + FilePath.data + "/formulary/FrequencyMapping.csv")
 
-
     let toDto (dto : Dto) (rs : RuleFinder.RuleResult) =
         // get only doses with mappable frequencies
         let doses = 
@@ -204,6 +209,13 @@ module Dto =
         | [||] ->
             dto
         | _ ->
+
+            let unit =
+                doses
+                |> Array.fold (fun acc d ->
+                    if acc = "" then d.Unit
+                    else acc
+                ) ""
 
             // AbsMax per dose
             let absPer = 
@@ -337,6 +349,17 @@ module Dto =
                     | _                                  -> (minDose,  perKg, perM2)
                 )
 
+            let convertTo u1 u2 v =
+                let u1, u2 = 
+                    u1 |> unitMapping FormMap   StandMap,
+                    u2 |> unitMapping GStandMap StandMap
+                if u2 = "" || u1 = "" || u1 = u2 then v
+                else
+                    let br = BigRational.fromFloat v
+                    BigRational.toString br + " " + u2 
+                    |> Api.convert ((BigRational.toString 1N) + " " + u1)
+                    |> (ValueUnit.fromString >> ValueUnit.get >> fst >> BigRational.toFloat)
+
 
             { dto with
                 Frequency = 
@@ -358,11 +381,11 @@ module Dto =
 
                 PerKg          = perKg 
                 PerM2          = perM2 
-                NormDose       = normDose |> Double.fixPrecision 3
-                MinDose        = minDose  |> Double.fixPrecision 3
-                MaxDose        = maxDose  |> Double.fixPrecision 3
-                AbsMaxTotal    = absMax   |> Double.fixPrecision 3
-                AbsMaxPerDose  = absPer   |> Double.fixPrecision 3
+                NormDose       = normDose |> convertTo dto.MultipleUnit unit |> Double.fixPrecision 3
+                MinDose        = minDose  |> convertTo dto.MultipleUnit unit |> Double.fixPrecision 3
+                MaxDose        = maxDose  |> convertTo dto.MultipleUnit unit |> Double.fixPrecision 3
+                AbsMaxTotal    = absMax   |> convertTo dto.MultipleUnit unit |> Double.fixPrecision 3
+                AbsMaxPerDose  = absPer   |> convertTo dto.MultipleUnit unit |> Double.fixPrecision 3
             }
 
         |> (fun dto' ->

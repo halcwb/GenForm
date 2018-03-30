@@ -26,6 +26,7 @@ module Main =
         member val hgt = 0. with get, set
         member val gpk = "" with get, set
         member val rte = "" with get, set
+        member val unt = "" with get, set
 
 
     let handleRequest =
@@ -40,6 +41,7 @@ module Main =
                     LengthCm = req.hgt
                     GPK = req.gpk
                     Route = req.rte
+                    MultipleUnit = req.unt
                 }
             dto
             |> (fun dto -> printfn "request: %A" dto; dto)

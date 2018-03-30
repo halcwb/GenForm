@@ -110,11 +110,10 @@ let test =
         BirthDay = 2
         WeightKg = 10.
         LengthCm = 70.
-        GPK = "100331"
-        MultipleUnit = "mg"
-        Route = "or"
+        GPK = "15334"
+        MultipleUnit = "mcg"
+        Route = "iv"
     }
 
 Dto.findRules test
-
 

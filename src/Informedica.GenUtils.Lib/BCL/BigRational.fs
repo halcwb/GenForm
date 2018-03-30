@@ -132,6 +132,9 @@ module BigRational =
         let n, d = Double.floatToFract f
         BigRational.FromBigInt(n) / d
 
+    let toFloat br =
+        ((br |> get).Numerator |> float) / (br.Denominator |> float)
+
     let calculate n1 o n2 = 
         match n1, n2 with
         |Some x1, Some x2 -> x1 |> o <| x2 |> Some

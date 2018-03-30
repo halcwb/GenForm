@@ -84,7 +84,7 @@ module GenericProduct =
                 | Some r -> r.THNM25
                 | None -> ""
             )
-        if rt |> Array.length <> 0 then rt
+        if rt |> Array.isEmpty then rt
         else 
             [| Names.getThes p.GPKTWG 7 Names.TwentyFive |]
             
