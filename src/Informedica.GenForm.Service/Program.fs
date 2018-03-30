@@ -13,6 +13,7 @@ module Main =
     open Giraffe
 
     open Newtonsoft
+    open Informedica.GenUtils.Lib.BCL
     open Informedica.GenForm.Lib
 
     open HttpsConfig
@@ -92,6 +93,13 @@ module Main =
 
     [<EntryPoint>]
     let main _ =
+        // Load GenForm
+        let dt = DateTime.now ()
+        printfn "loading GenForm: %s" (dt.ToString("hh:mm"))
+        Dto.loadGenForm ()
+        let time = DateTime.now () - dt
+        printfn "ready in: %i seconds" (time.Seconds)
+
         let contentRoot = Directory.GetCurrentDirectory()
         let webRoot     = Path.Combine(contentRoot, "WebRoot")
 

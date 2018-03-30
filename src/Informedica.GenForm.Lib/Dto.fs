@@ -268,7 +268,7 @@ module Dto =
                     | _                                  -> (0.,  perKg, perM2)
                 )
 
-            // normal dose
+            // abs max dose
             let absMax = maxDose
 
             // max dose per kg
@@ -356,13 +356,13 @@ module Dto =
                         else ""
                     ) dto.MultipleUnit
 
-                PerKg = perKg
-                PerM2 = perM2
-                NormDose = normDose
-                MinDose = minDose
-                MaxDose = maxDose
-                AbsMaxTotal = absMax
-                AbsMaxPerDose  = absPer
+                PerKg          = perKg 
+                PerM2          = perM2 
+                NormDose       = normDose |> Double.fixPrecision 3
+                MinDose        = minDose  |> Double.fixPrecision 3
+                MaxDose        = maxDose  |> Double.fixPrecision 3
+                AbsMaxTotal    = absMax   |> Double.fixPrecision 3
+                AbsMaxPerDose  = absPer   |> Double.fixPrecision 3
             }
 
         |> (fun dto' ->
@@ -448,3 +448,9 @@ module Dto =
         |> RuleFinder.convertToResult
         |> Option.bind (fun r -> toDto dto r |> Some)
     
+
+    let loadGenForm () =
+        Substance.load ()
+        GenPresProduct.load ()
+        DoseRule.load ()
+        ATCGroup.load ()

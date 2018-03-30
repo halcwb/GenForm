@@ -39,7 +39,6 @@ module GenPresProduct =
                 |> Array.fold (fun a s -> 
                     if a = "" then s 
                     else a + "/" + s) ""
-            printfn "Creating gpp: %s" n
             ((n, gp.Shape, gp.Route), gp))
         |> Array.groupBy (fun (key, gp) -> key)
         |> Array.map (fun ((nm, sh, rt), xs) -> 
@@ -94,6 +93,14 @@ module GenPresProduct =
         |> get
 
 
+    let getGPKS () =
+        getAssortment ()
+        |> Array.collect (fun gpp ->
+            gpp.GenericProducts
+            |> Array.map (fun gp -> gp.Id)
+        )
+        |> Array.distinct
+
     let toString (gpp : GenPresProduct) =
         gpp.Name + " " + gpp.Shape + " " + (gpp.Route |> String.concat "/")
 
@@ -113,6 +120,8 @@ module GenPresProduct =
             |> Array.exists (fun gp -> gp.Id = gpk)
         )
        
+
+    let load () = getAssortment () |> ignore
         
 
 (*

@@ -322,7 +322,7 @@ module DoseRule =
         |> createFrequency cat.GPDFAA
 
 
-    let parse () =
+    let parse gpks =
 
         let noRoute = "TOEDIENINGSWEG NIET INGEVULD"
 
@@ -363,7 +363,8 @@ module DoseRule =
                    cat.MUTKOD <> 1 &&
                    icp.MUTKOD <> 1 &&
                    bas.MUTKOD <> 1 &&
-                   vas.MUTKOD <> 1)
+                   vas.MUTKOD <> 1 &&
+                   gpks |> Array.exists ((=) bas.GPKODE))
 
             select
                 ((bas.GPKODE, bas.PRKODE, bas.HPKODE), 
@@ -462,11 +463,13 @@ module DoseRule =
             |> Json.getCache
         else 
             printfn "No cache creating DoseRule"
-            let rules = parse ()
+            let rules = GenPresProduct.getGPKS () |> parse
             rules |> Json.cache FilePath.ruleCache 
             rules
 
     let get : unit -> DoseRule [] = Memoization.memoize _get
+
+    let load () = get () |> ignore
 
     let toString2 (dr : DoseRule) =
         let addString lbl s = 
@@ -518,16 +521,13 @@ module DoseRule =
 
     let indications = Memoization.memoize indications_
 
-
     let routes_ () =
         Zindex.BST642T.records ()
         |> Array.map getICPCRoute
         |> Array.distinct
         |> Array.sort
 
-
     let routes = Memoization.memoize routes_
-
 
     let frequencies_ () =
         Zindex.BST643T.records ()

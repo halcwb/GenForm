@@ -40,3 +40,5 @@ module Substance =
 
     let get : unit -> Substance [] =
         Memoization.memoize _get
+
+    let load () = get () |> ignore

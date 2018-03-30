@@ -51,7 +51,7 @@ module ATCGroup =
 
     let empty = create "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" 
 
-    let parse () =
+    let parse gpks =
         query {
             for gpk in Zindex.BST711T.records () do
             join main in Zindex.BST801T.records () 
@@ -139,12 +139,13 @@ module ATCGroup =
                     | None -> ""
 
 
-            where (gpk.MUTKOD <> 1 &&
+            where (gpk.MUTKOD  <> 1 &&
                    main.MUTKOD <> 1 &&
                    ther.MUTKOD <> 1 &&
                    thes.MUTKOD <> 1 &&
                    phar.MUTKOD <> 1 &&
-                   subs.MUTKOD <> 1)
+                   subs.MUTKOD <> 1 &&
+                   gpks |> Array.exists ((=) gpk.GPKODE))
 
             select 
                 ({
@@ -177,8 +178,7 @@ module ATCGroup =
             FilePath.groupCache
             |> Json.getCache
         else 
-            printfn "No cache creating AtcGroup"
-            let grps = parse ()
+            let grps = GenPresProduct.getGPKS () |> parse
             grps |> Json.cache FilePath.groupCache
             grps
 
@@ -189,4 +189,6 @@ module ATCGroup =
         |> Array.filter (fun g ->
             g.ATC5 |> String.equalsCapInsens atc
         )
+
+    let load () = get () |> ignore
 

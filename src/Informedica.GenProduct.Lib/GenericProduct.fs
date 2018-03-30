@@ -100,7 +100,6 @@ module GenericProduct =
             let nm = Names.getName gp.GPNMNR Names.Full
             let lb = Names.getName gp.GPNMNR Names.Label
 
-            printfn "Creating gp: %s" nm
             let an = 
                 match
                     Zindex.BST801T.records ()
@@ -171,7 +170,6 @@ module GenericProduct =
                         |> Seq.toArray
                                     
                     let gu = Names.getThes gs.XNMOME 1 Names.Fifty
-//                    let un = Names.getThes gs.XPEHHV 2 Names.Fifty
 
                     select 
                      (
@@ -191,3 +189,5 @@ module GenericProduct =
         )
 
     let get : int list -> GenericProduct [] = Memoization.memoize _get
+
+
