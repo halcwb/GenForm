@@ -181,14 +181,18 @@ module Dto =
             | StandMap,  GStandMap -> 1, 3
             | _ -> 0, 0
 
-        File.readAllLines path
-        |> Array.skip 1
-        |> Array.map (String.splitAt ';')
-        |> Array.filter (fun x -> x.[i1] |> String.equalsCapInsens s)
-        |> Array.fold (fun acc xs ->  
-            if acc = "" then xs.[i2]
-            else acc + "||" + xs.[i2]
-        ) ""
+        let map =
+            File.readAllLines path
+            |> Array.skip 1
+            |> Array.map (String.splitAt ';')
+        if i1 = 0 && i2 = 0 || (i1 > map.Length || i2 > map.Length) then ""
+        else
+            map
+            |> Array.filter (fun x -> x.[i1] |> String.equalsCapInsens s)
+            |> Array.fold (fun acc xs ->  
+                if acc = "" then xs.[i2]
+                else acc + "||" + xs.[i2]
+            ) ""
 
 
     let unitMapping = mapping (Environment.CurrentDirectory + "/" + FilePath.data + "/formulary/UnitMapping.csv")

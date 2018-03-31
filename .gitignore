@@ -92,8 +92,9 @@ publishnuget.cmd
 !/docs/files/img/
 !/docs/files/img/*.png
 
-# data folder
-!/data
+# data folder and files
+!/data/
 !/data/zindex/
 !/data/formulary/
+!/data/formulary/*.csv
 !/data/cache/
