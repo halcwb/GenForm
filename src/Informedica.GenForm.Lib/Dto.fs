@@ -379,8 +379,8 @@ module Dto =
                 MultipleUnit = 
                     doses
                     |> Array.fold (fun acc d ->
-                        if unitMapping GStandMap FormMap d.Unit = acc then acc
-                        else ""
+                        if acc = "" then unitMapping GStandMap FormMap d.Unit
+                        else acc
                     ) dto.MultipleUnit
 
                 PerKg          = perKg 
