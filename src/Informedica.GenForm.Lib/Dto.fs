@@ -200,14 +200,29 @@ module Dto =
     let frequencyMapping = mapping (Environment.CurrentDirectory + "/" + FilePath.data + "/formulary/FrequencyMapping.csv")
 
     let toDto (dto : Dto) (rs : RuleFinder.RuleResult) =
-        // get only doses with mappable frequencies
+
         let doses = 
             rs.Doses
+            // Only get the rules with a 'mappable' frequency
             |> Array.filter (fun d ->
                 (string d.Freq.Frequency + " " + d.Freq.Time)
                 |> frequencyMapping GStandMap FormMap 
                 |> ((<>) "")
-            ) 
+            )
+            // Check of all time units are the same otherwise empty
+            |> Array.fold (fun acc d ->
+                match acc with
+                | Some ds ->
+                    if ds |> Array.isEmpty then
+                        [|d|] |> Array.append ds |> Some
+                    else
+                        if ds |> Array.forall (fun d_ ->
+                            d_.Freq.Time = d.Freq.Time
+                        ) then [|d|] |> Array.append ds |> Some
+                        else None
+                | None -> None
+            ) (Some [||]) 
+            |> (fun ds -> if ds |> Option.isSome then ds |> Option.get else [||])
 
         match doses with
         | [||] ->
@@ -354,12 +369,18 @@ module Dto =
                 )
 
             let convertTo u1 u2 v =
+                // Get the unit mapping
                 let u1, u2 = 
                     u1 |> unitMapping FormMap   StandMap,
                     u2 |> unitMapping GStandMap StandMap
-                if u2 = "" || u1 = "" || u1 = u2 then v
+                // Get the bigrational
+                let br = 
+                    v
+                    |> BigRational.fromFloat
+                    |> Option.defaultValue 0N
+                // Only convert when units and bigrational are defined
+                if u2 = "" || u1 = "" || u1 = u2 || br = 0N then v
                 else
-                    let br = BigRational.fromFloat v
                     BigRational.toString br + " " + u2 
                     |> Api.convert ((BigRational.toString 1N) + " " + u1)
                     |> (ValueUnit.fromString >> ValueUnit.get >> fst >> BigRational.toFloat)
