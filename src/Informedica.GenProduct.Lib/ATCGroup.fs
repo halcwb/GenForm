@@ -65,16 +65,7 @@ module ATCGroup =
             join subs in Zindex.BST801T.records () 
                 on (gpk.ATCODE.Substring(0, 7) = subs.ATCODE.Trim())
 
-            let shape =
-                match 
-                    Zindex.BST902T.records ()
-                    |> Array.tryFind (fun r ->
-                        r.MUTKOD <> 1 &&
-                        r.TSNR = 6 &&
-                        r.TSITNR = gpk.GPKTVR
-                    ) with
-                | Some s -> s.THNM50
-                | None -> ""
+            let shape = Names.getThes gpk.GPKTVR Names.Shape Names.Fifty
 
             let generic = 
                 query {
@@ -117,13 +108,7 @@ module ATCGroup =
                     )
                     |> Array.distinct
                     |> Array.map (fun tdw ->
-                        match Zindex.BST902T.records () 
-                              |> Array.tryFind (fun r -> 
-                                r.MUTKOD <> 1 && r.TSNR = 7 &&
-                                r.TSITNR = tdw
-                              ) with
-                        | Some r -> r.THNM25
-                        | None -> ""
+                        Names.getThes tdw Names.Route Names.TwentyFive
                     )
                     |> Array.fold (fun a s ->
                             if a = "" then s
@@ -135,7 +120,9 @@ module ATCGroup =
                     match
                         DoseRule.getGenericProducts ()
                         |> Array.tryFind (fun r -> r.Id = gpk.GPKODE) with
-                    | Some p -> p.Route
+                    | Some p -> 
+                        if p.Route |> Array.isEmpty || p.Route |> Array.length > 1 then ""
+                        else p.Route.[0]
                     | None -> ""
 
 

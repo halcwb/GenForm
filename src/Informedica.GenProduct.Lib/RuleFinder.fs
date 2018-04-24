@@ -118,7 +118,10 @@ module RuleFinder =
         | Some (r, _) -> r
         | _ -> NoRoute
 
-    let eqsRoute r s = s |> createRoute = r
+    let eqsRoute r rs = 
+        rs 
+        |> Array.map createRoute
+        |> Array.exists ((=) r)
 
     type Age = float Option
 
@@ -198,9 +201,9 @@ module RuleFinder =
             |> Array.collect (fun gpk ->
                 DoseRule.get()
                 |> Array.filter (fun dr -> 
-                    dr.CareGroup = "intensieve"
+                    (dr.CareGroup = DoseRule.Constants.intensive || dr.CareGroup = DoseRule.Constants.all)
                     && dr.GenericProduct |> Array.exists (fun gp -> gp.Id = gpk)
-                    && dr.Route  |> eqsRoute r
+                    && dr.Routes  |> eqsRoute r
                     && dr.Age    |> inRange pat.Age
                     && dr.Weight |> inRange pat.Weight
                     && dr.BSA    |> inRange pat.BSA
@@ -225,13 +228,21 @@ module RuleFinder =
         }
     and FreqDose =
         {
+            /// The frequency of the dose rule
             Freq: DoseRule.Frequency
+            /// The optional min/max values of a 'normal dose range'
             NormDose: DoseRule.MinMax
+            /// The optional min/max values of the 'absolute dose range'
             AbsDose: DoseRule.MinMax
+            /// The optional min/max values of a 'normal dose range' per kg
             NormKg: DoseRule.MinMax
+            /// The optional min/max values of the 'absolute dose range' per kg
             AbsKg: DoseRule.MinMax
+            /// The optional min/max values of a 'normal dose range' per m2
             NormM2: DoseRule.MinMax
+            /// The optional min/max values of the 'absolute dose range' per m2
             AbsM2: DoseRule.MinMax
+            /// The unit in which the doses are measured
             Unit: string
         }
 
@@ -297,6 +308,7 @@ module RuleFinder =
                 |> Array.toList
                 |> GenericProduct.get
 
+            // Calculate the normal min max dose
             let norm drs' = 
                 drs'
                 |> Array.collect (fun dr -> 
@@ -310,6 +322,7 @@ module RuleFinder =
                     )
                 |> DoseRule.foldMinMax
 
+            // Calculate the absolute min max dose
             let abs drs' = 
                 drs'
                 |> Array.collect (fun dr -> 
@@ -324,6 +337,7 @@ module RuleFinder =
                 )
                 |> DoseRule.foldMinMax
 
+            // Calculate the normal min max dose per kg
             let normKg drs' = 
                 drs'
                 |> Array.collect (fun dr -> 
@@ -337,6 +351,7 @@ module RuleFinder =
                     )
                 |> DoseRule.foldMinMax
 
+            // Calculate the absolute min max dose per kg
             let absKg drs' = 
                 drs'
                 |> Array.collect (fun dr -> 
@@ -350,6 +365,7 @@ module RuleFinder =
                     )
                 |> DoseRule.foldMinMax
 
+            // Calculate the normal min max dose per m2
             let normM2 drs' = 
                 drs'
                 |> Array.collect (fun dr -> 
@@ -363,6 +379,7 @@ module RuleFinder =
                     )
                 |> DoseRule.foldMinMax
 
+            // Calculate the absolute min max dose per m2
             let absM2 drs' = 
                 drs'
                 |> Array.collect (fun dr -> 

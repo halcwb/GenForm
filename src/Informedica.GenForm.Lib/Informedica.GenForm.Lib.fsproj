@@ -1,13 +1,18 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Dto.fs" />
+    <Compile Include="Mapping.fs" />
     <None Include="scripts/references.fsx" />
     <None Include="scripts/genform-files.fsx" />
     <None Include="scripts/Scripts.fsx" />
+    <Compile Include="ValueUnit.fs" />
+    <Compile Include="Route.fs" />
+    <Compile Include="Product.fs" />
+    <Compile Include="Patient.fs" />
+    <Compile Include="DoseRule.fs" />
+    <Compile Include="Dto.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenUtils.Lib\Informedica.GenUtils.Lib.fsproj" />

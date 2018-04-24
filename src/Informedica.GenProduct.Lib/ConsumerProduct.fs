@@ -31,7 +31,7 @@ module ConsumerProduct =
         |> Array.map (fun r ->
             let nm = Names.getName r.ATNMNR Names.Full
             let lb = Names.getName r.ATNMNR Names.Label
-            let ct = Names.getThes r.VPDLOM 4 Names.Fifty
+            let ct = Names.getThes r.VPDLOM Names.ConsumerContainer Names.Fifty
             create r.ATKODE nm lb r.VPDLHV ct
         )
 

@@ -141,6 +141,7 @@ module CombiUnit =
         | _ when s = CS.divs  -> Per
         | _ -> failwith "Not a valid operator string"
 
+
     let toString cu =
         let abbr = Unit.getAbbreviation >> fst >> Unit.Name.get
         let gr u = u |> Unit.getGroupName |> NM.toString
@@ -158,6 +159,7 @@ module CombiUnit =
                 let u' = u |> toStr
                 acc +
                 if v' = CS.empts then o' + u' else o' + v' + CS.space + u') acc
+
 
     let fromString s =
         let dels = "#"
@@ -199,6 +201,23 @@ module CombiUnit =
         |> List.rev
         |> parse []
         
+
+    let toLangString lang prec cu =
+        let toStr u = Unit.Units.toLangString lang u
+
+        let bigRatToString (v: BigRational) =
+            if v = 1N then CS.empts else v |> BigRational.toFloat |> Double.fixPrecision prec |> string
+
+        let v, u, ul = cu |> get
+        let acc = (v |> bigRatToString) + CS.space + (u |> toStr) |> String.trim
+        ul 
+        |> List.fold (fun acc (o, v, u) -> 
+                let v' = v |> bigRatToString
+                let o' = o |> opToString
+                let u' = u |> toStr
+                acc +
+                if v' = CS.empts then o' + u' else o' + v' + CS.space + u') acc
+
 
     type CombiUnit with
         

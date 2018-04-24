@@ -4,8 +4,8 @@
 
 open System
 
-// let pwd = @"/Users/hal/Development/GenFormService/src/Informedica.GenProduct.Lib/"
-Environment.CurrentDirectory <- __SOURCE_DIRECTORY__ + "/../../../"
+let pwd = Environment.GetEnvironmentVariable("HOME")
+Environment.CurrentDirectory <- pwd + "/Development/GenFormService/" //__SOURCE_DIRECTORY__ + "/../../../"
 
 open Informedica.GenUtils.Lib
 open Informedica.GenUtils.Lib.BCL
@@ -18,7 +18,7 @@ File.exists <| FilePath.GStandPath + "BST000T"
 // ProductRange
 ProductRange.data ()
 //|> Array.filter (fun d -> d.GPK |> Option.isNone)
-|> Array.iter   (printfn "%A")
+|> Array.iter (printfn "%A")
 
 // Substance
 Substance.get()
@@ -38,7 +38,7 @@ GenPresProduct.getAssortment ()
 |> Seq.iter (fun n -> printfn "%s" n)
 
 
-GenPresProduct.filter "paracetamol" "" "rectaal"
+GenPresProduct.filter "paracetamol" "" ""
 |> Array.map GenPresProduct.toString
 |> Array.iter (printfn "%s")
 
@@ -113,42 +113,61 @@ GenPresProduct.getAssortment ()
 )
 
 // Get all dose rules for age 12 months weight 10 kg paracetamol rect
-RuleFinder.createFilter (Some 12.) (Some 10.) None None "paracetamol" "" "iv"
+RuleFinder.createFilter (Some 12.) (Some 10.) None None "paracetamol" "" ""
 |> RuleFinder.find
+|> Array.map (fun r -> DoseRule.toString ", " r |> printfn "%s"; r)
 |> RuleFinder.convertToResult
 
-// Creating gp: PARACETAMOL INFVLST 10MG/ML
-// Real: 00:00:00.041, CPU: 00:00:00.036, GC gen0: 1, gen1: 0
-// val it : RuleFinder.RuleResult =
-//   {DoseRules =
-//     [|"217494, PARACETAMOL INFVLST 10MG/ML, Groep: intensieve, Type: Standaard, Route: INTRAVENEUS, Indicatie: 4. Algemeen, Leeftijd: 1 - 216 maanden, Gewicht: tot 66.7 kg, Freq: 4 per dag, Norm/Kg: tot 1.5 ml";
-//       "346721, PARACETAMOL INFVLST 10MG/ML, Groep: intensieve, Type: Standaard, Route: INTRAVENEUS, Indicatie: 4. Algemeen, Leeftijd: 1 - 216 maanden, Gewicht: tot 50 kg, Freq: 1 eenmalig, Norm/Kg: tot 2 ml"|];
-//    Doses = [|{Freq = {Frequency = 4.0;
-//                       Time = "per dag";};
-//               NormDose = {Min = None;
-//                           Max = None;};
-//               AbsDose = {Min = None;
-//                          Max = None;};
-//               NormKg = {Min = None;
-//                         Max = Some 60.0;};
-//               AbsKg = {Min = None;
-//                        Max = None;};
-//               NormM2 = {Min = None;
-//                         Max = None;};
-//               AbsM2 = {Min = None;
-//                        Max = None;};
-//               Unit = "MILLIGRAM";}; {Freq = {Frequency = 1.0;
-//                                              Time = "eenmalig";};
-//                                      NormDose = {Min = None;
-//                                                  Max = None;};
-//                                      AbsDose = {Min = None;
-//                                                 Max = None;};
-//                                      NormKg = {Min = None;
-//                                                Max = Some 20.0;};
-//                                      AbsKg = {Min = None;
-//                                               Max = None;};
-//                                      NormM2 = {Min = None;
-//                                                Max = None;};
-//                                      AbsM2 = {Min = None;
-//                                               Max = None;};
-//                                      Unit = "MILLIGRAM";}|];}
+
+DoseRule.get ()
+|> Array.filter (fun dr ->
+    dr.Freq.Time = "eenmalig" && dr.Freq.Frequency > 1.0
+) 
+|> Array.iter (fun dr -> 
+    dr 
+    |> DoseRule.toString ", " 
+    |> printfn "%s"
+)
+
+GenPresProduct.getAssortment ()
+|> Array.iter (fun gpp ->
+    let dbls = 
+        GenPresProduct.getAssortment ()
+        |> Array.filter (fun gpp_ -> gpp.Name = gpp_.Name && gpp.Shape = gpp_.Shape)
+    if dbls |> Array.length > 1 then 
+        dbls 
+        |> Array.iter (fun gpp__ ->
+            printfn "%s %s %s" gpp__.Name gpp__.Shape (gpp__.Route |> String.concat "/")
+        )
+)
+
+GenPresProduct.getAssortment ()
+|> Array.collect (fun gpp ->
+    gpp.GenericProducts 
+    |> Array.collect (fun gp ->
+        gp.Substances 
+        |> Array.map (fun s -> s.GenericUnit)
+    )
+) |> Array.distinct |> Array.sort
+
+DoseRule.get ()
+|> Array.filter (fun dr ->
+    dr.PrescriptionProduct |> Array.length > 0 &&
+    dr.TradeProduct |> Array.length = 0
+) 
+|> Array.map (DoseRule.toString ", ")
+|> Array.iter (printfn "%s")
+
+let rts =
+    DoseRule.get()
+    |> Array.collect (fun dr ->
+        dr.Routes
+    ) |> Array.sort |> Array.distinct
+
+GenPresProduct.getRoutes()
+|> Array.filter (fun r -> 
+    rts
+    |> Array.exists ((=) r)
+    |> not
+)
+

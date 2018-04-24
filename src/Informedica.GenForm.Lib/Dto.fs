@@ -199,10 +199,10 @@ module Dto =
 
     let frequencyMapping = mapping (Environment.CurrentDirectory + "/" + FilePath.data + "/formulary/FrequencyMapping.csv")
 
-    let toDto (dto : Dto) (rs : RuleFinder.RuleResult) =
+    let toDto (dto : Dto) (gpp : GenPresProduct.GenPresProduct) (rs : string []) (ds : RuleFinder.FreqDose []) =
 
         let doses = 
-            rs.Doses
+            ds
             // Only get the rules with a 'mappable' frequency
             |> Array.filter (fun d ->
                 (string d.Freq.Frequency + " " + d.Freq.Time)
@@ -223,6 +223,14 @@ module Dto =
                 | None -> None
             ) (Some [||]) 
             |> (fun ds -> if ds |> Option.isSome then ds |> Option.get else [||])
+
+        let factor = 
+            match doses with
+            | [||] -> 1.
+            | _ -> 
+                (string doses.[0].Freq.Frequency + " " + doses.[0].Freq.Time)
+                |> frequencyMapping GStandMap StandMap
+                |> Double.parse
 
         match doses with
         | [||] ->
@@ -418,12 +426,12 @@ module Dto =
             let atc =
                 if dto'.ATC <> "" then dto'.ATC
                 else 
-                    if rs.Product.GenericProducts |> Array.isEmpty then dto'.ATC
+                    if gpp.GenericProducts |> Array.isEmpty then dto'.ATC
                     else
-                        rs.Product.GenericProducts
+                        gpp.GenericProducts
                         |> Array.fold (fun acc gp ->
                             if gp.ATC = acc then acc else dto'.ATC
-                        ) rs.Product.GenericProducts.[0].ATC
+                        ) gpp.GenericProducts.[0].ATC
 
             let groups = 
                 atc 
@@ -452,24 +460,24 @@ module Dto =
                 Generic = 
                     if dto'.Generic <> "" then dto'.Generic
                     else
-                        if rs.Product.DisplayName = "" then rs.Product.Name 
-                        else rs.Product.DisplayName
+                        if gpp.DisplayName = "" then gpp.Name 
+                        else gpp.DisplayName
                 
                 Shape = 
                     if dto'.Shape <> "" then dto'.Shape
-                    else rs.Product.Shape
+                    else gpp.Shape
                         
                 Label = 
                     if dto'.Label <> "" then dto'.Label
                     else 
-                        rs.Product.GenericProducts
+                        gpp.GenericProducts
                         |> Array.fold (fun acc gp ->
                             if acc = "" then gp.Label
                             else acc
                         ) ""
 
                 Rules = 
-                    rs.DoseRules 
+                    rs 
                     |> String.concat "||"
             }
         )
@@ -494,7 +502,18 @@ module Dto =
         RuleFinder.createFilter age wght bsa gpk "" "" dto.Route
         |> RuleFinder.find
         |> RuleFinder.convertToResult
-        |> Option.bind (fun r -> toDto dto r |> Some)
+        |> (fun rs -> 
+            match rs with
+            | None -> [||]
+            | Some r ->
+                r.Doses
+                |> Array.groupBy (fun d ->
+                    d.Freq.Time
+                )
+                |> Array.map (fun (_, ds) ->
+                    toDto dto r.Product r.DoseRules ds
+                )
+        )
     
 
     let loadGenForm () =

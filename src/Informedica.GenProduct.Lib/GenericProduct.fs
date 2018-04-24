@@ -3,6 +3,7 @@
 module GenericProduct =
     
     open Informedica.GenUtils.Lib
+    open Informedica.GenUtils.Lib.BCL
 
     type GenericProduct =
         {
@@ -51,6 +52,7 @@ module GenericProduct =
             PrescriptionProducts = ps
         }
 
+
     let getRoutes (p : Zindex.BST711T.BST711T) =
 
         let rt =
@@ -76,18 +78,15 @@ module GenericProduct =
             )
             |> Array.distinct
             |> Array.map (fun tdw ->
-                match Zindex.BST902T.records () 
-                        |> Array.tryFind (fun r -> 
-                        r.MUTKOD <> 1 && r.TSNR = 7 &&
-                        r.TSITNR = tdw
-                        ) with
-                | Some r -> r.THNM25
-                | None -> ""
+                Names.getThes tdw Names.Route Names.TwentyFive
             )
-        if rt |> Array.isEmpty then rt
+            |> Array.filter String.notEmpty
+
+        if rt |> Array.isEmpty |> not then rt
         else 
-            [| Names.getThes p.GPKTWG 7 Names.TwentyFive |]
-            
+            [| Names.getThes p.GPKTWG Names.Route Names.TwentyFive |]
+
+                        
     let private _get gpks = 
         Zindex.BST711T.records ()
         |> Array.filter (fun gp -> 
@@ -109,10 +108,10 @@ module GenericProduct =
                     ) with
                 | Some atc' -> atc'.ATOMS
                 | None     -> ""
-            let sh = Names.getThes gp.GPKTVR 6 Names.Fifty
+            let sh = Names.getThes gp.GPKTVR Names.Shape Names.Fifty
             let rt = getRoutes gp
             let ps = PrescriptionProduct.get gp.GPKODE
-            let un = Names.getThes gp.XPEHHV 2 Names.Fifty
+            let un = Names.getThes gp.XPEHHV Names.ShapeUnit Names.Fifty
             let ss = 
                 let gss =
                     Zindex.BST715T.records ()
@@ -163,13 +162,13 @@ module GenericProduct =
                             join hp in hps 
                                 on (ig.HPKODE = hp.HPKODE)
                             
-                            let u = Names.getThes ig.XNMINE 1 Names.Fifty
+                            let u = Names.getThes ig.XNMINE Names.GenericUnit Names.Fifty
                             
                             select (gn'.GNGNAM, ig.GNMINH, u)
                         } 
                         |> Seq.toArray
                                     
-                    let gu = Names.getThes gs.XNMOME 1 Names.Fifty
+                    let gu = Names.getThes gs.XNMOME Names.GenericUnit Names.Fifty
 
                     select 
                      (

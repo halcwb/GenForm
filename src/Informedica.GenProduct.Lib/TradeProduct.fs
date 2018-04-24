@@ -3,6 +3,7 @@
 module TradeProduct =
 
     open Informedica.GenUtils.Lib
+    open Informedica.GenUtils.Lib.BCL
 
     type TradeProduct =
         {
@@ -12,10 +13,11 @@ module TradeProduct =
             Brand : string
             Company : string
             Denominator : int
+            Route : string []
             ConsumerProducts : ConsumerProduct.ConsumerProduct []
         }
 
-    let create id nm lb br cm dn ps =
+    let create id nm lb br cm dn rt ps =
         {
             Id = id
             Name = nm
@@ -23,6 +25,7 @@ module TradeProduct =
             Brand = br
             Company = cm
             Denominator = dn
+            Route = rt
             ConsumerProducts = ps
         }
 
@@ -36,7 +39,16 @@ module TradeProduct =
             let nm = Names.getName r.HPNAMN Names.Full
             let lb = Names.getName r.HPNAMN Names.Label
             let ps = ConsumerProduct.get r.HPKODE
-            create r.HPKODE nm lb r.MSNAAM r.FSNAAM r.HPDEEL ps
+
+            let rt = 
+                Zindex.BST760T.records ()
+                |> Array.filter (fun x -> x.HPKODE = r.HPKODE)
+                |> Array.map (fun x -> x.ENKTDW)
+                |> Array.map (fun tdw -> Names.getThes tdw Names.Route Names.TwentyFive)
+                |> Array.filter String.notEmpty
+                |> Array.distinct
+
+            create r.HPKODE nm lb r.MSNAAM r.FSNAAM r.HPDEEL rt ps
         )
 
     let get : int -> TradeProduct [] = Memoization.memoize _get

@@ -3,6 +3,7 @@
 module Unit =  
 
     open MathNet.Numerics
+    open Informedica.GenUtils.Lib
     open Informedica.GenUtils.Lib.BCL
 
     module Multipliers =
@@ -341,3 +342,47 @@ module Unit =
             match units |> List.tryFind (List.head >> (isGroup g)) with
             | Some us -> us
             | None -> []
+
+
+        type Lang = DutchShort | DutchLong | EnglishShort | EnglishLong
+
+
+        let langMap =
+            let s = Reflection.toString
+            [
+                count, ("times", "x"), ("keer", "x")
+
+                gram,      ("gram",      "g"),      ("gram",      "g")      
+                kiloGram,  ("kilogram",  "kg"),     ("kilogram",  "kg")     
+                microGram, ("microgram", "microg"), ("microgram", "microg") 
+                milliGram, ("milligram", "mg"),     ("milligram", "mg")     
+                nanoGram,  ("nanogram",  "nanog"),  ("nanogram",  "nanog")  
+
+                liter,      ("liter",      "l"),   ("liter",      "l")   
+                deciLiter,  ("deciliter",  "dl"),  ("deciliter",  "dl")  
+                milliLiter, ("milliliter", "ml"),  ("milliliter", "ml")  
+                microLiter, ("microliter", "mcl"), ("microliter", "mcl") 
+
+                second, ("second", "s"),   ("seconde", "s")   
+                minute, ("minute", "min"), ("minuut",  "min")   
+                hour,   ("hour",   "hr"),  ("uur",     "u")   
+                day,    ("day",    "d"),   ("dag",     "d")   
+                week,   ("week",   "w"),   ("week",    "w")   
+                month,  ("month",  "mo"),  ("maand",   "m")   
+                year,   ("year",   "yr"),  ("jaar",    "j")   
+
+                weightGram, ("gram",     "g"),  ("gram",     "g")
+                weightKg,   ("kilogram", "kg"), ("kilogram", "kg")
+            ]
+
+
+        let toLangString lang (u : Unit) =
+            let toStr sl = 
+                match lang with
+                | DutchLong    -> let (_, _, d) = sl in d |> fst
+                | DutchShort   -> let (_, _, d) = sl in d |> snd
+                | EnglishLong  -> let (_, e, _) = sl in e |> fst
+                | EnglishShort -> let (_, e, _) = sl in e |> snd
+            match langMap |> List.tryFind (fun (x, _, _) -> x = u) with
+            | Some sl -> sl |> toStr
+            | None -> ""

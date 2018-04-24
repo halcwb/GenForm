@@ -5,6 +5,7 @@ module GenPresProduct =
     open Informedica.GenUtils.Lib.BCL
     open Informedica.GenUtils.Lib
 
+
     type GenPresProduct =
         {
             Name : string
@@ -13,10 +14,12 @@ module GenPresProduct =
             Pharmacologic : string []
             GenericProducts : GenericProduct.GenericProduct []
             DisplayName: string
+            Unit : string
             Synonyms: string []
         }
 
-    let create nm sh rt ph gps dpn sns =
+
+    let create nm sh rt ph gps dpn unt sns =
         {
             Name = nm
             Shape = sh
@@ -24,8 +27,10 @@ module GenPresProduct =
             Pharmacologic = ph
             GenericProducts = gps
             DisplayName = dpn
+            Unit = unt
             Synonyms = sns
         }
+
 
     let private parse (prs : ProductRange.ProductRange []) =
         let gpks =  prs |> Array.map (fun pr -> pr.GPK |> Option.get)
@@ -39,10 +44,11 @@ module GenPresProduct =
                 |> Array.fold (fun a s -> 
                     if a = "" then s 
                     else a + "/" + s) ""
-            ((n, gp.Shape, gp.Route), gp))
+            ((n, gp.Shape), gp))
         |> Array.groupBy (fun (key, gp) -> key)
-        |> Array.map (fun ((nm, sh, rt), xs) -> 
+        |> Array.map (fun ((nm, sh), xs) -> 
             let gps = xs |> Array.map (fun (_, gp) -> gp)
+
             let dpn = 
                 prs 
                 |> Array.filter (fun pr -> 
@@ -58,6 +64,7 @@ module GenPresProduct =
                     if acc = "" then pr.Generic
                     else acc
                 ) ""
+
             let ph = 
                 gps 
                 |> Array.collect (fun gp -> 
@@ -66,7 +73,28 @@ module GenPresProduct =
                         atc.ATCODE.Trim() = gp.ATC.Substring(0, 5))
                     |> Array.map (fun atc -> atc.ATOMS))
                 |> Array.distinct
-            create nm sh rt ph gps dpn [||])
+
+            let unt = 
+                gps
+                |> Array.fold (fun acc gp ->
+                    if acc <> "" then acc
+                    else 
+                        gp.PrescriptionProducts
+                        |> Array.fold (fun acc pp ->
+                            if acc <> "" then acc
+                            else  pp.Unit
+                        ) ""
+                ) ""
+
+            let rt =
+                gps 
+                |> Array.collect (fun gp ->
+                    gp.Route
+                ) 
+                |> Array.distinct
+
+            create nm sh rt ph gps dpn unt [||])
+
 
     let private _get (prs : ProductRange.ProductRange []) = 
         if FilePath.productCache |> File.exists then
@@ -85,7 +113,9 @@ module GenPresProduct =
             gsps |> Json.cache FilePath.productCache
             gsps
 
+
     let private get = Memoization.memoize _get
+
 
     let getAssortment () = 
         ProductRange.data ()
@@ -101,8 +131,10 @@ module GenPresProduct =
         )
         |> Array.distinct
 
+
     let toString (gpp : GenPresProduct) =
         gpp.Name + " " + gpp.Shape + " " + (gpp.Route |> String.concat "/")
+
 
     let filter n s r =
         getAssortment ()
@@ -122,7 +154,98 @@ module GenPresProduct =
        
 
     let load () = getAssortment () |> ignore
-        
+
+            
+    let getRoutes =
+        fun () ->
+            getAssortment ()
+            |> Array.collect (fun gpp ->
+                gpp.Route
+            )
+            |> Array.distinct
+            |> Array.sort
+        |> Memoization.memoize
+
+
+    let getShapes =
+        fun () ->
+            getAssortment ()
+            |> Array.map (fun gpp ->
+                gpp.Shape
+            )
+            |> Array.distinct
+            |> Array.sort
+        |> Memoization.memoize
+
+
+    let getUnits =
+        fun () ->
+            getAssortment ()
+            |> Array.map (fun gpp ->
+                gpp.Unit
+            )
+            |> Array.distinct
+            |> Array.sort
+        |> Memoization.memoize
+
+
+    let getShapeRoutes =
+        fun () ->
+            getAssortment ()
+            |> Array.map (fun gpp ->
+                gpp.Shape, gpp.Route
+            )
+            |> Array.groupBy fst
+            |> Array.map (fun (k, vs) ->
+                k, 
+                vs 
+                |> Array.collect snd
+                |> Array.distinct
+            )
+            |> Array.distinct
+            |> Array.sort               
+
+
+    let getShapeUnits =
+        fun () ->
+            getAssortment ()
+            |> Array.map (fun gpp ->
+                gpp.Shape, gpp.Unit
+            )
+            |> Array.distinct
+            |> Array.sort
+        |> Memoization.memoize
+
+
+    let getSubstanceUnits =
+        fun () ->
+            getAssortment ()
+            |> Array.collect (fun gpp ->
+                gpp.GenericProducts 
+                |> Array.collect (fun gp ->
+                    gp.Substances 
+                    |> Array.map (fun s -> s.SubstanceUnit)
+                )
+            )
+            |> Array.distinct
+            |> Array.sort
+        |> Memoization.memoize
+
+
+
+    let getGenericUnits =
+        fun () ->
+            getAssortment ()
+            |> Array.collect (fun gpp ->
+                gpp.GenericProducts 
+                |> Array.collect (fun gp ->
+                    gp.Substances 
+                    |> Array.map (fun s -> s.GenericUnit)
+                )
+            )
+            |> Array.distinct
+            |> Array.sort
+        |> Memoization.memoize
 
 (*
     let getPediatric () =

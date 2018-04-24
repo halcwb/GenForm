@@ -22,3 +22,4 @@ nuget Microsoft.Extensions.DependencyInjection
 nuget Giraffe
 
 nuget Newtonsoft.Json
+nuget Aether

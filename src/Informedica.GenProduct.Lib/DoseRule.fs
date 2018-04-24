@@ -7,54 +7,114 @@ module DoseRule =
     open Informedica.GenUtils.Lib.BCL
     open Informedica.GenUtils.Lib
 
+    module Constants =
+            
+        [<Literal>]
+        let intensive = "intensieve"
+
+        [<Literal>]
+        let nonIntensive = "niet-intensieve"
+
+        [<Literal>]
+        let all = "alle"
+
+        [<Literal>]
+        let profylactic = "profylactisch"
+
+        [<Literal>]
+        let therapeutic = "therapeutisch"
+
+        [<Literal>]
+        let standard = "Standaard"
+
+        [<Literal>]
+        let special = "Verbyzondering"
+
+        [<Literal>]
+        let male = "man"
+
+        [<Literal>]
+        let female = "vrouw"
+
+
     type DoseRule =
         {
+            /// The id of the doserule
             Id : int
+            /// The caregroup the doserule applies to
+            /// this is either 'intensieve' or 'niet-intensieve' or 'all'
             CareGroup : string
+            /// This is the usage of the dose rule, can be therapeutic or
+            /// profylactic
             Usage : string
+            /// The dose type, 'standaard' means that the dose rule applies without
+            /// a specific indication, 'verbyzondering' means the dose rule needs
+            /// an indication other than 'Algemeen'.
             DoseType : string
+            /// The list of generic products for which the dose rule applies
             GenericProduct : GenericProduct[]
+            /// The list of prescription products for which the dose rule applies
             PrescriptionProduct : Product[] 
+            /// The list of trade products for which the dose rule applies
             TradeProduct : Product[]
-            Route : string
+            /// The route for which the dose rule applies
+            Routes : string []
+            /// The indication id for which the dose rule applies.
+            /// The indications are coded by ICPC/ICD-10
             IndicationId : int
+            /// The indication text for which the dose rule applies.
+            /// The indications are coded by ICPC/ICD-10
             Indication : string
-            MinAge : int Option
+            /// If high risk, than the dose margins are smaller
             HighRisk : bool
+            /// Gender is either 'man', 'vrouw' or an empty string.
+            /// When gender is empty the dose rule can apply to either
+            /// gender.
             Gender : string
+            /// The optional minimum or maximum age limits for the dose rule
             Age : MinMax 
+            /// The optional minimum or maximum weight limits for which the dose
+            /// rule applies
             Weight : MinMax 
+            /// The optional BSA min/max for which the dose rule applies
             BSA : MinMax 
+            /// The frequency of the dose rule. The total dose can be calculated
+            /// by multiplying the dose by the frequency.
             Freq : Frequency 
+            /// The normal optional min/max of the unadjusted dose
             Norm : MinMax 
+            /// The absolute optional min/max of the unadjusted dose
             Abs : MinMax 
+            /// The normal optional min/max of the dose adjusted by weight
             NormKg : MinMax 
+            /// The absolute optional min/max of the dose adjusted by weight
             AbsKg : MinMax 
+            /// The absolute optional min/max of the dose adjusted by BSA 
             NormM2 : MinMax 
+            /// The absolute optional min/max of the dose adjusted by BSA
             AbsM2 : MinMax 
+            /// The unit in which the dose is measured
             Unit : string
         }
     and Product = { Id: int; Name: string }
-    and GenericProduct = { Id: int; Name: string; Route: string; Unit: string }
+    and GenericProduct = 
+        {  
+            Id: int
+            Name: string
+            Route: string []
+            Unit: string
+            Substances : Substance []
+        }
+    and Substance = { Name: string; Quantity: float; Unit: string }
     and Frequency = { Frequency: float; Time: string }
     and MinMax = { Min: float Option; Max: float Option }
 
 
-    let optionChoose cp x1 x2 = 
-        match x1, x2 with
-        | None, None -> None
-        | Some _, None -> x1
-        | None, Some _ -> x2
-        | Some x1', Some x2' -> if cp x1' x2' then x1' |> Some else x2' |> Some
-
-    let optionMin = optionChoose (<=)
-
-    let optionMax = optionChoose (>=)
-
     let foldMinMax xs = 
         xs |> Array.fold (fun { Min = min; Max = max} (acc: MinMax) ->
-            { Min = optionMin acc.Min min; Max = optionMax acc.Max max }
+            { Min = Option.min acc.Min min; Max = Option.max acc.Max max }
         ) { Min = None; Max = None }
+
 
     let toString del (r: DoseRule)  =
         let minMaxToString n u p (mm: MinMax) s =
@@ -105,8 +165,8 @@ module DoseRule =
         let s = s |> adds "Gebruik" r.Usage
         let s = s |> adds "Groep" r.CareGroup
         let s = s |> adds "Type" r.DoseType
-        let s = s |> adds "Route" r.Route 
-        let s = s |> adds "Indicatie" ((r.IndicationId |> string) + ". " + r.Indication) 
+        let s = s |> adds "Route" (r.Routes |> String.concat "/")
+        let s = s |> adds "Indicatie" r.Indication 
 
         let s = if r.HighRisk then s + "Hig Risk " else s
 
@@ -136,7 +196,7 @@ module DoseRule =
 
     let createProduct id nm : Product = { Id = id; Name = nm }
 
-    let createGenericProduct id nm rt un = { Id = id; Name = nm; Route = rt; Unit = un }
+    let createGenericProduct id nm rt un sl = { Id = id; Name = nm; Route = rt; Unit = un; Substances = sl }
 
     let createFrequency fr tm = { Frequency = fr; Time = tm }
 
@@ -154,7 +214,7 @@ module DoseRule =
         
             { Min = mn; Max = mx }
 
-    let create id gr us dt gp pr tr rt ci ic ma hr sx ag wt bs fr no ab nk ak nm am un =
+    let create id gr us dt gp pr tr rt ci ic hr sx ag wt bs fr no ab nk ak nm am un =
         {
             Id = id
             CareGroup = gr
@@ -163,10 +223,9 @@ module DoseRule =
             GenericProduct = gp
             PrescriptionProduct = pr
             TradeProduct = tr
-            Route = rt
+            Routes = rt
             IndicationId = ci
             Indication = ic
-            MinAge = ma
             HighRisk = hr
             Gender = sx
             Age = ag
@@ -192,10 +251,9 @@ module DoseRule =
             GenericProduct = Array.empty
             PrescriptionProduct = Array.empty
             TradeProduct = Array.empty
-            Route = ""
+            Routes = [||]
             IndicationId = 0
             Indication = ""
-            MinAge = None
             HighRisk = false
             Gender = ""
             Age = minmax
@@ -213,27 +271,36 @@ module DoseRule =
 
 
     let _getGenericProducts () =
-        query {
-            for p in Zindex.BST711T.records () do
-            join hpknmr in Zindex.BST020T.records ()  
-                on (p.GPNMNR = hpknmr.NMNR)
-            join twg in Zindex.BST902T.records () 
-                on (p.GPKTWG = twg.TSITNR)
-            join un in Zindex.BST902T.records ()
-                on (p.XPEHHV = un.TSITNR)
-            where (twg.TSNR = 7 && un.TSNR = 1)
-
-            where (p.MUTKOD <> 1)
-            
-            select 
-                (
-                    createGenericProduct p.GPKODE 
-                                         (hpknmr.NMNAAM.Trim()) 
-                                         (twg.THNM25.Trim()) 
-                                         (un.THNM25.Trim())
-                )
-        } |> Seq.toArray
-
+        GenPresProduct.getAssortment()
+        |> Array.collect (fun gpp -> 
+            gpp.GenericProducts
+            |> Array.map (fun gp -> gp.Id)
+        )
+        |> Array.distinct
+        |> Array.toList
+        |> GenericProduct.get
+        |> Array.map (fun gp ->
+            let unt = 
+                gp.Substances
+                |> Array.fold (fun acc s ->
+                    if acc = "" then s.ShapeUnit else acc
+                ) ""
+            {
+                Id = gp.Id
+                Name = gp.Name
+                Route = gp.Route
+                Unit = unt
+                Substances =
+                    gp.Substances
+                    |> Array.map (fun s -> 
+                        {
+                            Name = s.SubstanceName
+                            Quantity = s.SubstanceQuantity
+                            Unit = s.SubstanceUnit
+                        }
+                    )
+            }
+        )
 
     let getGenericProducts : unit -> GenericProduct[] = 
         Memoization.memoize _getGenericProducts
@@ -275,16 +342,9 @@ module DoseRule =
         Memoization.memoize _getTradeProducts
 
 
-    let getICPCRoute (icp : Zindex.BST642T.BST642T) =
-        Zindex.BST902T.records ()
-        |> Array.tryFind (fun tx ->
-            tx.MUTKOD <> 1 &&
-            tx.TSNR = 7 &&
-            tx.TSITNR = icp.GPKTWG
-        )
-        |> (fun r -> 
-            if r |> Option.isNone then ""
-            else r.Value.THNM50.Trim())
+    let getICPCRoute (icp : Zindex.BST642T.BST642T) = 
+        [| Names.getThes icp.GPKTWG Names.Route Names.Fifty |]
+
 
     let getDoseType (bas : Zindex.BST641T.BST641T) =
         Zindex.BST902T.records ()
@@ -324,25 +384,6 @@ module DoseRule =
 
     let parse gpks =
 
-        let noRoute = "TOEDIENINGSWEG NIET INGEVULD"
-
-        let getMinAge = 
-            let tts =
-                Zindex.BST920T.records ()
-                |> Array.filter (fun tt -> tt.TXMOD = 17)
-                |> Array.filter (fun tt -> tt.TXSRTT = 12)
-                |> Array.filter (fun tt -> tt.MUTKOD <> 1)
-
-            Zindex.BST711T.records ()
-            |> Array.filter (fun x -> x.GPMLCI > 0)
-            |> Array.map (fun x -> 
-                let at = 
-                    tts
-                    |> Array.filter(fun tt -> tt.TXKODE = x.GPMLCT)
-                    |> Array.map(fun tt -> tt.TXRGL.Trim())
-                    |> Array.fold (fun (b: StringBuilder) s -> b.Append(s)) (new StringBuilder())
-                (x.GPKODE, x.GPMLCI, at.ToString()))
-
         query {
             // get all dose records
             for dos in  Zindex.BST649T.records () do
@@ -370,24 +411,28 @@ module DoseRule =
                 ((bas.GPKODE, bas.PRKODE, bas.HPKODE), 
                 { 
                     empty with 
-                        Id = dos.GPDDNR
-                        Route = getICPCRoute icp
-                        DoseType = getDoseType bas
+                        Id           = dos.GPDDNR
+                        Routes        = getICPCRoute icp
+                        DoseType     = getDoseType bas
                         IndicationId = icp.GPDID1
-                        Indication = getICPCText icp
-                        HighRisk = vas.GPRISC = "*"
+                        Indication   = getICPCText icp
+                        HighRisk     = vas.GPRISC = "*"
+
                         Gender =
-                            if vas.GPDGST = 1 then "M"
-                            elif vas.GPDGST = 2 then "F" 
+                            if   vas.GPDGST = 1 then Constants.male
+                            elif vas.GPDGST = 2 then Constants.female
                             else ""
+
                         CareGroup =
-                            if icp.GPDZCO = 1 then "niet-intensive" 
-                            elif icp.GPDZCO = 2 then "intensieve" 
-                            else "alle"
+                            if   icp.GPDZCO = 1 then Constants.nonIntensive
+                            elif icp.GPDZCO = 2 then Constants.intensive
+                            else Constants.all
+
                         Usage =
-                            if icp.ICPCTO = 0 then ""
-                            elif icp.ICPCTO = 1 then "Profylactisch"
-                            else "Therapeutisch"
+                            if   icp.ICPCTO = 0 then ""
+                            elif icp.ICPCTO = 1 then Constants.profylactic
+                            else Constants.therapeutic
+
                         Age    = createMinMax cat.GPDLFM cat.GPDLFX
                         Weight = createMinMax cat.GPDKGM cat.GPDKGX
                         BSA    = createMinMax cat.GPDM2M cat.GPDM2X
@@ -401,19 +446,8 @@ module DoseRule =
                 })      
         }
         |> Seq.toArray
-        // Get minage
-        |> Array.map ((fun (bas, r) -> 
-            let r =
-                {
-                    r with
-                        MinAge = 
-                            getMinAge 
-                            |> Array.tryFind (fun (gpk, _, _) -> gpk = gpk)
-                            |> (fun a -> match a with | Some (_, a, _) -> a |> Some | None -> None)
-                }
-            (bas, r)
-        // Get generic products
-        ) >> (fun (bas, r) ->
+        // Get Generic products
+        |> Array.map ((fun (bas, r) ->
             let (gpk, _, _) = bas
             let gpks = 
                 getGenericProducts ()
@@ -421,9 +455,13 @@ module DoseRule =
                         gp.Id = gpk
                     )
             let rt = 
-                if (r.Route = "" || r.Route = noRoute) && gpks |> Array.length > 0
-                then (gpks |> Array.head).Route 
-                else r.Route
+                if (r.Routes |> Array.isEmpty) 
+                then 
+                    gpks 
+                    |> Array.collect (fun gp ->
+                        gp.Route
+                    )
+                else r.Routes
             let un = 
                 match gpks |> Array.tryHead with
                 | Some gp -> gp.Unit
@@ -432,7 +470,7 @@ module DoseRule =
                 {
                     r with
                         GenericProduct = gpks
-                        Route = rt
+                        Routes = rt
                         Unit = un
                 }
             (bas, r)
@@ -460,7 +498,7 @@ module DoseRule =
     let _get () =
         if FilePath.ruleCache |> File.exists then
             FilePath.ruleCache
-            |> Json.getCache
+            |> Json.getCache<DoseRule[]>
         else 
             printfn "No cache creating DoseRule"
             let rules = GenPresProduct.getGPKS () |> parse
@@ -523,7 +561,7 @@ module DoseRule =
 
     let routes_ () =
         Zindex.BST642T.records ()
-        |> Array.map getICPCRoute
+        |> Array.collect getICPCRoute
         |> Array.distinct
         |> Array.sort
 

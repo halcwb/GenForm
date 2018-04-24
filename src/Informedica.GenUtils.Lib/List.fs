@@ -17,13 +17,12 @@ module List =
             (xs |> Seq.skip (ind + 1) |> Seq.toList)
         | None -> xs
 
-    /// Calling distinct on a list **xs**
-    let distinct xs = xs |> Seq.ofList |> Seq.distinct |> Seq.toList
 
     let listFilter p xs =
         xs
         |> List.filter (fun r -> 
             r |> List.exists (fun x -> p x )) 
+
 
     let collectLists p xs =
         xs
@@ -31,10 +30,12 @@ module List =
             r
             |> List.filter (fun x -> p x))
 
+
     let pickList pl (xs: 'a List) =
         match pl with
         | [] -> xs
         | _ -> [ for i in pl -> xs.[i] ]
+
 
     let inline toString xs =
         match xs with

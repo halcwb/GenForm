@@ -2,10 +2,12 @@
 
 open Informedica.GenUtils.Lib.BCL
 
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]        
+
 module ValueUnit =
 
     open MathNet.Numerics
+
+    open Informedica.GenUtils.Lib.BCL
 
     module US = Unit
     module CS = Constants
@@ -14,9 +16,12 @@ module ValueUnit =
 
     type ValueUnit = ValueUnit of BigRational * CU.CombiUnit
 
+
     let create v u = (v, u) |> ValueUnit
 
+
     let get (ValueUnit(v, u)) = v, u
+
 
     let calc op vu1 vu2 =
         let v1, u1 = vu1 |> get
@@ -24,6 +29,13 @@ module ValueUnit =
         let u = CU.calc op u1 u2
         let v = v1 |> CU.toBase u1 |> op <| (v2 |> CU.toBase u2) |> CU.toUnit u
         create v u
+
+
+    let cmp cp vu1 vu2 =
+        let v1, u1 = vu1 |> get
+        let v2, u2 = vu2 |> get
+        v1 |> CU.toBase u1 |> cp <| (v2 |> CU.toBase u2)
+
 
     let canConvert cu vu =
         let v, cu1 = vu |> get
@@ -39,6 +51,7 @@ module ValueUnit =
 
         u1 |> eq u2 && canConvUl ul1 ul2     
 
+
     let convertTo cu vu =
         let v, cu1 = vu |> get
         let _, u1, ul1 = cu1 |> CU.get
@@ -47,9 +60,23 @@ module ValueUnit =
         let v' = v |> CU.toBase cu1 |> CU.toUnit cu
         (v', cu) |> ValueUnit
 
+
     let toString vu =
         let v, u = vu |> get
         v.ToString() + " " + (u |> CU.toString)
+
+
+    let toLangString lang prec vu =
+        let v, u = vu |> get
+        (v |> BigRational.toFloat 
+           |> Double.fixPrecision prec
+           |> string) + " " + (u |> CU.toLangString lang 1)
+
+
+    let toFloatString prec vu =
+        let v, u = vu |> get
+        (v |> BigRational.toFloat |> Double.fixPrecision prec |> string) + " " + (u |> CU.toString)
+
 
     let fromString s =
         match s |> String.split CS.space with
@@ -74,3 +101,12 @@ module ValueUnit =
 
         static member (-) (vu1, vu2) = calc (-) vu1 vu2
 
+        static member op_Equal (vu1, vu2) = cmp (=) vu1 vu2
+
+        static member op_GreaterThan (vu1, vu2) = cmp (>) vu1 vu2
+
+        static member op_SmallerThan (vu1, vu2) = cmp (<) vu1 vu2
+
+        static member op_GreaterThanOrEqual (vu1, vu2) = cmp (>=) vu1 vu2
+
+        static member op_SmallerThanOrEqual (vu1, vu2) = cmp (<=) vu1 vu2

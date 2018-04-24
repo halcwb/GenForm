@@ -54,7 +54,7 @@ module Api =
         | Volume_MilliLiter -> US.MilliLiter |> US.toVolume
         | Volume_MicroLiter -> US.MicroLiter |> US.toVolume
         | Time_Second -> US.Second |> US.toTime
-        | Time_Minute  -> US.Minute |> US.toTime
+        | Time_Minute -> US.Minute |> US.toTime
         | Time_Hour   -> US.Hour   |> US.toTime
         | Time_Day    -> US.Day    |> US.toTime
         | Time_Week   -> US.Week   |> US.toTime

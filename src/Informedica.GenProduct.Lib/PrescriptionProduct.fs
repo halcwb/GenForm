@@ -42,8 +42,8 @@ module PrescriptionProduct =
                 |> Array.find (fun r' -> r'.PRKODE = r.PRKODE)
             let nm = Names.getName p.PRNMNR Names.Full
             let lb = Names.getName p.PRNMNR Names.Label
-            let un = Names.getThes r.XPEHHV 1 Names.Fifty
-            let ct = Names.getThes r.HPEMBT 73 Names.Fifty
+            let un = Names.getThes r.XPEHHV Names.GenericUnit Names.Fifty
+            let ct = Names.getThes r.HPEMBT Names.PrescriptionContainer Names.Fifty
             let ps = TradeProduct.get r.PRKODE
             create r.PRKODE nm lb r.HPGALG un ct ps
         )
