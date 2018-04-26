@@ -1,5 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
@@ -16,6 +15,8 @@
     <Compile Include="Api.fs" />
     <None Include="scripts/genunits-files.fsx" />
     <None Include="scripts/Scripts.fsx" />
+    <None Include="scripts\references.fsx" />
+    <None Include="scripts\ValueUnit.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Informedica.GenUtils.Lib\Informedica.GenUtils.Lib.fsproj" />
