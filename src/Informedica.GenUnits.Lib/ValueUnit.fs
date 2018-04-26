@@ -1,7 +1,5 @@
 ﻿namespace Informedica.GenUnits.Lib
 
-open Informedica.GenUtils.Lib.BCL
-
 
 module ValueUnit =
 
@@ -110,3 +108,5 @@ module ValueUnit =
         static member op_GreaterThanOrEqual (vu1, vu2) = cmp (>=) vu1 vu2
 
         static member op_SmallerThanOrEqual (vu1, vu2) = cmp (<=) vu1 vu2
+
+

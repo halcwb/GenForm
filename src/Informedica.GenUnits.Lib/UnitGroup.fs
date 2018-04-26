@@ -1,23 +1,20 @@
 ﻿namespace Informedica.GenUnits.Lib
 
-open Informedica.GenUtils.Lib.BCL
-
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module UnitGroup =
 
     open MathNet.Numerics
     open Informedica.GenUnits.Lib
+    open Informedica.GenUtils.Lib.BCL
 
     module CS = Constants
     module UN = Unit
-    module NM = UN.Name
     module CU = CombiUnit
 
-    type UnitGroup = UnitGroup of NM.Name * (CU.Operator * NM.Name) list
+    type UnitGroup = UnitGroup of string * (CU.Operator * string) list
 
-    let create n = (n |> NM.Name, []) |> UnitGroup
+    let create n = (n , []) |> UnitGroup
 
-    let nameToString (NM.Name n) = n
+    let nameToString (n) = n
 
     let apply f (ug: UnitGroup) = ug |> f
 
@@ -27,7 +24,7 @@ module UnitGroup =
 
     let addGroup o n ug = 
         let g, gl = ug |> getAll
-        (g, [(o, n |> NM.Name)] |> List.append gl) |> UnitGroup
+        (g, [(o, n)] |> List.append gl) |> UnitGroup
 
     let perGroup = addGroup CU.Per
 
@@ -49,10 +46,10 @@ module UnitGroup =
         let rec parse ul usl =
             match usl with
             | [us] -> 
-                let u = us |> NM.Name
+                let u = us
                 (u, ul) |> UnitGroup
             | us::os::rest -> 
-                let u = us |> NM.Name
+                let u = us
                 let o = os |> CU.opFromString
                 rest |> parse ([ (o, u)] @ ul)
             | _ -> failwith "Cannot parse string list"
@@ -72,9 +69,9 @@ module UnitGroup =
         let n, nl = ug |> getAll
 
         let get n = 
-            match UN.Units.units |> List.tryFind (fun us -> us.Head.Group = n) with
-            | Some us -> us
-            | None    -> [n |> Unit.createGeneral]
+            match UN.Units.units |> List.filter (fun us -> us.Group = n) with
+            | [] -> [ (n |> Unit.Units.createGeneral).Unit ]
+            | us -> us |> List.map Unit.Units.getUnit
 
         let us, usl = n |> get, nl |> List.map (fun (o, u) -> o, u |> get)
             

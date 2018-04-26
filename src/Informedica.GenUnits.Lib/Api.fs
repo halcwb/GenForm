@@ -1,5 +1,6 @@
 ﻿namespace Informedica.GenUnits.Lib
 
+
 module Api =
 
     open MathNet.Numerics
@@ -33,35 +34,35 @@ module Api =
         | Time_Week
         | Time_Month
         | Time_Year
-        | Distance_Meter
-        | Distance_Centimeter
+        | Height_Meter
+        | Height_Centimeter
 
     let create f v u = 
         match u with
-        | Count_Times -> US.Times |> US.toCount 
-        | Mass_KiloGram  -> US.KiloGram  |> US.toMass 
-        | Mass_Gram      -> US.Gram      |> US.toMass 
-        | Mass_MilliGram -> US.MilliGram |> US.toMass 
-        | Mass_MicroGram -> US.MicroGram |> US.toMass 
-        | Mass_NanoGram  -> US.NanoGram  |> US.toMass
-        | Molar_Mol      -> US.Mol      |> US.toMolar
-        | Molar_MilliMol -> US.MilliMol |> US.toMolar
-        | Weight_KiloGram -> US.WeightKg |> US.toWeight
-        | Weight_Gram -> US.WeightGr |> US.toWeight
-        | Bsa_M2 -> US.Bsa |> US.toBsa
-        | Volume_Liter -> US.Liter           |> US.toVolume
-        | Volume_DeciLiter -> US.DeciLiter   |> US.toVolume
-        | Volume_MilliLiter -> US.MilliLiter |> US.toVolume
-        | Volume_MicroLiter -> US.MicroLiter |> US.toVolume
-        | Time_Second -> US.Second |> US.toTime
-        | Time_Minute -> US.Minute |> US.toTime
-        | Time_Hour   -> US.Hour   |> US.toTime
-        | Time_Day    -> US.Day    |> US.toTime
-        | Time_Week   -> US.Week   |> US.toTime
-        | Time_Month  -> US.Month  |> US.toTime
-        | Time_Year   -> US.Year   |> US.toTime
-        | Distance_Meter      -> US.Meter      |> US.toDistance
-        | Distance_Centimeter -> US.Centimeter |> US.toDistance
+        | Count_Times -> Unit.Times |> Unit.Count 
+        | Mass_KiloGram  -> Unit.KiloGram  |> Unit.Mass 
+        | Mass_Gram      -> Unit.Gram      |> Unit.Mass 
+        | Mass_MilliGram -> Unit.MilliGram |> Unit.Mass 
+        | Mass_MicroGram -> Unit.MicroGram |> Unit.Mass 
+        | Mass_NanoGram  -> Unit.NanoGram  |> Unit.Mass
+        | Molar_Mol      -> Unit.Mol      |> Unit.Molar
+        | Molar_MilliMol -> Unit.MilliMol |> Unit.Molar
+        | Weight_KiloGram -> Unit.WeightKilogram |> Unit.Weight
+        | Weight_Gram -> Unit.WeightGram |> Unit.Weight
+        | Bsa_M2 -> Unit.M2 |> Unit.BSA
+        | Volume_Liter -> Unit.Liter           |> Unit.Volume
+        | Volume_DeciLiter -> Unit.DeciLiter   |> Unit.Volume
+        | Volume_MilliLiter -> Unit.MilliLiter |> Unit.Volume
+        | Volume_MicroLiter -> Unit.MicroLiter |> Unit.Volume
+        | Time_Second -> Unit.Second |> Unit.Time
+        | Time_Minute -> Unit.Minute |> Unit.Time
+        | Time_Hour   -> Unit.Hour   |> Unit.Time
+        | Time_Day    -> Unit.Day    |> Unit.Time
+        | Time_Week   -> Unit.Week   |> Unit.Time
+        | Time_Month  -> Unit.Month  |> Unit.Time
+        | Time_Year   -> Unit.Year   |> Unit.Time
+        | Height_Meter      -> Unit.Meter      |> Unit.Height
+        | Height_Centimeter -> Unit.CentiMeter |> Unit.Height
         |> f v
 
     let createVU v u = create (fun v u -> u |> CU.create 1N |> VU.create v) v u
@@ -125,3 +126,5 @@ module Api =
         member x.toVU u = createVU x u
 
         member x.toCU u = createCU x u
+
+
