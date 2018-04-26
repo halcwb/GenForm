@@ -112,4 +112,4 @@
 #r @"/Users/hal/.nuget/packages/netstandard.library/2.0.1/build/netstandard2.0/ref/System.Xml.dll"
 #r @"/Users/hal/.nuget/packages/netstandard.library/2.0.1/build/netstandard2.0/ref/System.dll"
 #r @"/Users/hal/.nuget/packages/netstandard.library/2.0.1/build/netstandard2.0/ref/netstandard.dll"
-#r @"/Users/hal/Development/GenFormService/src/Informedica.GenUtils.Lib/bin/Debug/netstandard2.0/Informedica.GenUtils.Lib.dll"
+#r @"Z:\Development\GenFormService\src\Informedica.GenUnits.Lib\bin\Debug\netstandard2.0\Informedica.GenUtils.Lib.dll"
