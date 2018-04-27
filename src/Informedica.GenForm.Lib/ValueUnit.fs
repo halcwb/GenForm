@@ -7,6 +7,54 @@ module ValueUnit =
     open Informedica.GenUtils.Lib.BCL
     open Informedica.GenUnits.Lib
 
+    module Units =
+
+
+        module Time = 
+
+            let year = CombiUnit.Units.timeYear 1N
+
+            let month = CombiUnit.Units.timeMonth 1N
+
+            let week = CombiUnit.Units.timeWeek 1N
+
+            let day = CombiUnit.Units.timeDay 1N
+
+            let hour = CombiUnit.Units.timeHour 1N
+
+            let minute = CombiUnit.Units.timeMinute 1N
+
+
+        module Patient =
+
+            let kg = CombiUnit.Units.weightKg 1N
+
+            let gr = CombiUnit.Units.weightGram 1N
+
+            let bsa = CombiUnit.Units.bsaM2 1N
+
+
+        module Substance =
+
+            let gram = CombiUnit.Units.massGram
+
+            let mg = CombiUnit.Units.massMilliGram
+
+            let mcg = CombiUnit.Units.massMicroGram
+
+            let ng = CombiUnit.Units.massNanoGram
+
+
+        module Volume =
+    
+            let l = CombiUnit.Units.volumeLiter
+
+            let dl = CombiUnit.Units.volumeDeciLiter
+
+            let ml = CombiUnit.Units.volumeMilliLiter
+
+            let mcl = CombiUnit.Units.volumeMicroLiter
+
 
     let createUnit m v u =
         let s = 
@@ -61,19 +109,15 @@ module ValueUnit =
 
 
     let ageInMo v =
-        let monthUnit = 
-            Unit.Units.month
-            |> CombiUnit.create 1N
 
         v
         |> Option.bind (fun n ->
             (n |> BigRational.fromFloat)
             |> Option.bind (fun br -> 
-                ValueUnit.create br monthUnit
+                ValueUnit.create br Units.Time.month
                 |> (fun vu -> 
                     if br > 12N then
-                        let yr = Unit.Units.year |> CombiUnit.create 1N
-                        vu |> ValueUnit.convertTo yr
+                        vu |> ValueUnit.convertTo Units.Time.year
                     else vu
                 )
                 |> Some
@@ -82,9 +126,5 @@ module ValueUnit =
 
 
     let weightInKg v = 
-        let weightKg = 
-            Unit.Units.weightKg
-            |> CombiUnit.create 1N 
-
         v
-        |> Option.bind (fun n -> fromFloat n weightKg)
+        |> Option.bind (fun n -> fromFloat n Units.Patient.kg)

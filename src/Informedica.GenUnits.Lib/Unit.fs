@@ -5,6 +5,7 @@ module Unit =
 
     open Informedica.GenUtils.Lib
     open Informedica.GenUtils.Lib.BCL
+    open MathNet.Numerics
 
     module Multipliers =
 
@@ -79,20 +80,48 @@ module Unit =
 
     let getMultiplier = function 
         | General _ -> Multipliers.one
-        | Mass mg ->
-            match mg with
-            | KiloGram  -> Multipliers.kilo
-            | Gram      -> Multipliers.one
+        | Count _ -> Multipliers.one
+        | Mass g  -> 
+            match g with
+            | KiloGram -> Multipliers.kilo
+            | Gram -> Multipliers.one
             | MilliGram -> Multipliers.milli
             | MicroGram -> Multipliers.micro
-            | NanoGram  -> Multipliers.nano
-        | Volume vg ->
-            match vg with
-            | Liter      -> Multipliers.one
-            | DeciLiter  -> Multipliers.deci
+            | NanoGram -> Multipliers.nano
+        | Volume g  ->
+            match g with
+            | Liter -> Multipliers.one
+            | DeciLiter -> Multipliers.deci
             | MilliLiter -> Multipliers.milli
             | MicroLiter -> Multipliers.micro
-        | _ -> Multipliers.one
+        | Time g  ->
+            match g with
+            | Year -> Multipliers.year
+            | Month -> Multipliers.month
+            | Week -> Multipliers.week
+            | Day -> Multipliers.day
+            | Hour -> Multipliers.hour
+            | Minute -> Multipliers.minute
+            | Second -> Multipliers.second
+        | Molar g  ->
+            match g with
+            | Mol -> Multipliers.one
+            | MilliMol -> Multipliers.milli
+        | InternationalUnit g  ->
+            match g with
+            | MiljIU -> Multipliers.kilo * Multipliers.kilo
+            | IU -> Multipliers.one
+        | Weight g  -> 
+            match g with
+            | WeightKilogram -> Multipliers.kilo
+            | WeightGram -> Multipliers.one
+        | Height g  -> 
+            match g with
+            | Meter -> Multipliers.one
+            | CentiMeter -> Multipliers.centi
+        | BSA g  -> 
+            match g with
+            | M2 -> Multipliers.one
 
 
     let applyGroup falt fcnt fmss fvol ftme fmol fiun fwgt fhgt fbsa u =

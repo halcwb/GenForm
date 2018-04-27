@@ -3,10 +3,9 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="Scripts\references.fsx" />
+    <None Include="Scripts\Scripts.fsx" />
     <Compile Include="Mapping.fs" />
-    <None Include="scripts/references.fsx" />
-    <None Include="scripts/genform-files.fsx" />
-    <None Include="scripts/Scripts.fsx" />
     <Compile Include="MinMax.fs" />
     <Compile Include="ValueUnit.fs" />
     <Compile Include="Route.fs" />
@@ -19,9 +18,6 @@
     <ProjectReference Include="..\Informedica.GenUtils.Lib\Informedica.GenUtils.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
     <ProjectReference Include="..\Informedica.GenProduct.Lib\Informedica.GenProduct.Lib.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="./scripts/" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

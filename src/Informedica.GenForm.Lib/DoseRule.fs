@@ -45,7 +45,7 @@ module DoseRule =
 
 
         let toString { Min = min; Max = max } = 
-            let toStr = ValueUnit.toLangString Unit.Units.DutchShort 2
+            let toStr = ValueUnit.toLangString Unit.Units.Dutch 2
             let s =
                 match min, max with
                 | None, None -> ""

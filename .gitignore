@@ -75,9 +75,15 @@ publishnuget.cmd
 # Add test files
 !/tests/
 !/tests/Informedica.GenUtils.Tests/
+!/tests/Informedica.GenUtils.Tests/Scripts/
 !/tests/Informedica.GenUnits.Tests/
+!/tests/Informedica.GenUnits.Tests/Scripts/
 !/tests/Informedica.GenProduct.Tests/
+!/tests/Informedica.GenProduct.Tests/Scripts/
+!/tests/Informedica.GenForm.Lib.Tests/
+!/tests/Informedica.GenForm.Lib.Tests/Scripts/
 !/tests/Informedica.GenForm.Service.Tests/
+!/tests/Informedica.GenForm.Service.Tests/Scripts/
 
 # Ignore generated documentation files
 /docs/content/**/*.md

@@ -8,14 +8,11 @@
     <Compile Include="Unit.fs" />
     <Compile Include="CombiUnit.fs" />
     <Compile Include="Main.fs" />
-    <None Include="Scripts/references.fsx" />
+    <None Include="Scripts\references.fsx" />
     <None Include="Scripts\Script.fsx" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Informedica.GenUnits.Lib\Informedica.GenUnits.Lib.fsproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Scripts\" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

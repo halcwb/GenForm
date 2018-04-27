@@ -46,8 +46,8 @@ module Patient =
 
         let heightMap =
             [
-                Distance_Meter, [ "m"; "meter"]
-                Distance_Centimeter, [ "cm"; "centimeter" ]
+                Height_Meter, [ "m"; "meter"]
+                Height_Centimeter, [ "cm"; "centimeter" ]
             ]
 
         let genderMap =
@@ -169,7 +169,7 @@ module Patient =
 
             let h = 
                 h 
-                >>! (1N.toCU Distance_Centimeter)
+                >>! (1N.toCU Height_Centimeter)
                 |> ValueUnit.get 
                 |> fst
                 |> BigRational.toFloat

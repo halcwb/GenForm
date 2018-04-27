@@ -110,3 +110,73 @@ module ValueUnit =
         static member op_SmallerThanOrEqual (vu1, vu2) = cmp (<=) vu1 vu2
 
 
+
+    module Units = 
+
+        type CU = CombiUnit
+
+        let countTimes n v = CU.Units.countTimes n |> create v
+
+
+        let massKiloGram n v = CU.Units.massKiloGram n |> create v
+
+
+        let massGram n v = CU.Units.massGram n |> create v
+
+
+        let massMilliGram n v = CU.Units.massMilliGram n |> create v
+
+
+        let massMicroGram n v = CU.Units.massMicroGram n |> create v
+
+
+        let massNanoGram n v  = CU.Units.massNanoGram n |> create v
+
+
+        let volumeLiter n v = CU.Units.volumeLiter n |> create v
+
+
+        let volumeDeciLiter n v = CU.Units.volumeDeciLiter n |> create v
+
+         
+        let volumeMilliLiter n v = CU.Units.volumeMilliLiter n |> create v
+
+         
+        let volumeMicroLiter n v = CU.Units.volumeMicroLiter n |> create v
+
+
+        let timeYear n v = CU.Units.timeYear n |> create v
+
+
+        let timeMonth n v = CU.Units.timeMonth n |> create v
+
+
+        let timeWeek n v = CU.Units.timeWeek n |> create v
+
+
+        let timeDay n v = CU.Units.timeDay n |> create v
+
+
+        let timeHour n v = CU.Units.timeHour n |> create v
+
+
+        let timeMinute n v = CU.Units.timeMinute n |> create v
+
+         
+        let timeSecond n v = CU.Units.timeSecond n |> create v
+
+
+        let molarMol n v = CU.Units.molarMol n |> create v
+
+
+        let molarMilliMol n v = CU.Units.molarMilliMol n |> create v
+
+                         
+        let weightKg n v = CU.Units.weightKg n |> create v
+
+
+        let weightGram n v = CU.Units.weightGram n |> create v
+
+
+        let bsaM2 n v = CU.Units.bsaM2 n |> create v
+

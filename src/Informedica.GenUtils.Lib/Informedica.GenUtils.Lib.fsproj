@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="BCL\" />
-    <Folder Include="scripts/" />
+    <Folder Include="Scripts\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Continuation.fs" />
@@ -23,8 +23,7 @@
     <Compile Include="Seq.fs" />
     <Compile Include="File.fs" />
     <Compile Include="App.fs" />
-    <None Include="scripts\genutils-files.fsx" />
-    <None Include="scripts\references.fsx" />
+    <None Include="Scripts\references.fsx" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

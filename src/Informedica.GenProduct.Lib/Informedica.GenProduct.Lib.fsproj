@@ -23,7 +23,6 @@
     <Compile Include="ATCGroup.fs" />
     <Compile Include="RuleFinder.fs" />
     <None Include="Scripts/references.fsx" />
-    <None Include="Scripts/genproduct-files.fsx" />
     <None Include="Scripts/Script.fsx" />
     <None Include="Scripts/gencoderefs.fsx" />
     <None Include="Scripts/GenCode.fsx" />

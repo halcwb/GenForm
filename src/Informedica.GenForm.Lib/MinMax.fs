@@ -20,10 +20,11 @@ module MinMax =
     let createMax = Max
 
 
-    let valid min max = min <= max
+    let isValid min max = min <= max
+
 
     let createMinAndMaxDef def min max = 
-        if valid min max then (min, max) |> MinAndMax
+        if isValid min max then (min, max) |> MinAndMax
         else def
 
 
