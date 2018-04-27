@@ -3,6 +3,8 @@
 
 module MinMax =
 
+    open Informedica.GenUtils.Lib
+
 
     type MinMax<'a> = 
         | None
@@ -65,7 +67,28 @@ module MinMax =
 
 
     let setSmallerMax max minmax = setMaxCond (<) max minmax
-     
+    
+
+    let apply fnone fmin fmax fmm minmax =
+        match minmax with
+        | None      -> None |> fnone
+        | Min min   -> min  |> fmin
+        | Max max   -> max  |> fmax
+        | MinAndMax (min, max) ->  (min, max) |> fmm
+    
+
+    let getMin minmax = 
+        let get (min, _) = min |> Some
+        minmax |> apply Option.none Some Option.none get
+    
+
+    let getMax minmax = 
+        let get (_,max) = max |> Some
+        minmax |> apply Option.none Option.none Some get
+
+
+    let getMinAndMax minmax = minmax |> apply Option.none Option.none Option.none Some
+
 
     let foldCond cond mms =
         let condMax m1 m2 = cond m2 m1
@@ -94,4 +117,15 @@ module MinMax =
         | Max max -> n <= max
         | MinAndMax (min, max) -> n >= min && n <= max
 
+
+    let toString toStr minmax = 
+        let s =
+            match minmax with
+            | None -> ""
+            | Min min -> "vanaf " + (min |> toStr)
+            | Max max ->
+                "tot " + (max |> toStr)
+            | MinAndMax (min, max) -> (min |> toStr) + " - " + (max |> toStr)
+
+        if s = "" then "" else s + " "
 

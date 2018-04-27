@@ -5,7 +5,7 @@
 open System
 
 let pwd = Environment.GetEnvironmentVariable("HOME")
-Environment.CurrentDirectory <- pwd + "/Development/GenFormService/" //__SOURCE_DIRECTORY__ + "/../../../"
+Environment.CurrentDirectory <- pwd + "/Development/GenForm/" //__SOURCE_DIRECTORY__ + "/../../../"
 
 open MathNet.Numerics
 
@@ -86,7 +86,20 @@ let getProduct gen shp =
         }
         |> Some
 
+    
+let remBr s = 
+    (String.regex "\[[^\]]*]").Replace(s, "")
+
+
 DoseRule.Patient.empty
 |> DoseRule.Patient.setMaxAgeMonths (Some 25.)
 |> DoseRule.Patient.setMaxWeightKg (Some 10.)
 |> DoseRule.Patient.toString
+|> (fun s ->
+    let start = s |> String.countFirstChar '['
+    let stop  = s |> String.countFirstChar ']'
+
+    s |> remBr
+)
+
+"test [remove]" |> String.removeTextBetweenBrackets

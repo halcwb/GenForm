@@ -1,5 +1,6 @@
 ﻿namespace Informedica.GenForm.Lib
 
+
 module ValueUnit =
 
     open MathNet.Numerics
@@ -100,31 +101,35 @@ module ValueUnit =
                 |> Some
 
         match u |> substanceUnit with
-        | Some u' ->
-            v
-            |> Option.bind (fun n ->
-                fromFloat n u'
-            )
+        | Some u' -> fromFloat v u'
         | None -> None
 
 
-    let ageInMo v =
+    let getSubstanceInGStandUnit vu =
+        let v, u = ValueUnit.get vu
 
-        v
-        |> Option.bind (fun n ->
-            (n |> BigRational.fromFloat)
-            |> Option.bind (fun br -> 
-                ValueUnit.create br Units.Time.month
-                |> (fun vu -> 
-                    if br > 12N then
-                        vu |> ValueUnit.convertTo Units.Time.year
-                    else vu
-                )
-                |> Some
+        v |> BigRational.toFloat, 
+        u 
+        |> CombiUnit.toString
+        |> Mapping.mapUnit Mapping.GenFormMap Mapping.GStandMap
+
+
+    let ageInMo = Option.bind (fun n -> fromFloat n Units.Time.month)
+
+
+    let weightInKg = Option.bind (fun n -> fromFloat n Units.Patient.kg)
+
+
+    let bsaInM2 = Option.bind (fun n -> fromFloat n Units.Patient.bsa)
+
+
+    let gestAgeInDaysAndWeeks gest =
+        gest 
+        |> Option.bind (fun (w, d) ->
+            fromFloat w Units.Time.week
+            |> Option.bind (fun vu1 -> 
+                fromFloat d Units.Time.day
+                |> Option.bind (fun vu2 -> vu1 + vu2 |> Some)
             )
         )
 
-
-    let weightInKg v = 
-        v
-        |> Option.bind (fun n -> fromFloat n Units.Patient.kg)

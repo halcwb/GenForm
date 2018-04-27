@@ -68,9 +68,10 @@ publishnuget.cmd
 !/src/Informedica.GenProduct.Lib/
 !/src/Informedica.GenProduct.Lib/Scripts/
 !/src/Informedica.GenForm.Lib/
-!/src/Informedica.GenForm.Lib/scripts/
+!/src/Informedica.GenForm.Lib/Utils/
+!/src/Informedica.GenForm.Lib/Scripts/
 !/src/Informedica.GenForm.Service/
-!/src/Informedica.GenForm.Service/scripts/
+!/src/Informedica.GenForm.Service/Scripts/
 
 # Add test files
 !/tests/

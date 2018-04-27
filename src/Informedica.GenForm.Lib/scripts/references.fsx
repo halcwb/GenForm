@@ -8,6 +8,7 @@
 #r @".\..\..\..\src\Informedica.GenUnits.Lib\bin\Debug\netstandard2.0\Informedica.GenUnits.Lib.dll"
 #r @".\..\..\..\src\Informedica.GenProduct.Lib\bin\Debug\netstandard2.0\Informedica.GenProduct.Lib.dll"
 
+#load @".\..\Utils\String.fs"
 #load @".\..\Mapping.fs"
 #load @".\..\MinMax.fs"
 #load @".\..\ValueUnit.fs"

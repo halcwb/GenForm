@@ -33,97 +33,181 @@ module DoseRule =
 
     module MinMax =
 
-        open Aether
 
-        type MinMax = 
-            {
-                Min : ValueUnit.ValueUnit Option 
-                Max : ValueUnit.ValueUnit Option
-            }
-
-        let empty = { Min = None; Max = None }
+        type MinMax = MinMax.MinMax<ValueUnit.ValueUnit>
 
 
-        let toString { Min = min; Max = max } = 
+        let empty = MinMax.none
+
+
+        let toString minmax = 
             let toStr = ValueUnit.toLangString Unit.Units.Dutch 2
-            let s =
-                match min, max with
-                | None, None -> ""
-                | Some min, None -> "vanaf " + (min |> toStr)
-                | None, Some max ->
-                    "tot " + (max |> toStr)
-                | Some min, Some max -> (min |> toStr) + " - " + (max |> toStr)
-            if s = "" then "" else s + " "
+            
+            minmax |> MinMax.toString toStr
 
 
-        let ageMin min minmax =
-            { minmax with Min = ValueUnit.ageInMo min } 
+        let set m set v minmax =
+            match m v with 
+            | Some vu -> minmax |> set vu
+            | None -> MinMax.none
+
+        
+        let inline get get minmax = 
+            minmax
+            |> get
+            |> Option.bind (fun vu ->
+                vu
+                |> ValueUnit.get
+                |> fst
+                |> BigRational.toFloat
+                |> Some
+            )
+
+        
+        let setAge = set ValueUnit.ageInMo
+
+        
+        let setAgeMin = setAge MinMax.setMin
 
 
-        let ageMax max minmax =
-            { minmax with Max = ValueUnit.ageInMo max } 
+        let setAgeMax = setAge MinMax.setMax
 
 
         let ageMinMax min max =
             empty
-            |> ageMin min
-            |> ageMax max
+            |> setAgeMin min
+            |> setAgeMax max
 
 
-        let substanceMin min u minmax =
-            { minmax with Min = ValueUnit.substanceInGStandUnit min u }
+        let getAgeMin = get MinMax.getMin
 
 
-        let substanceMax max u minmax =
-            { minmax with Max = ValueUnit.substanceInGStandUnit max u }
+        let getAgeMax = get MinMax.getMax
 
 
-        let substanceMinMax min max u =
+        let getAgeMinMax minmax = 
+            minmax |> getAgeMin ,
+            minmax |> getAgeMax
+
+        
+        let setWeight = set ValueUnit.weightInKg
+
+        
+        let setWeightMin = setWeight MinMax.setMin
+
+
+        let setWeightMax = setWeight MinMax.setMax
+
+
+        let weightMinMax min max =
             empty
-            |> substanceMin min u
-            |> substanceMax max u
+            |> setWeightMin min
+            |> setWeightMax max
+
+        
+        let getWeightMin = get MinMax.getMin
 
 
-        let fold mms =
-            mms |> List.fold (fun mm acc ->
-                {  mm with
-                    Min = Option.min acc.Min mm.Min
-                    Max = Option.max acc.Max mm.Max
-                }
-            ) empty
+        let getWeightMax = get MinMax.getMax
 
 
-        let inRange n { Min = min; Max = max } =
-            if n |> Option.isNone then true
-            else
-                let n = n |> Option.get
-                match min, max with
-                | None, None -> true
-                | Some min, None -> n >= min
-                | None, Some max -> n <= max
-                | Some min, Some max -> n >= min && n <= max
+        let getWeightMinMax minmax = 
+            minmax |> getWeightMin ,
+            minmax |> getWeightMax
+
+        
+        let setBSA = set ValueUnit.bsaInM2
+
+        
+        let setBSAMin = setBSA MinMax.setMin
 
 
-        type MinMax with
-
-            static member Min_ =
-                (fun mm -> mm.Min), (fun vu mm -> { mm with Min = vu })
-
-            static member Max_ =
-                (fun mm -> mm.Max), (fun vu mm -> { mm with Max = vu })
+        let setBSAMax = setBSA MinMax.setMax
 
 
-        let getMin = Optic.get MinMax.Min_
+        let setBSAMinMax min max =
+            empty
+            |> setBSAMin min
+            |> setBSAMax max
+
+        
+        let getBSAMin = get MinMax.getMin
 
 
-        let setMin vu = Optic.set MinMax.Min_ vu
+        let getBSAMax = get MinMax.getMax
 
 
-        let getMax = Optic.get MinMax.Max_
+        let getBSAMinMax minmax = 
+            minmax |> getBSAMin ,
+            minmax |> getBSAMax
+
+        
+        let setGestAge = set ValueUnit.gestAgeInDaysAndWeeks
+
+        
+        let setGestAgeMin = setGestAge MinMax.setMin
 
 
-        let setMax vu = Optic.set MinMax.Max_ vu
+        let setGestAgeMax = setGestAge MinMax.setMax
 
+
+        let setGestAgeMinMax min max =
+            empty
+            |> setGestAgeMin min
+            |> setGestAgeMax max
+
+        
+        let getGestAgeMin = get MinMax.getMin
+
+
+        let getGestAgeMax = get MinMax.getMax
+
+
+        let getGestAgeMinMax minmax = 
+            minmax |> getGestAgeMin ,
+            minmax |> getGestAgeMax
+
+
+        let setSubstance set vu minmax =
+            match vu with
+            | Some (v, u) ->
+                match ValueUnit.substanceInGStandUnit v u with 
+                | Some vu -> minmax |> set vu
+                | None -> MinMax.none
+            | None -> MinMax.none
+
+
+        let setSubstanceMin = setSubstance MinMax.setMin
+
+
+        let setSubstanceMax = setSubstance MinMax.setMax
+
+
+        let setSubstanceMinMax min max =
+            empty
+            |> setSubstanceMin min
+            |> setSubstanceMax max
+
+
+        let getSubstance get minmax =
+            minmax
+            |> get
+            |> Option.bind (fun vu ->
+                vu
+                |> ValueUnit.getSubstanceInGStandUnit
+                |> Some
+            )
+
+
+        let getSubstanceMin = getSubstance MinMax.getMin
+
+
+        let getSubstanceMax = getSubstance MinMax.getMax
+
+
+        let getSubstanceMinMax minmax =
+            minmax |> getSubstanceMin ,
+            minmax |> getSubstanceMax
 
 
     module Patient = 
@@ -153,14 +237,13 @@ module DoseRule =
 
         let toString p =
             let print label (minmax : MinMax.MinMax) s =
-                 match minmax.Min, minmax.Max with
-                 | None, None -> s
-                 | _ -> s + label + ": " + (minmax |> MinMax.toString)
+                label + ": " + (minmax |> MinMax.toString)
             if p = empty then "alle patienten"
             else 
                 ""
                 |> print "Leeftijd" p.Age
                 |> print "Gewicht" p.Weight
+
 
         type Patient with
 
@@ -188,7 +271,12 @@ module DoseRule =
         let setAge = Optic.set Patient.Age_
 
 
-        let minAgeLens = Patient.Age_ >-> MinMax.MinMax.Min_
+        let isoMorphAgeMin = 
+            (fun minmax -> minmax |> MinMax.getAgeMin), 
+            (fun min minmax -> minmax |> MinMax.setAgeMin min) 
+
+
+        let minAgeLens = Patient.Age_ >-> isoMorphAgeMin
 
 
         let getMinAge = Optic.get minAgeLens
@@ -197,10 +285,12 @@ module DoseRule =
         let setMinAge = Optic.set minAgeLens
 
 
-        let setMinAgeMonths min pat = Optic.set minAgeLens (min |> ValueUnit.ageInMo) pat
+        let isoMorphAgeMax = 
+            (fun minmax -> minmax |> MinMax.getAgeMax), 
+            (fun max minmax -> minmax |> MinMax.setAgeMax max) 
 
 
-        let maxAgeLens = Patient.Age_ >-> MinMax.MinMax.Max_
+        let maxAgeLens = Patient.Age_ >-> isoMorphAgeMax
 
 
         let getMaxAge = Optic.get maxAgeLens
@@ -208,8 +298,6 @@ module DoseRule =
 
         let setMaxAge = Optic.set maxAgeLens
 
-
-        let setMaxAgeMonths max pat = Optic.set maxAgeLens (max |> ValueUnit.ageInMo) pat
 
 
         // === Weight SETTERS GETTERS ==
@@ -220,19 +308,26 @@ module DoseRule =
         let setWeight = Optic.set Patient.Weight_
 
 
-        let minWeightLens = Patient.Weight_ >-> MinMax.MinMax.Min_
+        let isoMorphWeightMin =
+            (fun minmax -> minmax |> MinMax.getWeightMin) ,
+            (fun min minmax -> minmax |> MinMax.setWeightMin min)
+        
+
+        let minWeightLens = Patient.Weight_ >-> isoMorphWeightMin
 
 
         let getMinWeight = Optic.get minWeightLens
 
 
-        let setMinWeightKg min pat = Optic.set minWeightLens (min |> ValueUnit.weightInKg) pat
+        let setMinWeight = Optic.set minWeightLens
+
+
+        let isoMorphWeightMax =
+            (fun minmax -> minmax |> MinMax.getWeightMax) ,
+            (fun max minmax -> minmax |> MinMax.setWeightMax max)
  
 
-        let setWeightAge = Optic.set minWeightLens
-
-
-        let maxWeightLens = Patient.Weight_ >-> MinMax.MinMax.Max_
+        let maxWeightLens = Patient.Weight_ >-> isoMorphWeightMax
 
 
         let getMaxWeight = Optic.get maxWeightLens
@@ -241,8 +336,93 @@ module DoseRule =
         let setMaxWeight = Optic.set maxWeightLens
 
 
-        let setMaxWeightKg max pat = Optic.set maxWeightLens (max |> ValueUnit.weightInKg) pat
+        // === BSA SETTERS GETTERS ==
 
+        let getBSA = Optic.get Patient.BSA_
+
+
+        let setBSA = Optic.set Patient.BSA_
+
+
+        let isoMorphBSAMin =
+            (fun minmax -> minmax |> MinMax.getBSAMin) ,
+            (fun min minmax -> minmax |> MinMax.setBSAMin min)
+        
+
+        let minBSALens = Patient.BSA_ >-> isoMorphBSAMin
+
+
+        let getMinBSA = Optic.get minBSALens
+
+
+        let setMinBSA = Optic.set minBSALens
+
+
+        let isoMorphBSAMax =
+            (fun minmax -> minmax |> MinMax.getBSAMax) ,
+            (fun max minmax -> minmax |> MinMax.setBSAMax max)
+ 
+
+        let maxBSALens = Patient.BSA_ >-> isoMorphBSAMax
+
+
+        let getMaxBSA = Optic.get maxBSALens
+ 
+
+        let setMaxBSA = Optic.set maxBSALens
+
+
+
+        // === GestAge SETTERS GETTERS ==
+
+        let getGestAge = Optic.get Patient.GestAge_
+
+
+        let setGestAge = Optic.set Patient.GestAge_
+
+
+        let isoMorphGestAgeMin =
+            (fun minmax -> 
+                minmax 
+                |> MinMax.getGestAgeMin
+                |> Option.bind (fun f ->
+                    let wks = f / 7.
+                    let days = f - wks
+                    (wks, days) |> Some
+                )
+            ) ,
+            (fun min minmax -> minmax |> MinMax.setGestAgeMin min)
+        
+
+        let minGestAgeLens = Patient.GestAge_ >-> isoMorphGestAgeMin
+
+
+        let getMinGestAge = Optic.get minGestAgeLens
+
+
+        let setMinGestAge = Optic.set minGestAgeLens
+
+
+        let isoMorphGestAgeMax =
+            (fun minmax -> 
+                minmax 
+                |> MinMax.getGestAgeMax
+                |> Option.bind (fun f ->
+                    let wks = f / 7.
+                    let days = f - wks
+                    (wks, days) |> Some
+                )
+            ) ,
+            (fun max minmax -> minmax |> MinMax.setGestAgeMax max)
+ 
+
+        let maxGestAgeLens = Patient.GestAge_ >-> isoMorphGestAgeMax
+
+
+        let getMaxGestAge = Optic.get maxGestAgeLens
+ 
+
+        let setMaxGestAge = Optic.set maxGestAgeLens
 
 
     module Dose =
@@ -347,7 +527,12 @@ module DoseRule =
         let setNormDose = Optic.set DoseValue.NormDose_
 
 
-        let normDoseMinLens = DoseValue.NormDose_ >-> MinMax.MinMax.Min_
+        let isoMorphDoseMin = 
+            (fun minmax -> minmax |> MinMax.getSubstanceMin) ,
+            (fun min minmax -> minmax |> MinMax.setSubstanceMin min)
+
+
+        let normDoseMinLens = DoseValue.NormDose_ >-> isoMorphDoseMin
 
         
         let getNormDoseMin = Optic.get normDoseMinLens
@@ -356,12 +541,12 @@ module DoseRule =
         let setNormDoseMin = Optic.set normDoseMinLens
 
 
-        let setNormDoseMinGStand v u dv = 
-            dv 
-            |>  setNormDoseMin (ValueUnit.substanceInGStandUnit v u)
+        let isoMorphDoseMax = 
+            (fun minmax -> minmax |> MinMax.getSubstanceMax) ,
+            (fun max minmax -> minmax |> MinMax.setSubstanceMax max)
 
 
-        let normDoseMaxLens = DoseValue.NormDose_ >-> MinMax.MinMax.Max_
+        let normDoseMaxLens = DoseValue.NormDose_ >-> isoMorphDoseMax
 
         
         let getNormDoseMax = Optic.get normDoseMaxLens
@@ -370,18 +555,13 @@ module DoseRule =
         let setNormDoseMax = Optic.set normDoseMaxLens
 
 
-        let setNormDoseMaxGStand v u dv = 
-            dv 
-            |>  setNormDoseMax (ValueUnit.substanceInGStandUnit v u)
-
-        
         let getAbsDose = Optic.get DoseValue.AbsDose_
 
 
         let setAbsDose = Optic.set DoseValue.AbsDose_
 
 
-        let absDoseMinLens = DoseValue.AbsDose_ >-> MinMax.MinMax.Min_
+        let absDoseMinLens = DoseValue.AbsDose_ >-> isoMorphDoseMin
 
         
         let getAbsDoseMin = Optic.get absDoseMinLens
@@ -390,12 +570,7 @@ module DoseRule =
         let setAbsDoseMin = Optic.set absDoseMinLens
 
 
-        let setAbsDoseMinGStand v u dv = 
-            dv 
-            |>  setAbsDoseMin (ValueUnit.substanceInGStandUnit v u)
-
-
-        let absDoseMaxLens = DoseValue.AbsDose_ >-> MinMax.MinMax.Max_
+        let absDoseMaxLens = DoseValue.AbsDose_ >-> isoMorphDoseMax
 
         
         let getAbsDoseMax = Optic.get absDoseMaxLens
@@ -404,18 +579,13 @@ module DoseRule =
         let setAbsDoseMax = Optic.set absDoseMaxLens
 
 
-        let setAbsDoseMaxGStand v u dv = 
-            dv 
-            |>  setAbsDoseMax (ValueUnit.substanceInGStandUnit v u)
-
-        
         let getNormDosePerKg = Optic.get DoseValue.NormDosePerKg_
 
 
         let setNormDosePerKg = Optic.set DoseValue.NormDosePerKg_
 
 
-        let normDosePerKgMinLens = DoseValue.NormDosePerKg_ >-> MinMax.MinMax.Min_
+        let normDosePerKgMinLens = DoseValue.NormDosePerKg_ >-> isoMorphDoseMin
 
         
         let getNormDosePerKgMin = Optic.get normDosePerKgMinLens
@@ -424,12 +594,7 @@ module DoseRule =
         let setNormDosePerKgMin = Optic.set normDosePerKgMinLens
 
 
-        let setNormDosePerKgMinGStand v u dv = 
-            dv 
-            |>  setNormDosePerKgMin (ValueUnit.substanceInGStandUnit v u)
-
-
-        let normDosePerKgMaxLens = DoseValue.NormDosePerKg_ >-> MinMax.MinMax.Max_
+        let normDosePerKgMaxLens = DoseValue.NormDosePerKg_ >-> isoMorphDoseMax
 
         
         let getNormDosePerKgMax = Optic.get normDosePerKgMaxLens
@@ -438,18 +603,13 @@ module DoseRule =
         let setNormDosePerKgMax = Optic.set normDosePerKgMaxLens
 
 
-        let setNormDosePerKgMaxGStand v u dv = 
-            dv 
-            |>  setNormDosePerKgMax (ValueUnit.substanceInGStandUnit v u)
-
-        
         let getAbsDosePerKg = Optic.get DoseValue.AbsDosePerKg_
 
 
         let setAbsDosePerKg = Optic.set DoseValue.AbsDosePerKg_
 
 
-        let absDosePerKgMinLens = DoseValue.AbsDosePerKg_ >-> MinMax.MinMax.Min_
+        let absDosePerKgMinLens = DoseValue.AbsDosePerKg_ >-> isoMorphDoseMin
 
         
         let getAbsDosePerKgMin = Optic.get absDosePerKgMinLens
@@ -458,23 +618,13 @@ module DoseRule =
         let setAbsDosePerKgMin = Optic.set absDosePerKgMinLens
 
 
-        let setAbsDosePerKgMinGStand v u dv = 
-            dv 
-            |>  setAbsDosePerKgMin (ValueUnit.substanceInGStandUnit v u)
-
-
-        let absDosePerKgMaxLens = DoseValue.AbsDosePerKg_ >-> MinMax.MinMax.Max_
+        let absDosePerKgMaxLens = DoseValue.AbsDosePerKg_ >-> isoMorphDoseMax
 
         
         let getAbsDosePerKgMax = Optic.get absDosePerKgMaxLens
 
 
         let setAbsDosePerKgMax = Optic.set absDosePerKgMaxLens
-
-
-        let setAbsDosePerKgMaxGStand v u dv = 
-            dv 
-            |>  setAbsDosePerKgMax (ValueUnit.substanceInGStandUnit v u)
 
         
         let getNormDosePerM2 = Optic.get DoseValue.NormDosePerM2_
@@ -483,7 +633,7 @@ module DoseRule =
         let setNormDosePerM2 = Optic.set DoseValue.NormDosePerM2_
 
 
-        let normDosePerM2MinLens = DoseValue.NormDosePerM2_ >-> MinMax.MinMax.Min_
+        let normDosePerM2MinLens = DoseValue.NormDosePerM2_ >-> isoMorphDoseMin
 
         
         let getNormDosePerM2Min = Optic.get normDosePerM2MinLens
@@ -492,23 +642,13 @@ module DoseRule =
         let setNormDosePerM2Min = Optic.set normDosePerM2MinLens
 
 
-        let setNormDosePerM2MinGStand v u dv = 
-            dv 
-            |>  setNormDosePerM2Min (ValueUnit.substanceInGStandUnit v u)
-
-
-        let normDosePerM2MaxLens = DoseValue.NormDosePerM2_ >-> MinMax.MinMax.Max_
+        let normDosePerM2MaxLens = DoseValue.NormDosePerM2_ >-> isoMorphDoseMax
 
         
         let getNormDosePerM2Max = Optic.get normDosePerM2MaxLens
 
 
         let setNormDosePerM2Max = Optic.set normDosePerM2MaxLens
-
-
-        let setNormDosePerM2MaxGStand v u dv = 
-            dv 
-            |>  setNormDosePerM2Max (ValueUnit.substanceInGStandUnit v u)
 
         
         let getAbsDosePerM2 = Optic.get DoseValue.AbsDosePerM2_
@@ -517,7 +657,7 @@ module DoseRule =
         let setAbsDosePerM2 = Optic.set DoseValue.AbsDosePerM2_
 
 
-        let absDosePerM2MinLens = DoseValue.AbsDosePerM2_ >-> MinMax.MinMax.Min_
+        let absDosePerM2MinLens = DoseValue.AbsDosePerM2_ >-> isoMorphDoseMin
 
         
         let getAbsDosePerM2Min = Optic.get absDosePerM2MinLens
@@ -526,23 +666,13 @@ module DoseRule =
         let setAbsDosePerM2Min = Optic.set absDosePerM2MinLens
 
 
-        let setAbsDosePerM2MinGStand v u dv = 
-            dv 
-            |>  setAbsDosePerM2Min (ValueUnit.substanceInGStandUnit v u)
-
-
-        let absDosePerM2MaxLens = DoseValue.AbsDosePerM2_ >-> MinMax.MinMax.Max_
+        let absDosePerM2MaxLens = DoseValue.AbsDosePerM2_ >-> isoMorphDoseMax
 
         
         let getAbsDosePerM2Max = Optic.get absDosePerM2MaxLens
 
 
         let setAbsDosePerM2Max = Optic.set absDosePerM2MaxLens
-
-
-        let setAbsDosePerM2MaxGStand v u dv = 
-            dv 
-            |>  setAbsDosePerM2Max (ValueUnit.substanceInGStandUnit v u)
 
         
         type Dose with
