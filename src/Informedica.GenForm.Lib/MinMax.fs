@@ -51,7 +51,7 @@ module MinMax =
         | Max m   -> if cond max m then createMax max else minmax
 
 
-    let setMin min minmax = setMaxCond (fun _ _ -> true) min minmax
+    let setMin min minmax = setMinCond (fun _ _ -> true) min minmax
 
 
     let setMax max minmax = setMaxCond (fun _ _ -> true) max minmax

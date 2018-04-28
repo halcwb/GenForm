@@ -91,15 +91,18 @@ let remBr s =
     (String.regex "\[[^\]]*]").Replace(s, "")
 
 
-DoseRule.Patient.empty
-|> DoseRule.Patient.setMaxAgeMonths (Some 25.)
-|> DoseRule.Patient.setMaxWeightKg (Some 10.)
-|> DoseRule.Patient.toString
-|> (fun s ->
-    let start = s |> String.countFirstChar '['
-    let stop  = s |> String.countFirstChar ']'
-
-    s |> remBr
-)
-
-"test [remove]" |> String.removeTextBetweenBrackets
+DoseRule.empty
+|> DoseRule.setGeneric "pacetamol"
+|> DoseRule.setShapeName "zetpil"
+|> DoseRule.setRouteName "RECTAAL"
+|> DoseRule.setATC "AB2029"
+|> DoseRule.setTherapyGroup "Pijnstilling"
+|> DoseRule.setTherapySubGroup "Pijnstilling paracetamol"
+|> DoseRule.setIndication "pijn"
+|> DoseRule.setPatientMinAge (Some 10.)
+|> DoseRule.setPatientMaxAge (Some 18.)
+|> DoseRule.setPatientFemaleGender true
+|> DoseRule.setPatientMinWeight (Some 5.)
+|> DoseRule.setPatientMaxWeight (Some 100.)
+|> DoseRule.setShapePerTimeNormDoseMin ((2., "milligram") |> Some)
+|> DoseRule.toString

@@ -29,6 +29,12 @@ module Patient =
     type Gender = Male | Female | Undetermined
 
 
+    let genderToString = function
+        | Male -> "male"
+        | Female -> "Female"
+        | Undetermined -> "Undetermined"
+
+
     type GestationalAge = 
         | GestAge of GestWeeks * GestDays
         | NoGestAge

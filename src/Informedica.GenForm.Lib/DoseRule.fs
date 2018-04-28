@@ -4,6 +4,8 @@
 module DoseRule =
 
     open MathNet.Numerics
+    open Aether
+    open Aether.Operators
 
     open Informedica.GenUtils.Lib
     open Informedica.GenUtils.Lib.BCL
@@ -211,9 +213,7 @@ module DoseRule =
 
 
     module Patient = 
-
-        open Aether
-        open Aether.Operators
+        open Informedica.GenProduct.Lib.DoseRule
 
         type Patient = 
             {
@@ -236,30 +236,41 @@ module DoseRule =
 
 
         let toString p =
-            let print label (minmax : MinMax.MinMax) s =
-                label + ": " + (minmax |> MinMax.toString)
+            let print label (minmax : MinMax.MinMax) s =                
+                s + "\n" + label + ": " + (minmax |> MinMax.toString)
             if p = empty then "alle patienten"
             else 
                 ""
                 |> print "Leeftijd" p.Age
                 |> print "Gewicht" p.Weight
+                |> (fun s -> 
+                    s + "\n" +
+                    (match p.Gender with
+                     | Some g -> "Geslacht: " + (g |> Patient.genderToString)
+                     | None -> "")
+                )
 
 
         type Patient with
 
-            static member Age_ =
+            static member Age_ : 
+                (Patient -> MinMax.MinMax) * (MinMax.MinMax -> Patient -> Patient) =
                 (fun pat -> pat.Age), (fun age pat -> { pat with Age = age } )
 
-            static member Weight_ =
+            static member Weight_ : 
+                (Patient -> MinMax.MinMax) * (MinMax.MinMax -> Patient -> Patient) =
                 (fun pat -> pat.Weight), (fun wgt pat -> { pat with Weight = wgt } )
 
-            static member BSA_ =
+            static member BSA_ : 
+                (Patient -> MinMax.MinMax) * (MinMax.MinMax -> Patient -> Patient) =
                 (fun pat -> pat.BSA), (fun bsa pat -> { pat with BSA = bsa } )
 
-            static member GestAge_ =
+            static member GestAge_ : 
+                (Patient -> MinMax.MinMax) * (MinMax.MinMax -> Patient -> Patient) =
                 (fun pat -> pat.GestAge), (fun gst pat -> { pat with GestAge = gst } )
 
-            static member Gender_ =
+            static member Gender_ : 
+                (Patient -> Option<Patient.Gender>) * (Option<Patient.Gender> -> Patient -> Patient) =
                 (fun pat -> pat.Gender), (fun gnd pat -> { pat with Gender = gnd } )
 
 
@@ -372,7 +383,6 @@ module DoseRule =
         let setMaxBSA = Optic.set maxBSALens
 
 
-
         // === GestAge SETTERS GETTERS ==
 
         let getGestAge = Optic.get Patient.GestAge_
@@ -423,6 +433,52 @@ module DoseRule =
  
 
         let setMaxGestAge = Optic.set maxGestAgeLens
+
+
+        // === Gender SETTERS GETTERS ==
+
+
+        let getGender = Optic.get Patient.Gender_
+
+
+        let setGender = Optic.set Patient.Gender_
+
+
+        let isoMorphGenderMale :
+            (Patient -> bool) * (bool -> Patient -> Patient) =
+            (fun p -> p.Gender = Some Patient.Male ),
+            (fun m p -> if m then { p with Gender = Some Patient.Male } else p)
+        
+
+        let getGenderMale = Optic.get isoMorphGenderMale
+
+
+        let setGenderMale = Optic.set isoMorphGenderMale
+
+
+        let isoMorphGenderFemale :
+            (Patient -> bool) * (bool -> Patient -> Patient) =
+            (fun p -> p.Gender = Some Patient.Female ),
+            (fun m p -> if m then { p with Gender = Some Patient.Female } else p)
+        
+
+        let getGenderFemale = Optic.get isoMorphGenderFemale
+
+
+        let setGenderFemale = Optic.set isoMorphGenderFemale
+
+
+        let isoMorphGenderUndetermined :
+            (Patient -> bool) * (bool -> Patient -> Patient) =
+            (fun p -> p.Gender = Some Patient.Undetermined ),
+            (fun m p -> if m then { p with Gender = Some Patient.Undetermined } else p)
+        
+
+        let getGenderUndetermined = Optic.get isoMorphGenderUndetermined
+
+
+        let setGenderUndetermined = Optic.set isoMorphGenderUndetermined
+
 
 
     module Dose =
@@ -691,7 +747,22 @@ module DoseRule =
         let setPerTime = Optic.set Dose.PerTime_
 
 
-        let perTimeLens = Dose.PerTime_ >-> DoseValue.NormDose_
+        let perTimeNormDoseMinLens = Dose.PerTime_ >-> normDoseMinLens
+
+
+        let getPertimeNormDoseMin = Optic.get perTimeNormDoseMinLens
+
+
+        let setPerTimeNormDoseMin = Optic.set perTimeNormDoseMinLens
+
+
+        let perTimeNormDoseMaxLens = Dose.PerTime_ >-> normDoseMaxLens
+
+
+        let getPertimeNormDoseMax = Optic.get perTimeNormDoseMaxLens
+
+
+        let setPerTimeNormDoseMax = Optic.set perTimeNormDoseMaxLens
                
 
 
@@ -708,6 +779,51 @@ module DoseRule =
 
         let empty = { Name = ""; Dose = Dose.empty; Unit = None }
 
+        type Shape with
+
+            static member Name_ =
+                (fun s -> s.Name), 
+                (fun n s -> { s with Name = n })
+
+
+            static member Dose_ =
+                (fun s -> s.Dose),
+                (fun d s -> { s with Dose = d })
+
+        
+        let getDose = Optic.get Shape.Dose_
+
+        
+        let setDose = Optic.set Shape.Dose_
+
+
+        let dosePerTimeLens = Shape.Dose_ >-> Dose.Dose.PerTime_
+
+
+        let getDosePerTime = Optic.get dosePerTimeLens
+
+
+        let setDosePerTime = Optic.set dosePerTimeLens
+
+        
+        let dosePerTimeNormDoseLens = dosePerTimeLens >-> Dose.DoseValue.NormDose_
+
+
+        let getPerTimeNormDose = Optic.get dosePerTimeNormDoseLens
+
+
+        let setPerTimeNormDose = Optic.set dosePerTimeNormDoseLens
+
+
+        let dosePerTimeNormDoseMinLens = dosePerTimeLens >-> Dose.normDoseMinLens
+
+
+        let getDoserPerTimeNormDoseMin = Optic.get dosePerTimeNormDoseMinLens
+
+
+        let setDosePerTimeNormDoseMin = Optic.get dosePerTimeNormDoseMinLens
+
+
 
     module GenericProduct =
 
@@ -718,6 +834,7 @@ module DoseRule =
             }
 
 
+
     module TradeProduct =
 
         type TradeProduct = 
@@ -725,6 +842,7 @@ module DoseRule =
                 Id : Id 
                 Name : Name
             }
+
 
 
     module Substance =
@@ -789,7 +907,6 @@ module DoseRule =
         | NoText
 
 
-
     let create gen atc thg tsg ind shp rte pat gps tps sbs txt = 
         {
             Generic = gen
@@ -824,6 +941,324 @@ module DoseRule =
         }
 
 
+    type DoseRule with
+
+        static member Generic_ =
+            (fun dr -> dr.Generic),
+            (fun s dr -> { dr with Generic = s })
+
+        static member Shape_ =
+            (fun dr -> dr.Shape),
+            (fun s dr -> { dr with Shape = s })
+
+
+        static member Route_ =
+            (fun dr -> dr.Route),
+            (fun r dr -> { dr with Route = r })
+
+        static member ATC_ =
+            (fun dr -> dr.ATC),
+            (fun s dr -> { dr with ATC = s })
+
+        static member TherapyGroup_ =
+            (fun dr -> dr.TherapyGroup),
+            (fun s dr -> { dr with TherapyGroup = s })
+
+        static member TherapySubGroup_ =
+            (fun dr -> dr.TherapySubGroup),
+            (fun s dr -> { dr with TherapySubGroup = s })
+
+        static member Indication_ =
+            (fun dr -> dr.Indication),
+            (fun s dr -> { dr with Indication = s })
+
+        static member Patient_ =
+            (fun dr -> dr.Patient) ,
+            (fun p dr -> { dr with Patient = p })
+
+
+    // === Generic SETTERS GETTERS ==
+ 
+
+    let getGeneric = Optic.get DoseRule.Generic_
+
+
+    let setGeneric = Optic.set DoseRule.Generic_
+
+
+    // === Shape SETTERS GETTERS ==
+ 
+
+    let getShape = Optic.get DoseRule.Shape_
+
+
+    let setShape = Optic.set DoseRule.Shape_
+
+
+    let shapeNameLens = DoseRule.Shape_ >-> Shape.Shape.Name_
+
+
+    let getShapeName = Optic.get shapeNameLens
+
+
+    let setShapeName = Optic.set shapeNameLens
+
+
+    let shapeDoseLens = DoseRule.Shape_ >-> Shape.Shape.Dose_ 
+
+
+    let shapePerTimeDoseLens = DoseRule.Shape_ >-> Shape.dosePerTimeLens
+
+
+    let getShapePerTime = Optic.get shapePerTimeDoseLens
+
+
+    let setShapePerTime = Optic.set shapePerTimeDoseLens
+
+
+    let shapePerTimeNormDoseLens = DoseRule.Shape_ >-> Shape.dosePerTimeNormDoseLens
+
+
+    let getShapePerTimeNormDose = Optic.get shapePerTimeNormDoseLens
+
+
+    let setShapePerTimeNormDose = Optic.set shapePerTimeNormDoseLens
+
+
+    let shapePerTimeNormDoseMinLens = DoseRule.Shape_ >-> Shape.dosePerTimeNormDoseMinLens
+
+
+    let getShapePerTimeNormDoseMin = Optic.get shapePerTimeNormDoseMinLens
+
+
+    let setShapePerTimeNormDoseMin = Optic.set shapePerTimeNormDoseMinLens
+
+
+
+    // === Route SETTERS GETTERS ==
+ 
+
+    let getRoute = Optic.get DoseRule.Route_
+
+
+    let setRoute = Optic.set DoseRule.Route_
+
+
+    let isoMorphRouteName =
+        (fun r -> r |> Route.toString),
+        (fun s r -> match s |> Route.fromString with | Some r' -> r' | None -> r)
+
+
+    let RouteNameLens = DoseRule.Route_ >-> isoMorphRouteName
+
+
+    let getRouteName = Optic.get RouteNameLens
+
+
+    let setRouteName = Optic.set RouteNameLens
+
+
+    // === ATC SETTERS GETTERS ==
+ 
+
+    let getATC = Optic.get DoseRule.ATC_
+
+
+    let setATC = Optic.set DoseRule.ATC_
+
+
+    // === TherapyGroup SETTERS GETTERS ==
+ 
+
+    let getTherapyGroup = Optic.get DoseRule.TherapyGroup_
+
+
+    let setTherapyGroup = Optic.set DoseRule.TherapyGroup_
+
+
+    // === TherapySubGroup SETTERS GETTERS ==
+ 
+
+    let getTherapySubGroup = Optic.get DoseRule.TherapySubGroup_
+
+
+    let setTherapySubGroup = Optic.set DoseRule.TherapySubGroup_
+
+
+    // === Indication SETTERS GETTERS ==
+ 
+
+    let getIndication = Optic.get DoseRule.Indication_
+
+
+    let setIndication = Optic.set DoseRule.Indication_
+
+
+    // === Patient SETTERS GETTERS ==
+ 
+
+    let getPatient = Optic.get DoseRule.Patient_
+
+
+    let setPatient = Optic.set DoseRule.Patient_
+
+
+    // === Age SETTERS GETTERS ==
+
+    let patientAgeLens = DoseRule.Patient_ >-> Patient.Patient.Age_
+
+
+    let getPatientAge = Optic.get patientAgeLens
+
+
+    let setPatientAge = Optic.set patientAgeLens
+
+
+    let patientMinAgeLens = DoseRule.Patient_ >-> Patient.minAgeLens
+    
+
+    let getPatientMinAge = Optic.get patientMinAgeLens
+ 
+
+    let setPatientMinAge = Optic.set patientMinAgeLens
+
+
+    let patientMaxAgeLens = DoseRule.Patient_ >-> Patient.maxAgeLens
+
+
+    let getPatientMaxAge = Optic.get patientMaxAgeLens
+ 
+
+    let setPatientMaxAge = Optic.set patientMaxAgeLens
+
+
+    // === Weight SETTERS GETTERS ==
+
+    let patientWeightLens = DoseRule.Patient_ >-> Patient.Patient.Weight_
+
+
+    let getPatientWeight = Optic.get patientWeightLens
+
+
+    let setPatientWeight = Optic.set patientWeightLens
+
+
+    let patientMinWeightLens = DoseRule.Patient_ >-> Patient.minWeightLens
+    
+
+    let getPatientMinWeight = Optic.get patientMinWeightLens
+ 
+
+    let setPatientMinWeight = Optic.set patientMinWeightLens
+
+
+    let patientMaxWeightLens = DoseRule.Patient_ >-> Patient.maxWeightLens
+
+
+    let getPatientMaxWeight = Optic.get patientMaxWeightLens
+ 
+
+    let setPatientMaxWeight = Optic.set patientMaxWeightLens
+
+
+    // === BSA SETTERS GETTERS ==
+
+    let patientBSALens = DoseRule.Patient_ >-> Patient.Patient.BSA_
+
+
+    let getPatientBSA = Optic.get patientBSALens
+
+
+    let setPatientBSA = Optic.set patientBSALens
+
+
+    let patientMinBSALens = DoseRule.Patient_ >-> Patient.minBSALens
+    
+
+    let getPatientMinBSA = Optic.get patientMinBSALens
+ 
+
+    let setPatientMinBSA = Optic.set patientMinBSALens
+
+
+    let patientMaxBSALens = DoseRule.Patient_ >-> Patient.maxBSALens
+
+
+    let getPatientMaxBSA = Optic.get patientMaxBSALens
+ 
+
+    let setPatientMaxBSA = Optic.set patientMaxBSALens
+
+
+    // === GestAge SETTERS GETTERS ==
+
+    let patientGestAgeLens = DoseRule.Patient_ >-> Patient.Patient.GestAge_
+
+
+    let getPatientGestAge = Optic.get patientGestAgeLens
+
+
+    let setPatientGestAge = Optic.set patientGestAgeLens
+
+
+    let patientMinGestAgeLens = DoseRule.Patient_ >-> Patient.minGestAgeLens
+    
+
+    let getPatientMinGestAge = Optic.get patientMinGestAgeLens
+ 
+
+    let setPatientMinGestAge = Optic.set patientMinGestAgeLens
+
+
+    let patientMaxGestAgeLens = DoseRule.Patient_ >-> Patient.maxGestAgeLens
+
+
+    let getPatientMaxGestAge = Optic.get patientMaxGestAgeLens
+ 
+
+    let setPatientMaxGestAge = Optic.set patientMaxGestAgeLens
+
+
+    // === Gender SETTERS GETTERS ==
+
+    let patientGenderLens = DoseRule.Patient_ >-> Patient.Patient.Gender_
+
+
+    let getPatientGender = Optic.get patientGenderLens
+
+
+    let setPatientGender = Optic.set patientGenderLens
+
+
+    let patientMaleGenderLens = DoseRule.Patient_ >-> Patient.isoMorphGenderMale
+    
+
+    let getPatientMaleGender = Optic.get patientMaleGenderLens
+ 
+
+    let setPatientMaleGender = Optic.set patientMaleGenderLens
+
+
+    let patientFemaleGenderLens = DoseRule.Patient_ >-> Patient.isoMorphGenderFemale
+
+
+    let getPatientFemaleGender = Optic.get patientFemaleGenderLens
+ 
+
+    let setPatientFemaleGender = Optic.set patientFemaleGenderLens
+
+
+    let patientUndeterminedGenderLens = DoseRule.Patient_ >-> Patient.isoMorphGenderUndetermined
+
+
+    let getPatientUndeterminedGender = Optic.get patientUndeterminedGenderLens
+ 
+
+    let setPatientUndeterminedGender = Optic.set patientUndeterminedGenderLens
+
+
+
+
     let doseRuleText = """
 Doseringsadvies voor {generic} {shape}
 
@@ -844,15 +1279,16 @@ Regels: {text}
     let toString (dr : DoseRule) =
         doseRuleText
         |> String.replace "{generic}" dr.Generic 
-        |> String.replace "{shape}" dr.Generic 
+        |> String.replace "{shape}" (dr |> getShapeName)
+        |> String.replace "{route}" (dr |> getRouteName)
         |> String.replace "{atc}" dr.ATC
         |> String.replace "{therapygroup}" dr.TherapyGroup
         |> String.replace "{therapysub}" dr.TherapySubGroup
         |> String.replace "{indication}" dr.Indication
         |> String.replace "{route}" (dr.Route |> Route.toString)
-        |> String.replace "{text}" <| 
+        |> String.replace "{patient}" (dr.Patient |> Patient.toString)
+        |> String.replace "{text}" ( 
             match dr.Text with
             | GSTandText txt 
             | PediatricFormText txt -> txt
-            | NoText -> ""
-
+            | NoText -> "")
