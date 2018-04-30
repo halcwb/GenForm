@@ -6,6 +6,15 @@ module List =
 
     open Informedica.GenUtils.Lib.BCL
 
+
+    let remove pred xs =
+        match xs |> List.tryFindIndex pred with
+        | Some (ind) ->
+            (xs |> Seq.take ind |> Seq.toList) @  
+            (xs |> Seq.skip (ind + 1) |> Seq.toList)
+        | None -> xs            
+
+
     /// Replace an element **x** in a list **xs**
     /// when the **pred** function returns `true`. </br>
     /// Note: will only replace the *first* element

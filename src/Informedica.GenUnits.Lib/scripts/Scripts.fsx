@@ -1,3 +1,4 @@
+
 #load "references.fsx"
 
 #time 
@@ -5,11 +6,35 @@
 open MathNet.Numerics
 open Giraffe
 
-module Multipliers = Informedica.GenUnits.Lib.Unit.Multipliers
+open Informedica.GenUtils.Lib
+
+
+
+module Multipliers =
+
+    let one = 1N
+    let kilo = 1000N
+    let deci = 1N / 10N
+    let centi = deci / 10N
+    let milli = 1N / kilo
+    let micro = milli / kilo                                                                                            
+    let nano = micro / kilo
+
+    let second = 1N
+    let minute = 60N * second
+    let hour = minute * minute
+    let day = 24N * hour
+    let week = 7N * day
+    let month = 4N * week
+    let year = 365N * day 
+
+    let inline toBase m v  = v * m
+    let inline toUnit m v  = v / m
+
 
 type Value = BigRational
 
-type ValueUnit = Value * Unit
+type ValueUnit = ValueUnit of  Value * Unit
 and Unit = 
     | NoUnit
     | Unit of UnitGroup
@@ -66,39 +91,49 @@ and BSAUnit =
     | M2 of M2
 // Count
 and Times = BigRational
-and IU = BigRational
 // InterNatUnit
+and IU  = BigRational
 and MIU = BigRational
 // Mass
-and KiloGram    = BigRational
-and Gram    = BigRational
-and MilliGram   = BigRational
-and MicroGram   = BigRational
-and NanoGram    = BigRational
-and Liter = BigRational
+and KiloGram  = BigRational
+and Gram      = BigRational
+and MilliGram = BigRational
+and MicroGram = BigRational
+and NanoGram  = BigRational
 // Volume
+and Liter      = BigRational
 and DeciLiter  = BigRational
 and MilliLiter = BigRational
 and MicroLiter = BigRational
 // Time
-and Second  = BigRational
-and Minute  = BigRational
-and Hour    = BigRational
-and Day     = BigRational
-and Week    = BigRational
-and Month   = BigRational
-and Year    = BigRational
+and Second = BigRational
+and Minute = BigRational
+and Hour   = BigRational
+and Day    = BigRational
+and Week   = BigRational
+and Month  = BigRational
+and Year   = BigRational
 // Height
-and CentiMeter   = BigRational
-and Meter    = BigRational
+and CentiMeter = BigRational
+and Meter      = BigRational
 // Molar
-and Mol  =  BigRational
-and MilliMol =  BigRational
+and Mol      = BigRational
+and MilliMol = BigRational
 // BSA
-and M2      = BigRational
+and M2 = BigRational
 
+type Group =
+    | CountGroup 
+    | MassGroup
+    | VolumeGroup
+    | TimeGroup
+    | MolarGroup
+    | InterNatUnitGroup
+    | WeightGroup
+    | HeightGroup
+    | BSAGroup
 
-let create v u : ValueUnit = (v, u)
+let create v u : ValueUnit = (v, u) |> ValueUnit
 
 1N |> WeightKiloGram |> Weight |> Unit |> create 10N
 
@@ -150,38 +185,271 @@ let getUnitGroupMultiplier = function
         | M2 n -> n * Multipliers.one
 
 
+let getUnitGroup = function
+    | Count _        -> CountGroup
+    | Mass _         -> MassGroup
+    | Volume _       -> VolumeGroup
+    | Time _         -> TimeGroup
+    | Molar _        -> MolarGroup
+    | InterNatUnit _ -> InterNatUnitGroup
+    | Weight _       -> WeightGroup
+    | Height _       -> HeightGroup
+    | BSA _          -> BSAGroup
 
 
-let eqsGroup (v, u) =
+let eqsGroup u1 u2 =
+    let rec eqs b u1 u2 =
+        if not b then false
+        else
+            match u1, u2 with
+            | NoUnit, NoUnit   -> false
+            | Unit u1, Unit u2 -> 
+                let g1 = u1 |> getUnitGroup
+                let g2 = u2 |> getUnitGroup
+                g1 = g2 && b
+            | CombiUnit (u11, op1, u12), CombiUnit (u21, op2, u22) ->
+                if op1 = op2 |> not then false
+                else
+                    (eqs b u11 u21) && (eqs b u12 u22)
+            | _ -> false
+    
+    eqs true u1 u2
+
+
+let isCountUnit = eqsGroup (1N |> Times |> Count  |> Unit)
     
 
 let getMultiplier u =
     let rec get u m = 
         match u with
-        | NoUnit -> m 
-        | Unit u -> u |> getUnitGroupMultiplier
+        | NoUnit  -> m 
+        | Unit ug -> ug |> getUnitGroupMultiplier
         | CombiUnit (u1, op, u2) ->
             let m1 = get u1 m
             let m2 = get u2 m
 
             match op with
-            | OpTimes -> m1 * m2 |> get u
-            | OpPer  -> m1 / m2 |> get u
+            | OpTimes -> m1 * m2 
+            | OpPer   -> m1 / m2 
             | OpMinus | OpPlus -> m
 
     get u 1N
 
-let massKg = KiloGram >> Mass >> Unit
-let wghtKg = WeightKiloGram >> Weight >> Unit
-
-2N |> massKg |> getMultiplier
 
 
-let kg10 = 10N |> KiloGram
+let (|Mult|Div|Add|Subtr|) op =
+    match op with
+    | _ when 1N |> op <| 2N = 2N      -> Mult
+    | _ when 1N |> op <| 2N = (1N/2N) -> Div
+    | _ when 1N |> op <| 2N = 3N      -> Add
+    | _ when 1N |> op <| 2N = -1N     -> Subtr
+    | _ -> failwith "Not a valid operator"
+
+                        
+let toBase (ValueUnit (v, u)) = v |> Multipliers.toBase (u |> getMultiplier)
 
 
+let toUnit (ValueUnit (v, u)) = v |> Multipliers.toUnit (u |> getMultiplier)
 
-type Group =
-    | MassGroup   of (MassUnit -> Unit)
-    | VolumeGroup of (VolumeUnit -> Unit)
-    | WeightGroup of (WeightUnit -> Unit)
+
+let count = 1N |> Times |> Count |> Unit
+
+
+let createCombiUnit u1 op u2 =
+    match u1 |> isCountUnit, u2 |> isCountUnit with
+    | true,  true  -> count
+    | true,  false -> u2 
+    | false, true  -> u1 
+    | false, false -> (u1, op, u2) |> CombiUnit
+
+
+let remove rm u =
+    let toCombi = createCombiUnit
+
+    let rec rem u rm =
+        let eqs = eqsGroup rm
+
+        match u with 
+        | NoUnit 
+        | Unit _ -> 
+            if u |> eqs then count
+            else u
+        | CombiUnit (u1, op, u2) ->
+            match u1 |> eqs,  u2 |> eqs with
+            | true,  true  -> count
+            | false, true  -> u1
+            | true,  false -> u2
+            | false, false -> 
+                toCombi (rem u1 rm) op (rem u2 rm)
+    
+    rem u rm
+
+
+let hasUnit u2 u1 =
+    let rec find u =
+        match u with
+        | NoUnit | Unit _ -> 
+            u = u2
+        | CombiUnit (lu, _, ru) ->
+            if lu = u2 || ru = u2 then true
+            else 
+                find lu || (find ru)
+    find u1
+
+
+let canBeRemoved u rm =
+    let rec rem nums denoms u =
+        printfn "nums: %A, denoms: %A" nums denoms
+        match u with 
+        | NoUnit ->
+            nums   |> List.exists (hasUnit rm) && 
+            denoms |> List.exists (hasUnit rm)
+        | Unit _-> 
+
+            nums   |> List.exists (hasUnit rm) && 
+            denoms |> List.exists (hasUnit rm)
+
+        | CombiUnit (num, OpPer, denom) ->
+            let nums = num::nums
+            let denoms = denom::denoms
+
+            if nums   |> List.exists (hasUnit rm) && 
+               denoms |> List.exists (hasUnit rm) then true
+            else 
+                rem nums denoms num || rem nums denoms denom
+        | CombiUnit (u1, _, u2) ->
+            let nums = u1::u2::nums
+            rem nums denoms u1 || rem nums denoms u2
+
+    rem [] [] u
+    |> (fun b -> 
+        printfn "%A can be removed from %A: %b" rm u b
+        b
+    )
+
+
+let calc op vu1 vu2 = 
+
+    let toCombi = createCombiUnit
+
+    let (ValueUnit (_, u1)) = vu1
+    let (ValueUnit (_, u2)) = vu2
+
+    let v = vu1 |> toBase |> op <| (vu2 |> toBase)
+    
+    let rec simplify u =
+        match u with
+        | NoUnit 
+        | Unit _ -> u
+        | CombiUnit (u1, op, u2) ->
+            printfn "simplify %A" u
+            let b1 = u1 |> canBeRemoved u
+            let b2 = u2 |> canBeRemoved u
+            printfn "remove b1: %b b2: %b" b1 b2
+            match b1, b2 with
+            | true, true ->
+                u 
+                |> remove u1
+                |> remove u2
+                |> simplify
+            | true, false ->
+                u
+                |> remove u1
+                |> simplify
+            | false, true ->
+                u
+                |> remove u2
+                |> simplify
+            | false, false ->   
+                let u1 = simplify u1
+                let u2 = simplify u2
+
+                toCombi u1 op u2
+
+
+    let u =
+        match op with
+        | Mult  -> (u1, OpTimes, u2)
+        | Div   -> (u1, OpPer,   u2)
+        | Add   -> (u1, OpPlus,  u2)
+        | Subtr -> (u1, OpMinus, u2)
+        |> CombiUnit
+        |> simplify
+
+    create v u
+    |> toUnit
+    |> (fun v -> create v u)
+
+
+type ValueUnit with
+         
+    static member (*) (vu1, vu2) = calc (*) vu1 vu2
+
+    static member (/) (vu1, vu2) = calc (/) vu1 vu2
+
+    static member (+) (vu1, vu2) = calc (+) vu1 vu2
+
+    static member (-) (vu1, vu2) = calc (-) vu1 vu2
+
+
+let massG = Gram >> Mass >> Unit 
+let massMG = MilliGram >> Mass >> Unit 
+let massKG = KiloGram >> Mass >> Unit
+let wghtKG = WeightKiloGram >> Weight >> Unit
+let volL = Liter >> Volume >> Unit
+let volML = MilliLiter >> Volume >> Unit
+
+1N 
+|> massKG
+|> create 10N
+|> toBase 
+
+1N
+|> massKG
+|> create 10N
+|> toUnit
+
+
+2N 
+|> massKG
+|> eqsGroup (1N |> massKG)
+
+
+let mg400 = 1N |> massMG |> create 400N
+let ml50 = 1N |> volML |> create 50N
+
+let test () =
+    (mg400 / ml50) 
+    |> (fun r -> printfn "result: %A" r; r)
+    |> ((*) ml50)
+    
+    
+
+
+let test2 () =
+    let u1 = 1N |> massG
+    let u2 = 1N |> volML
+    
+
+    createCombiUnit u1 OpPer u2
+    |> createCombiUnit u2 OpTimes 
+    |> remove u2
+
+let test3 () =
+    let u1 = 1N |> massG
+    let u2 = 1N |> volML
+    
+
+    createCombiUnit u1 OpPer u2
+//    |> (fun u -> createCombiUnit u OpTimes u2)
+    |> (fun u -> u2 |> canBeRemoved u)
+
+
+let test4 () =
+    let u1 = 1N |> massG
+    let u2 = 1N |> volML
+    
+
+    createCombiUnit u1 OpPer u2
+    |> createCombiUnit u2 OpTimes 
+    |> hasUnit u2
