@@ -104,5 +104,4 @@ DoseRule.empty
 |> DoseRule.setPatientFemaleGender true
 |> DoseRule.setPatientMinWeight (Some 5.)
 |> DoseRule.setPatientMaxWeight (Some 100.)
-|> DoseRule.setShapePerTimeNormDoseMin ((2., "milligram") |> Some)
 |> DoseRule.toString

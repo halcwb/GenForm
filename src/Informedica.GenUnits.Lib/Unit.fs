@@ -9,8 +9,6 @@ module Unit =
 
     module Multipliers =
 
-        open MathNet.Numerics
-
         let one = 1N
         let kilo = 1000N
         let deci = 1N / 10N
