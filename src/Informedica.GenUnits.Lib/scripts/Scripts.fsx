@@ -135,6 +135,8 @@ type Group =
 
 let create v u : ValueUnit = (v, u) |> ValueUnit
 
+let get (ValueUnit (v, u)) = v, u
+
 1N |> WeightKiloGram |> Weight |> Unit |> create 10N
 
 
@@ -297,76 +299,16 @@ let hasUnit u2 u1 =
     find u1
 
 
-let canBeRemoved u rm =
-    let rec rem nums denoms u =
-        printfn "nums: %A, denoms: %A" nums denoms
-        match u with 
-        | NoUnit ->
-            nums   |> List.exists (hasUnit rm) && 
-            denoms |> List.exists (hasUnit rm)
-        | Unit _-> 
 
-            nums   |> List.exists (hasUnit rm) && 
-            denoms |> List.exists (hasUnit rm)
-
-        | CombiUnit (num, OpPer, denom) ->
-            let nums = num::nums
-            let denoms = denom::denoms
-
-            if nums   |> List.exists (hasUnit rm) && 
-               denoms |> List.exists (hasUnit rm) then true
-            else 
-                rem nums denoms num || rem nums denoms denom
-        | CombiUnit (u1, _, u2) ->
-            let nums = u1::u2::nums
-            rem nums denoms u1 || rem nums denoms u2
-
-    rem [] [] u
-    |> (fun b -> 
-        printfn "%A can be removed from %A: %b" rm u b
-        b
-    )
 
 
 let calc op vu1 vu2 = 
-
-    let toCombi = createCombiUnit
 
     let (ValueUnit (_, u1)) = vu1
     let (ValueUnit (_, u2)) = vu2
 
     let v = vu1 |> toBase |> op <| (vu2 |> toBase)
     
-    let rec simplify u =
-        match u with
-        | NoUnit 
-        | Unit _ -> u
-        | CombiUnit (u1, op, u2) ->
-            printfn "simplify %A" u
-            let b1 = u1 |> canBeRemoved u
-            let b2 = u2 |> canBeRemoved u
-            printfn "remove b1: %b b2: %b" b1 b2
-            match b1, b2 with
-            | true, true ->
-                u 
-                |> remove u1
-                |> remove u2
-                |> simplify
-            | true, false ->
-                u
-                |> remove u1
-                |> simplify
-            | false, true ->
-                u
-                |> remove u2
-                |> simplify
-            | false, false ->   
-                let u1 = simplify u1
-                let u2 = simplify u2
-
-                toCombi u1 op u2
-
-
     let u =
         match op with
         | Mult  -> (u1, OpTimes, u2)
@@ -374,7 +316,6 @@ let calc op vu1 vu2 =
         | Add   -> (u1, OpPlus,  u2)
         | Subtr -> (u1, OpMinus, u2)
         |> CombiUnit
-        |> simplify
 
     create v u
     |> toUnit
@@ -418,38 +359,118 @@ let volML = MilliLiter >> Volume >> Unit
 let mg400 = 1N |> massMG |> create 400N
 let ml50 = 1N |> volML |> create 50N
 
-let test () =
-    (mg400 / ml50) 
-    |> (fun r -> printfn "result: %A" r; r)
-    |> ((*) ml50)
+
+type UnitItem =
+    | UnitItem of Unit
+    | OperatorItem of Operator
+    | OpDivItem of Operator
+
+
+let unitToList u =
+    let rec toList u =
+        match u with
+        | NoUnit | Unit _ -> [ u |> UnitItem ]
+        | CombiUnit (ul, op, ur) ->
+            let op =
+                match op with
+                | OpPer -> op |> OpDivItem
+                | _     -> op |> OperatorItem
+            (toList ul) @ [ op ] @ (toList ur)
     
-    
+    toList u
 
 
-let test2 () =
-    let u1 = 1N |> massG
-    let u2 = 1N |> volML
-    
+let listToUnit ul =
+    let rec toUnit ul u =
+        match ul with
+        | []       -> u
+        | ui::rest -> 
+            match u with
+            | NoUnit -> 
+                match ui with
+                | UnitItem u'    -> u'
+                | OperatorItem _ | OpDivItem _-> NoUnit
+                |> toUnit rest
+            | _ -> 
+                match ul with
+                | oi::ui::rest ->
+                    match oi, ui with
+                    | OpDivItem op, UnitItem ur
+                    | OperatorItem op, UnitItem ur ->
+                        createCombiUnit u op ur
+                        |> toUnit rest
+                    | _ -> u
+                | _ -> u
 
-    createCombiUnit u1 OpPer u2
-    |> createCombiUnit u2 OpTimes 
-    |> remove u2
-
-let test3 () =
-    let u1 = 1N |> massG
-    let u2 = 1N |> volML
-    
-
-    createCombiUnit u1 OpPer u2
-//    |> (fun u -> createCombiUnit u OpTimes u2)
-    |> (fun u -> u2 |> canBeRemoved u)
+    toUnit ul NoUnit
 
 
-let test4 () =
-    let u1 = 1N |> massG
-    let u2 = 1N |> volML
-    
+let evaluate vu =
+    let (ValueUnit (_, u)) = vu
+    let v = vu |> toBase
 
-    createCombiUnit u1 OpPer u2
-    |> createCombiUnit u2 OpTimes 
-    |> hasUnit u2
+    let opDiv = OpPer |> OpDivItem
+
+    let eqs ui1 ui2 =
+        match ui1, ui2 with
+        | UnitItem u1, UnitItem u2 ->
+            u1 |> eqsGroup u2
+        | _ -> false
+
+    let isUnitItem ui = 
+        match ui with
+        | UnitItem _ -> true
+        | OperatorItem _ | OpDivItem _ -> false
+
+    let rec simplify acc ul =
+        printfn "simplifying to: %A" acc
+        
+        match ul with
+        | [] -> acc
+        | _ ->
+            let ull, ulr = 
+                match ul |> List.tryFindIndex ((=) opDiv) with
+                | Some i -> ul |> List.splitAt i
+                | None   -> [], ul
+            if ull = List.empty then acc @ ulr
+            else
+                let ull, ulr =
+                    ull
+                    |> List.fold (fun acc ui ->
+                        let ull, ulr = acc
+           
+                        if ui |> isUnitItem && ulr |> List.exists (eqs ui) then
+                            printfn "removing: %A" ui
+                            let ulr = ulr |> List.remove (eqs ui)
+                            (ull, ulr)
+                        else (ui::ull, ulr)
+                    ) ([], ulr)
+            
+                simplify (acc @ ull) ulr
+
+    u
+    |> unitToList
+    |> simplify []
+    |> listToUnit
+    |> create v
+    |> (fun vu -> 
+        let _, u = vu |> get
+        let v = vu |> toUnit
+        create v u
+    )
+
+(mg400 / ml50) 
+|> toUnit
+
+(mg400 / ml50) 
+|> evaluate
+|> ((*) ml50)
+|> evaluate
+|> (fun vu -> vu / ml50)
+|> evaluate
+|> ((*) ml50)
+|> evaluate    
+
+
+
+
