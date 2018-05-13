@@ -1,28 +1,11 @@
 ﻿#load @"references.fsx"
 
 open MathNet.Numerics
+
 open Informedica.GenUnits.Lib
+open ValueUnit
 
-CombiUnit.Units.massMicroGram 1N / (CombiUnit.Units.weightKg 1N) / (CombiUnit.Units.timeMinute 2N)
-|> CombiUnit.toString
-|> CombiUnit.fromString
-
-
-let v1 =
-    ValueUnit.create 5N (CombiUnit.Units.massMicroGram 1N / (CombiUnit.Units.weightKg 1N) / (CombiUnit.Units.timeMinute 1N))
-
-let v2 =
-    ValueUnit.create 100N (CombiUnit.Units.massMilliGram 1N / (CombiUnit.Units.weightKg 1N) / (CombiUnit.Units.timeHour 1N))
-
-v2 / v1
-
-v2
-|> ValueUnit.convertTo (CombiUnit.Units.massMicroGram 1N / (CombiUnit.Units.weightKg 1N) / (CombiUnit.Units.timeMinute 1N))
-|> (fun vu -> vu / v1)
-
-open ValueUnit.Units
-
-let toString = ValueUnit.toLangString Unit.Units.English 3
+let toString = toString Units.English Units.Short
 
 let (>==>) vu f =
     vu 
@@ -30,13 +13,17 @@ let (>==>) vu f =
     |> printfn "%s"
     f vu
 
-let mg = massMilliGram 1N
-let mcg = massMicroGram 1N
-let ml = volumeMilliLiter 1N
-let kg = weightKg 1N
-let hr = timeHour 1N
-let min = timeMinute 1N
-let mcgkgmin = (CombiUnit.Units.massMicroGram 1N / (CombiUnit.Units.weightKg 1N) / (CombiUnit.Units.timeMinute 1N))
+let x = create Units.Count.times
+let mg = create Units.Mass.milliGram
+let mcg = create Units.Mass.microGram
+let ml = create Units.Volume.milliLiter
+let kg = create Units.Weight.kiloGram
+let hr = create Units.Time.hour
+let day = create Units.Time.day
+let min = create Units.Time.minute
+
+let mcgkgmin = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.minute
+let mgkgday = Units.Mass.milliGram |> per Units.Weight.kiloGram |> per Units.Time.day
 
 (200N |> mg)
 >==> (fun vu -> vu / (5N |> ml)) // Concentration
@@ -44,9 +31,21 @@ let mcgkgmin = (CombiUnit.Units.massMicroGram 1N / (CombiUnit.Units.weightKg 1N)
 >==> (fun vu -> vu / (50N |> ml)) // dissolve in 50 ml
 >==> (fun vu -> vu * ((1N |> ml) / (1N |> hr))) // infusion speed
 >==> (fun vu -> vu / (5N |> kg)) // for 5 kg patient
->==> ValueUnit.convertTo mcgkgmin // Convert to dose unit
-|> toString
+>==> convertTo mcgkgmin // Convert to dose unit
+>==> toString
+
+(8N / 25N) |> create (Units.Mass.milliGram |> per Units.Time.hour |> per Units.Weight.kiloGram)
+|> convertTo mcgkgmin
+|> convertTo (Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.minute)
 
 
+((400N |> mg) /  (20N |> ml)) * (((10N |> ml) + (10N |> ml)) / (1N |> hr))
 
 
+createCombiUnit (Count(Times(2N)), OpPer, Time(Hour(1N)))
+|> (fun u -> createCombiUnit ((Mass(MilliGram(1N)), OpTimes, u)))
+
+((20N |> mg) * ((3N |> x) / (1N |> day))) / (8N |> kg)
+==> mgkgday
+
+Api.eval "100 mg[Mass] * 1 gram[Mass]"

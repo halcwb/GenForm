@@ -19,6 +19,9 @@ open Informedica.GenForm.Lib
 FilePath.formulary |> (fun p -> printfn "%s" p; p) |> File.exists
 let printResult m r = printf m; printfn " %A" r; r
 
+let ml50 = ValueUnit.Units.volumeMilliLiter 1N 50N
+let l5 = ValueUnit.Units.volumeLiter 1N 5N
+ml50 < l5
 
     
 // Testing

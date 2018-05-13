@@ -5,9 +5,9 @@
 
 #r @".\..\..\..\src\Informedica.GenUtils.Lib\bin\Debug\netstandard2.0\Informedica.GenUtils.Lib.dll"
 
-#load @"./../../../src/Informedica.GenUnits.Lib/Constants.fs"
-#load @"./../../../src/Informedica.GenUnits.Lib/Unit.fs"
-#load @"./../../../src/Informedica.GenUnits.Lib/CombiUnit.fs"
-#load @"./../../../src/Informedica.GenUnits.Lib/UnitGroup.fs"
+//#load @"./../../../src/Informedica.GenUnits.Lib/Constants.fs"
+//#load @"./../../../src/Informedica.GenUnits.Lib/Unit.fs"
+//#load @"./../../../src/Informedica.GenUnits.Lib/CombiUnit.fs"
+//#load @"./../../../src/Informedica.GenUnits.Lib/UnitGroup.fs"
 #load @"./../../../src/Informedica.GenUnits.Lib/ValueUnit.fs"
 #load @"./../../../src/Informedica.GenUnits.Lib/Api.fs"

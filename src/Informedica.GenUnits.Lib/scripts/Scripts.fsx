@@ -19,7 +19,7 @@ module ValueUnit =
     and Unit =
         | NoUnit
         | CombiUnit of Unit * Operator * Unit
-        | General of GeneralUnit
+        | General of (Name * Value)
         | Count of CountUnit
         | Mass of MassUnit
         | Volume of VolumeUnit
@@ -29,8 +29,6 @@ module ValueUnit =
         | Weight of WeightUnit
         | Height of HeightUnit
         | BSA of BSAUnit
-    and GeneralUnit = 
-        | Quantity of (Name * Value)
     and CountUnit = 
         | Times of Times
     and MassUnit = 
@@ -104,6 +102,7 @@ module ValueUnit =
     // BSA
     and M2 = BigRational
 
+
     let opToStr op =
         match op with
         | OpPer -> "/"
@@ -112,11 +111,12 @@ module ValueUnit =
         | OpMinus -> "-"
 
 
+
     module Group =
 
         type Group =
             | NoGroup
-            | GeneralGroup
+            | GeneralGroup of Name
             | CountGroup 
             | MassGroup
             | VolumeGroup
@@ -133,7 +133,7 @@ module ValueUnit =
             let rec get u = 
                 match u with
                     | NoUnit         -> NoGroup
-                    | General _      -> GeneralGroup
+                    | General (n, _) -> GeneralGroup n
                     | Count _        -> CountGroup
                     | Mass _         -> MassGroup
                     | Volume _       -> VolumeGroup
@@ -149,20 +149,40 @@ module ValueUnit =
             get u
 
 
+        let contains g2 g1 = 
+            let rec cont g =
+                match g with
+                | GeneralGroup _
+                | NoGroup
+                | CountGroup 
+                | MassGroup
+                | VolumeGroup
+                | TimeGroup
+                | MolarGroup
+                | InterNatUnitGroup
+                | WeightGroup
+                | HeightGroup
+                | BSAGroup -> g = g2
+                | CombiGroup (gl, _, gr) ->
+                    cont gl || cont gr
+
+            cont g1
+
+
         let eqsGroup u1 u2 =
             if u1 = u2 then true
             else
                 let g1 = u1 |> unitToGroup
                 let g2 = u2 |> unitToGroup
 
-                if g1 = GeneralGroup || g2 = GeneralGroup then false
-                else g1 = g2
+                g1 = g2
+
                     
         let toString g =
             let rec str g s =
                 match g with 
                 | NoGroup -> ""
-                | GeneralGroup -> "General"
+                | GeneralGroup _ -> "General"
                 | CountGroup -> "Count"
                 | MassGroup -> "Mass"
                 | VolumeGroup -> "Volume"
@@ -179,6 +199,97 @@ module ValueUnit =
                     gls + (op |> opToStr) + grs
             
             str g ""
+
+
+        let getGroupUnits = function
+                | NoGroup -> [ NoUnit ]
+                | GeneralGroup n -> [ (n, 1N) |> General ] 
+                | CountGroup -> [ 1N |> Times |> Count ]
+                | MassGroup -> 
+                    [
+                        1N |> KiloGram |> Mass
+                        1N |> Gram |> Mass
+                        1N |> MilliGram |> Mass
+                        1N |> MicroGram |> Mass
+                        1N |> NanoGram |> Mass
+                    ]
+                | VolumeGroup -> 
+                    [
+                        1N |> Liter |> Volume
+                        1N |> DeciLiter |> Volume
+                        1N |> MilliLiter |> Volume
+                        1N |> MicroLiter |> Volume
+                    ]
+                | TimeGroup -> 
+                    [
+                        1N |> Year |> Time
+                        1N |> Month |> Time
+                        1N |> Week |> Time
+                        1N |> Day |> Time
+                        1N |> Hour |> Time
+                        1N |> Minute |> Time
+                        1N |> Second |> Time
+                    ]
+                | MolarGroup -> 
+                    [
+                        1N |> Mol |> Molar
+                        1N |> MilliMol |> Molar
+                    ]
+                | InterNatUnitGroup -> 
+                    [
+                        1N |> MIU |> InterNatUnit
+                        1N |> IU |> InterNatUnit
+                    ]
+                | WeightGroup -> 
+                    [
+                        1N |> WeightKiloGram |> Weight
+                        1N |> WeightGram |> Weight
+                    ]
+                | HeightGroup -> 
+                    [
+                        1N |> HeightMeter |> Height
+                        1N |> HeightCentiMeter |> Height
+                    ]
+                | BSAGroup -> [ 1N |> M2 |> BSA ]
+                | CombiGroup _ -> []
+
+
+        let getUnits g =
+            let rec get g =
+                match g with
+                | CombiGroup (gl, op, gr) ->
+                    [
+                        for ul in gl |> get do
+                            for ur in gr |> get do
+                                yield (ul, op, ur) |> CombiUnit
+                    ]
+                | _ -> g |> getGroupUnits
+
+            get g
+
+        
+        module internal GroupItem =
+            
+            type GroupItem = 
+                | GroupItem of Group
+                | OperatorItem of Operator
+
+
+            let toList g =
+                let rec parse g acc =
+                    match g with
+                    | CombiGroup (gl, op, gr) ->
+                        let gll = parse gl acc
+                        let grl = parse gr acc
+
+                        gll @ [(op |> OperatorItem)] @ grl
+                    | _ ->
+                        (g |> GroupItem)::acc
+                
+                parse g []
+
+
+
 
     module Multipliers =
 
@@ -205,9 +316,7 @@ module ValueUnit =
             let rec get u m =
                 match u with
                 | NoUnit -> one
-                | General g -> 
-                    match g with
-                    | Quantity (_, n) -> n * one
+                | General (_, n) -> n * one
                 | Count g ->
                     match g with
                     | Times n -> n * one
@@ -263,7 +372,20 @@ module ValueUnit =
 
             get u 1N
 
-    let create v u : ValueUnit = (v, u) |> ValueUnit
+
+    let create u v = (v, u) |> ValueUnit
+
+
+    let per u2 u1 = (u1, OpPer, u2) |> CombiUnit
+
+
+    let times u2 u1 = (u1, OpTimes, u2) |> CombiUnit
+
+
+    let plus u2 u1 = (u1, OpPlus, u2) |> CombiUnit
+
+
+    let minus u2 u1 = (u1, OpMinus, u2) |> CombiUnit
 
 
     let get (ValueUnit (v, u)) = v, u
@@ -386,9 +508,10 @@ module ValueUnit =
             | _          -> false
 
 
+
+
     let simplify vu =
         let (_, u) = vu |> get
-        let v = vu |> toBase
 
         let opDiv = OpPer |> UnitItem.OpDivItem
 
@@ -423,11 +546,12 @@ module ValueUnit =
         |> UnitItem.unitToList
         |> simpl []
         |> UnitItem.listToUnit
-        |> create v
-        |> (fun vu -> 
-            let _, u = vu |> get
-            let v = vu |> toUnit
-            create v u
+        |> (fun u ->
+            vu
+            |> toBase
+            |> create u
+            |> toUnit
+            |> create u
         )
 
 
@@ -449,10 +573,29 @@ module ValueUnit =
                     failwith "cannot add or subtract different units"
             | BigRational.NoMatch -> failwith "invalid operator"
 
-        create v u
+        v
+        |> create u
         |> toUnit
-        |> (fun v -> create v u)    
+        |> create u  
         |> simplify
+
+
+    let cmp cp vu1 vu2 =
+        printfn "%A %A %A" vu1 cp vu2
+        (vu1 |> toBase) |> cp <| (vu2 |> toBase)
+
+
+    let convertTo u vu =
+        let _, from = vu |> get
+        if from |> Group.eqsGroup u then
+            vu
+            |> toBase
+            |> create u
+            |> toUnit
+            |> create u
+
+        else 
+            failwith "cannot convert to different unit group"
 
 
     type ValueUnit with
@@ -464,6 +607,19 @@ module ValueUnit =
         static member (+) (vu1, vu2) = calc (+) vu1 vu2
 
         static member (-) (vu1, vu2) = calc (-) vu1 vu2
+
+        static member (=?) (vu1, vu2) = cmp (=) vu1 vu2
+
+        static member (>?) (vu1, vu2) = cmp (>) vu1 vu2
+
+        static member (<?) (vu1, vu2) = cmp (<) vu1 vu2
+
+        static member (>=?) (vu1, vu2) = cmp (>=) vu1 vu2
+
+        static member (<=?) (vu1, vu2) = cmp (<=) vu1 vu2
+
+        static member (>>!) (vu, u) = vu |> convertTo u
+
 
 
     module Units =
@@ -517,11 +673,11 @@ module ValueUnit =
 
 
         let createGeneral n v = 
-            let un = (n, v) |> Quantity |> General
+            let un = (n, v) |> General
             let ab = { Eng = n; Dut = n }
             let nm = { Eng = n; Dut = n }
 
-            create un Group.GeneralGroup ab nm []
+            create un (Group.GeneralGroup n) ab nm []
 
 
         let getGroup ud = (ud |> get).Group
@@ -544,12 +700,30 @@ module ValueUnit =
         
         let getDutchAbbreviation = getAbbreviation >> getDutch
 
+        let getUnitString loc verb =
+            match loc with
+            | English ->
+                match verb with
+                | Short -> getEnglishAbbreviation
+                | Long  -> getEnglishName
+            | Dutch ->
+                match verb with
+                | Short -> getDutchAbbreviation
+                | Long  -> getDutchName
+
+
+        module General =
+            
+            let toGeneral = General
+            let general n = (n, 1N) |> toGeneral
+
 
         module Count =
 
             let toCount = Count
             let times  = 1N |> Times |> toCount
         
+
         module Mass =
 
             let toMass = Mass
@@ -559,6 +733,7 @@ module ValueUnit =
             let milliGram = 1N |> MilliGram |> toMass
             let microGram = 1N |> MicroGram |> toMass
             let nanoGram = 1N |> NanoGram |> toMass
+
     
         module Weight =
 
@@ -566,6 +741,7 @@ module ValueUnit =
 
             let kiloGram = 1N |> WeightKiloGram |> toWeight
             let gram = 1N |> WeightGram |> toWeight
+
 
         module Volume =
 
@@ -575,6 +751,7 @@ module ValueUnit =
             let deciLiter =  1N |>DeciLiter |> toVolume
             let milliLiter =  1N |>MilliLiter |> toVolume
             let microLiter =  1N |>MicroLiter |> toVolume
+
 
         module Time =
 
@@ -588,6 +765,7 @@ module ValueUnit =
             let minute = 1N |>Minute |> toTime
             let second = 1N |>Second |> toTime
 
+
         module Molar =
 
             let toMolar  = Molar
@@ -595,12 +773,14 @@ module ValueUnit =
             let mol = 1N |>  Mol |> toMolar
             let milliMol = 1N |> MilliMol |> toMolar
 
+
         module InterNatUnit =
             
             let toInterNatUnit = InterNatUnit
 
             let MIU = 1N |> MIU |> toInterNatUnit
             let IU = 1N |> IU |> toInterNatUnit
+
         
         module Height =
             
@@ -608,6 +788,7 @@ module ValueUnit =
 
             let meter = 1N |>  HeightMeter |> toHeight
             let centiMeter = 1N |> HeightCentiMeter |> toHeight
+
 
         module BSA =
             
@@ -624,7 +805,7 @@ module ValueUnit =
                 { Unit = Mass.gram; Group = Group.NoGroup;  Abbreviation = { Eng = "g"; Dut = "g" }; Name = { Eng = "gram"; Dut = "gram" }; Synonyms = ["gr"] }
                 { Unit = Mass.milliGram; Group = Group.NoGroup;  Abbreviation = { Eng = "mg"; Dut = "mg" }; Name = { Eng = "milligram"; Dut = "milligram" }; Synonyms = ["millig"; "milligr"] }             
                 { Unit = Mass.microGram; Group = Group.NoGroup;  Abbreviation = { Eng = "microg"; Dut = "microg" }; Name = { Eng = "microgram"; Dut = "microgram" }; Synonyms = ["mcg"; "µg"; "mcgr"] }             
-                { Unit = Mass.microGram; Group = Group.NoGroup;  Abbreviation = { Eng = "nanog"; Dut = "nanog" }; Name = { Eng = "nanogram"; Dut = "nanogram" }; Synonyms = ["nanogr"; "ng"] }             
+                { Unit = Mass.nanoGram; Group = Group.NoGroup;  Abbreviation = { Eng = "nanog"; Dut = "nanog" }; Name = { Eng = "nanogram"; Dut = "nanogram" }; Synonyms = ["nanogr"; "ng"] }             
 
                 { Unit = Volume.liter; Group = Group.NoGroup;  Abbreviation = { Eng = "l"; Dut = "l" }; Name = { Eng = "liter"; Dut = "liter" }; Synonyms = ["ltr"] }             
                 { Unit = Volume.deciLiter; Group = Group.NoGroup;  Abbreviation = { Eng = "dl"; Dut = "dl" }; Name = { Eng = "deciliter"; Dut = "deciliter" }; Synonyms = ["decil"] }             
@@ -656,7 +837,7 @@ module ValueUnit =
             | None     -> None 
 
 
-    let toString vu = 
+    let toString loc verb vu = 
         let v, u = vu |> get
 
         let rec str u s =
@@ -667,15 +848,21 @@ module ValueUnit =
                 let urs = str ur s
 
                 uls + (op |> opToStr) + urs
+            | General (n, v) ->
+                let ustr = n + "[General]"
+                if v > 1N then
+                    (1N |> BigRational.toString) + ustr
+                else ustr
             | _ ->
                 match Units.tryFind u with
-                | Some udt -> udt.Name.Eng + "[" + (udt.Group |> Group.toString) + "]"
+                | Some udt -> (udt |> Units.getUnitString loc verb) + "[" + (udt.Group |> Group.toString) + "]"
                 | None     -> ""
                     
         
         (v |> BigRational.toString) + " " + (str u "")
 
 
+        
 
 module Tests =
 
@@ -683,20 +870,50 @@ module Tests =
 
     open ValueUnit
 
-    let (>>!) u f =
+    let toString = toString Units.English Units.Short
+
+    let (>>*) u f =
         u |> toString |> printfn "%s"
         f u
 
-    let mg400 = Units.Mass.milliGram |> create 400N
-    let ml50  = Units.Volume.milliLiter  |> create 50N
+    let mg400 = 400N |> create Units.Mass.milliGram
+    let ml50  = 50N |> create Units.Volume.milliLiter
+    let l5 = 5N |> create Units.Volume.liter 
 
+    ml50 |> toBase
+    l5 |> toBase
+    (ml50 > l5)
+    (ml50 >? l5)
 
     ((mg400 + mg400)/ ml50) 
-    >>! ((*) ml50)
-    >>! (fun vu -> vu / ml50)
-    >>! ((*) ml50)
-    >>! toString
+    >>* ((*) ml50)
+    >>* (fun vu -> vu / ml50)
+    >>* ((*) ml50)
 
-    ((Units.Volume.liter |> create 1N) + (Units.Volume.milliLiter |> create 500N))
 
+    l5
+    >>! Units.Volume.milliLiter
+    |> toString
+
+    4N
+    |> create (Units.General.general "dose")
+    |> (fun vu -> vu / (1N |> create Units.Time.day))
+    >>* (fun vu -> vu >>! (Units.General.general "dose" |> per (Units.Time.week)))
+    |> (fun (ValueUnit(_, u)) ->
+        u |> Group.unitToGroup
+    )
+
+    mg400 / ml50 / (1N |> create Units.Time.day)
+    |> (fun vu -> 
+        let (v, u) = vu |> get
+        u 
+        |> Group.unitToGroup
+        |> Group.getUnits
+        |> List.iter (fun u ->
+            create u 1N
+            |> toString
+            |> printfn "%s"
+        )
+    )
+    
 
