@@ -10,6 +10,9 @@ module ValueUnit =
     open ValueUnit
 
 
+    let unitToString = Units.toString Units.Dutch Units.Short
+
+
     let createUnit m v u =
         let s = 
             u
@@ -48,7 +51,7 @@ module ValueUnit =
 
         v |> BigRational.toFloat, 
         u 
-        |> Units.toString
+        |> unitToString
         |> Mapping.mapUnit Mapping.GenFormMap Mapping.GStandMap
 
 
@@ -80,6 +83,6 @@ module ValueUnit =
             |> Double.fixPrecision prec
             |> string
 
-        let us = u |> ValueUnit.Units.toString
+        let us = u |> unitToString
 
         vs + " " + us
