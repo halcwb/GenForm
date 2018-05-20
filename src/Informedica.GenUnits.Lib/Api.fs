@@ -48,4 +48,12 @@ module Api =
         |> VU.toString VU.Units.English VU.Units.Verbal.Short
 
 
+    let convert loc verb s2 s1 = 
+        let vu = s1 |> VU.fromString
 
+        match s2 |> VU.Units.fromString with
+        | Some u ->
+            vu 
+            |> VU.convertTo u
+            |> VU.toString loc verb
+        | None -> s1

@@ -8,8 +8,8 @@ module Patient =
     open Informedica.GenUtils.Lib.BCL
 
     open Informedica.GenUnits.Lib
-    open Informedica.GenUnits.Lib.Api
 
+    open ValueUnit
 
     type Age =
         | BirthDate of (BirthYear * BirthMonth * BirthDay)
@@ -20,10 +20,10 @@ module Patient =
     and BirthDay = int
 
 
-    type Weight = ValueUnit.ValueUnit Option
+    type Weight = ValueUnit Option
 
 
-    type Height = ValueUnit.ValueUnit Option
+    type Height = ValueUnit Option
 
 
     type Gender = Male | Female | Undetermined
@@ -46,14 +46,14 @@ module Patient =
 
         let weightMap =
             [
-                Weight_KiloGram, [ "kg"; "kilogram"]
-                Weight_Gram, [ "g"; "gr"; "gram" ]
+                Units.Weight.kiloGram, [ "kg"; "kilogram"]
+                Units.Weight.gram, [ "g"; "gr"; "gram" ]
             ]
 
         let heightMap =
             [
-                Height_Meter, [ "m"; "meter"]
-                Height_Centimeter, [ "cm"; "centimeter" ]
+                Units.Height.meter, [ "m"; "meter"]
+                Units.Height.centiMeter, [ "cm"; "centimeter" ]
             ]
 
         let genderMap =
@@ -119,7 +119,7 @@ module Patient =
             | Some un ->
                 wt 
                 |> BigRational.fromFloat
-                |> Option.bind (fun br -> Api.createVU br un |> Some)
+                |> Option.bind (fun br -> br |> create un |> Some)
             | None -> None
            
         let length = 
@@ -129,7 +129,7 @@ module Patient =
             | Some un ->
                 ln 
                 |> BigRational.fromFloat
-                |> Option.bind (fun br -> Api.createVU br un |> Some)
+                |> Option.bind (fun br -> br |> create un |> Some)
             | None -> None
            
         let gender = Mapping.mapGender gn
@@ -168,14 +168,14 @@ module Patient =
 
             let w = 
                 w 
-                >>! (1N.toCU Weight_KiloGram)
+                ==> Units.Weight.kiloGram
                 |> ValueUnit.get 
                 |> fst
                 |> BigRational.toFloat
 
             let h = 
                 h 
-                >>! (1N.toCU Height_Centimeter)
+                ==> Units.Height.centiMeter
                 |> ValueUnit.get 
                 |> fst
                 |> BigRational.toFloat

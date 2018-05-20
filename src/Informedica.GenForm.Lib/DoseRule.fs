@@ -43,7 +43,7 @@ module DoseRule =
 
 
         let toString minmax = 
-            let toStr = ValueUnit.toLangString Unit.Units.Dutch 2
+            let toStr = ValueUnit.toStringPrec 2
             
             minmax |> MinMax.toString toStr
 
@@ -513,7 +513,7 @@ module DoseRule =
                 /// The optional min/max absolute total dose limits adjusted for body surface area 
                 AbsDosePerM2 :  MinMax.MinMax
             }
-        and TimePeriod = CombiUnit.CombiUnit
+        and TimePeriod = ValueUnit.Unit
 
 
         let empty = 
@@ -542,7 +542,7 @@ module DoseRule =
                 match s |> String.split "/" with
                 | [t;u] ->
                     (t |> ValueUnit.fromString ,
-                     u |> CombiUnit.fromString)
+                     ValueUnit.Units.fromString u)
                     |> Some
                 | _ -> None
             ) 
@@ -917,7 +917,7 @@ module DoseRule =
                 Name : Name
                 Unit : ShapeUnit
             }
-        and ShapeUnit = CombiUnit.CombiUnit Option
+        and ShapeUnit = ValueUnit.Unit Option
 
 
         let empty = { Name = ""; Unit = None }
@@ -957,7 +957,7 @@ module DoseRule =
             {
                 Name : Name
                 Dose : Dose.Dose
-                Unit : CombiUnit.CombiUnit
+                Unit : ValueUnit.Unit
             }
 
         let init name unit = 

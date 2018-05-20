@@ -19,9 +19,13 @@ open Informedica.GenForm.Lib
 FilePath.formulary |> (fun p -> printfn "%s" p; p) |> File.exists
 let printResult m r = printf m; printfn " %A" r; r
 
-let ml50 = ValueUnit.Units.volumeMilliLiter 1N 50N
-let l5 = ValueUnit.Units.volumeLiter 1N 5N
+let ml50 = 50N |> ValueUnit.create ValueUnit.Units.Volume.milliLiter
+let l5 = 5N |> ValueUnit.create ValueUnit.Units.Volume.liter
 ml50 < l5
+
+open ValueUnit
+
+ml50 <? l5
 
     
 // Testing
@@ -60,7 +64,7 @@ Dto.findRules test
 
 
 "1 Times[Count]/1 Day[Time]"
-|> Api.fromString
+|> ValueUnit.fromString
 
 GenPresProduct.getAssortment ()
 |> Array.collect (fun gpp ->

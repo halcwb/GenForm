@@ -377,6 +377,10 @@ module Dto =
                 )
 
             let convertTo u1 u2 v =
+
+                let loc  = ValueUnit.Units.Dutch
+                let verb = ValueUnit.Units.Short
+
                 // Get the unit mapping
                 let u1, u2 = 
                     u1 |> unitMapping FormMap   StandMap,
@@ -390,7 +394,7 @@ module Dto =
                 if u2 = "" || u1 = "" || u1 = u2 || br = 0N then v
                 else
                     BigRational.toString br + " " + u2 
-                    |> Api.convert ((BigRational.toString 1N) + " " + u1)
+                    |> Api.convert loc verb ((BigRational.toString 1N) + " " + u1)
                     |> (ValueUnit.fromString >> ValueUnit.get >> fst >> BigRational.toFloat)
 
 

@@ -104,18 +104,18 @@ module MinMax =
         ) none
      
 
-    let foldMinimize mms = foldCond (>) mms
+    let foldMinimize gt mms = foldCond gt mms
      
 
-    let foldMaximize mms = foldCond (<) mms
+    let foldMaximize st mms = foldCond st mms
 
 
-    let inRange n minmax =
+    let inRange gte ste n minmax =
         match minmax with
         | None    -> true
-        | Min min -> n >= min
-        | Max max -> n <= max
-        | MinAndMax (min, max) -> n >= min && n <= max
+        | Min min -> gte n min
+        | Max max -> ste n max
+        | MinAndMax (min, max) -> gte n min && ste n max
 
 
     let toString toStr minmax = 

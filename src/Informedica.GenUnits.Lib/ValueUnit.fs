@@ -9,7 +9,9 @@ module ValueUnit =
 
 
     type Value = BigRational
+    
     type Name = string
+
 
     type ValueUnit = ValueUnit of  Value * Unit
     and Unit =
@@ -105,6 +107,7 @@ module ValueUnit =
         | OpTimes -> "x"
         | OpPlus -> "+"
         | OpMinus -> "-"
+
 
     let opFromString s =
         match s with
@@ -471,6 +474,8 @@ module ValueUnit =
         | CombiUnit _ -> false
         | _ -> true
 
+
+
     module private UnitItem =
 
         type UnitItem =
@@ -591,12 +596,10 @@ module ValueUnit =
                         acc |> remove u
                     ) ur
 
-                printfn "removed ul %A ur %A" ul' ur'
                 (simpl ul', op, simpl ur') 
                 |> createCombiUnit
             | _ -> u
              
-
         u 
         |> simpl
         |> (fun u ->
@@ -623,8 +626,8 @@ module ValueUnit =
             | BigRational.Subtr   -> 
                 if u1 |> Group.eqsGroup u2 then u2
                 else
-                    failwith "cannot add or subtract different units"
-            | BigRational.NoMatch -> failwith "invalid operator"
+                    failwith <| sprintf "cannot add or subtract different units %A %A" u1 u2
+            | BigRational.NoMatch -> failwith <| sprintf "invalid operator %A" op
 
         v
         |> create u
@@ -881,26 +884,51 @@ module ValueUnit =
             ]
             |> List.map (fun ud -> { ud with Group = ud.Unit |> Group.unitToGroup })
 
+
         let tryFind u =
             match units |> List.tryFind (fun udt -> udt.Unit = u) with
             | Some udt -> Some udt
             | None     -> None 
 
 
-        let fromString us gs =
-            let eqsUnit (udt: UnitDetails) = 
-                udt.Abbreviation.Dut |> String.equalsCapInsens us ||
-                udt.Abbreviation.Eng |> String.equalsCapInsens us ||
-                udt.Name.Dut |> String.equalsCapInsens us ||
-                udt.Name.Eng |> String.equalsCapInsens us ||
-                udt.Synonyms |> List.exists (String.equalsCapInsens us)
+        let fromString s =
+            match s |> String.splitAt '[' with
+            | [|us;gs|] -> 
+                let gs = gs |> String.replace "]" ""
 
-            let eqsGroup (udt: UnitDetails) = 
-                udt.Group |> Group.toString |> String.equalsCapInsens gs
+                let eqsUnit (udt: UnitDetails) = 
+                    udt.Abbreviation.Dut |> String.equalsCapInsens us ||
+                    udt.Abbreviation.Eng |> String.equalsCapInsens us ||
+                    udt.Name.Dut |> String.equalsCapInsens us ||
+                    udt.Name.Eng |> String.equalsCapInsens us ||
+                    udt.Synonyms |> List.exists (String.equalsCapInsens us)
 
-            match units |> List.tryFind (fun udt -> udt |> eqsUnit && udt |> eqsGroup) with
-            | Some udt -> udt.Unit |> Some
-            | None     -> None
+                let eqsGroup (udt: UnitDetails) = 
+                    udt.Group |> Group.toString |> String.equalsCapInsens gs
+
+                match units |> List.tryFind (fun udt -> udt |> eqsUnit && udt |> eqsGroup) with
+                | Some udt -> udt.Unit |> Some
+                | None     -> None
+
+            | _ -> None
+
+
+
+        let toString loc verb u =
+            let gtost u g = u + "[" + (g |> Group.toString) + "]"
+            match u |> tryFind with
+            | Some udt -> 
+                match loc with
+                | English ->
+                    match verb with
+                    | Short -> udt.Group |> gtost udt.Abbreviation.Eng
+                    | Long  -> udt.Group |> gtost udt.Name.Eng
+                | Dutch ->
+                    match verb with
+                    | Short -> udt.Group |> gtost udt.Abbreviation.Dut
+                    | Long  -> udt.Group |> gtost udt.Name.Dut
+            | None -> ""
+
 
 
     let setUnitValue v u =
@@ -973,10 +1001,7 @@ module ValueUnit =
                     (1N |> BigRational.toString) + ustr
                 else ustr
 
-            | _ ->
-                match Units.tryFind u with
-                | Some udt -> (udt |> Units.getUnitString loc verb) + "[" + (udt.Group |> Group.toString) + "]"
-                | None     -> "" 
+            | _ -> u |> Units.toString loc verb
         
         (v |> BigRational.toString) + " " + (str u "")
 
@@ -985,31 +1010,30 @@ module ValueUnit =
 
         let fs s =
             let dels = "#"
-            let getUnitAndGroup ug = 
-                match ug |> String.replace "]" "" |> String.split "[" with
-                | [u;g] -> u, g
-                | _ -> sprintf "Could not parse unit from string: %s" ug |> failwith
 
             let ufs s =
                 match s |> String.split " " with
                 | [ug] ->
-                    let u, g = ug |> getUnitAndGroup 
-                    match Units.fromString u g with
+                    match Units.fromString ug with
                     | Some (u') -> u' |> setUnitValue 1N
-                    | None      -> failwith "Not a valid unit"
+                    | None      -> failwith <| sprintf "Not a valid unit: %s" ug
+
                 | [v;ug] -> 
-                    let u, g = ug |> getUnitAndGroup 
                     let v' = v |> BigRational.Parse
-                    match Units.fromString u g with
+                    match Units.fromString ug with
                     | Some (u') -> u' |> setUnitValue v'
-                    | None     -> failwith "Not a valid unit"
-                | _ -> failwith "Cannot parse string"
+                    | None     -> failwith <| sprintf "Not a valid unit: %s" ug
+                | _ -> failwith <| sprintf "Cannot parse string %s" s
+
                 |> UnitItem.UnitItem
 
             let rec parse ul usl =
+                printfn "parsing %A" (usl |> String.concat " ")
                 match usl with
+                | []   -> ul
                 | [us] -> 
-                    [us |> ufs] |> List.append ul
+                    ul @ [us |> ufs]
+                    
                 | us::os::rest -> 
                     let ui = us |> ufs
                     let oi = 
@@ -1019,73 +1043,28 @@ module ValueUnit =
                         | OpTimes -> o |> UnitItem.OpMultItem
                         | OpPlus | OpMinus -> o |> UnitItem.OpPlusMinItem
 
-                    rest |> parse ([ oi; ui] @ ul)
-                | _ -> failwith "Cannot parse string list"
+                    rest |> parse (ul @ [ui;oi])
 
             s 
             |> String.replace "*" (dels + "*" + dels) 
             |> String.replace "/" (dels + "/" + dels)
+            |> String.replace "+" (dels + "+" + dels) 
+            |> String.replace "-" (dels + "-" + dels)
             |> String.split dels
-            |> List.rev
             |> parse []
+            |> (fun uil -> printfn "%A" uil; uil)
             |> UnitItem.listToUnit
 
         match s |> String.split " " with
-        | vs::_ ->
+        | vs::rest ->
             let v = vs |> BigRational.Parse
-            let rest = s |> String.subString (vs |> String.length) ((s |> String.length) - (vs |> String.length))
-            let cu = 
+            let u = 
                 rest
+                |> String.concat " "
                 |> String.trim
                 |> fs
-            (v, cu) |> ValueUnit
-        | _ -> failwith "Cannot parse string"
+            (v, u) |> ValueUnit
+        | _ -> failwith <| sprintf "Cannot parse string %s" s
 
         
-
-module Tests =
-
-    open MathNet.Numerics
-
-    open ValueUnit
-
-    let toString = toString Units.English Units.Short
-
-    let (>>*) u f =
-        u |> toString |> printfn "%s"
-        f u
-
-    let mg400 = 400N |> create Units.Mass.milliGram
-    let ml50  = 50N |> create Units.Volume.milliLiter
-    let l5 = 5N |> create Units.Volume.liter 
-
-
-
-    l5
-    ==> Units.Volume.milliLiter
-    |> toString
-    |> printfn "%s"
-
-    4N
-    |> create (Units.General.general "dose")
-    |> (fun vu -> vu / (1N |> create Units.Time.day))
-    >>* (fun vu -> vu ==> (Units.General.general "dose" |> per (Units.Time.week)))
-    |> (fun (ValueUnit(_, u)) ->
-        u |> Group.unitToGroup
-    )
-    |> ignore
-
-    mg400 / ml50 / (1N |> create Units.Time.day)
-    |> (fun vu -> 
-        let (v, u) = vu |> get
-        u 
-        |> Group.unitToGroup
-        |> Group.getUnits
-        |> List.iter (fun u ->
-            create u 1N
-            |> toString
-            |> printfn "%s"
-        )
-    )
-    
 

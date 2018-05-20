@@ -45,7 +45,15 @@ let mgkgday = Units.Mass.milliGram |> per Units.Weight.kiloGram |> per Units.Tim
 createCombiUnit (Count(Times(2N)), OpPer, Time(Hour(1N)))
 |> (fun u -> createCombiUnit ((Mass(MilliGram(1N)), OpTimes, u)))
 
-((20N |> mg) * ((3N |> x) / (1N |> day))) / (8N |> kg)
+((20N |> mg) + (30N |> mg)) * ((3N |> x) / (1N |> day)) / (8N |> kg)
 ==> mgkgday
 
+let dripMgPerHour n = (n |> mg) / (1N |> hr)
+
 Api.eval "100 mg[Mass] * 1 gram[Mass]"
+
+"10 mg[Mass]/kg[Weight]/d[Time]"
+|> ValueUnit.fromString
+|> ValueUnit.toString ValueUnit.Units.English ValueUnit.Units.Short
+|> ValueUnit.fromString
+|> ValueUnit.toString ValueUnit.Units.English ValueUnit.Units.Short
