@@ -58,9 +58,9 @@ module DoseRule =
             | None    -> minmax
 
         
-        let inline get get minmax = 
+        let inline get fget minmax = 
             minmax
-            |> get
+            |> fget
             |> Option.bind (fun vu ->
                 vu
                 |> ValueUnit.get
@@ -70,13 +70,22 @@ module DoseRule =
             )
 
         
+        let setMin = MinMax.setMin ValueUnit.ste
+
+
+        let setMax = MinMax.setMax ValueUnit.ste
+
+
+        let foldMaximize = MinMax.foldMaximize ValueUnit.ste ValueUnit.st
+
+
         let setAge = set ValueUnit.ageInMo
 
         
-        let setAgeMin = setAge MinMax.setMin
+        let setAgeMin = setAge setMin
 
 
-        let setAgeMax = setAge MinMax.setMax
+        let setAgeMax = setAge setMax
 
 
         let ageMinMax min max =
@@ -99,10 +108,10 @@ module DoseRule =
         let setWeight = set ValueUnit.weightInKg
 
         
-        let setWeightMin = setWeight MinMax.setMin
+        let setWeightMin = setWeight setMin
 
 
-        let setWeightMax = setWeight MinMax.setMax
+        let setWeightMax = setWeight setMax
 
 
         let weightMinMax min max =
@@ -125,10 +134,10 @@ module DoseRule =
         let setBSA = set ValueUnit.bsaInM2
 
         
-        let setBSAMin = setBSA MinMax.setMin
+        let setBSAMin = setBSA setMin
 
 
-        let setBSAMax = setBSA MinMax.setMax
+        let setBSAMax = setBSA setMax
 
 
         let setBSAMinMax min max =
@@ -151,10 +160,10 @@ module DoseRule =
         let setGestAge = set ValueUnit.gestAgeInDaysAndWeeks
 
         
-        let setGestAgeMin = setGestAge MinMax.setMin
+        let setGestAgeMin = setGestAge setMin
 
 
-        let setGestAgeMax = setGestAge MinMax.setMax
+        let setGestAgeMax = setGestAge setMax
 
 
         let setGestAgeMinMax min max =
@@ -183,10 +192,10 @@ module DoseRule =
             | None -> MinMax.none
 
 
-        let setSubstanceMin = setSubstance MinMax.setMin
+        let setSubstanceMin = setSubstance setMin
 
 
-        let setSubstanceMax = setSubstance MinMax.setMax
+        let setSubstanceMax = setSubstance setMax
 
 
         let setSubstanceMinMax min max =
@@ -493,9 +502,6 @@ module DoseRule =
 
 
     module Dose =
-
-        open Aether
-        open Aether.Operators
 
 
         type Dose = 
