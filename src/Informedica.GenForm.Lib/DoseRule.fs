@@ -35,8 +35,12 @@ module DoseRule =
 
     module MinMax =
 
+        open ValueUnit
 
-        type MinMax = MinMax.MinMax<ValueUnit.ValueUnit>
+        type MinMax = MinMax.MinMax<ValueUnit>
+
+
+        let inRange n minmax = MinMax.inRange lte ste n minmax
 
 
         let empty = MinMax.none
@@ -51,7 +55,7 @@ module DoseRule =
         let set m set v minmax =
             match m v with 
             | Some vu -> minmax |> set vu
-            | None -> MinMax.none
+            | None    -> minmax
 
         
         let inline get get minmax = 
@@ -212,6 +216,7 @@ module DoseRule =
             minmax |> getSubstanceMax
 
 
+
     module Patient = 
 
         open Informedica.GenProduct.Lib.DoseRule
@@ -237,15 +242,20 @@ module DoseRule =
 
 
         let toString p =
-            let print label (minmax : MinMax.MinMax) s =                
-                s + "\n" + label + ": " + (minmax |> MinMax.toString)
-            if p = empty then "alle patienten"
+            let print label (minmax : MinMax.MinMax) s = 
+                let mms = minmax |> MinMax.toString
+                if mms = "" then s 
+                else
+                    let s = if s = "" then s else s + "\n"
+                    s + label + ": " + mms
+            if p = empty then "Alle patienten"
             else 
                 ""
                 |> print "Leeftijd" p.Age
                 |> print "Gewicht" p.Weight
+                |> print "BSA" p.BSA
                 |> (fun s -> 
-                    s + "\n" +
+                    s + (if s = "" then "" else "\n") +
                     (match p.Gender with
                      | Some g -> "Geslacht: " + (g |> Patient.genderToString)
                      | None -> "")
@@ -973,7 +983,6 @@ module DoseRule =
                 (fun s -> s.Name),
                 (fun n s -> { s with Name = n })
 
-
             static member Dose_ =
                 (fun s -> s.Dose),
                 (fun d s -> { s with Dose = d })
@@ -987,6 +996,26 @@ module DoseRule =
 
 
         let setName = Optic.set Substance.Name_
+
+
+        let getUnit = Optic.get Substance.Unit_
+
+
+        let setUnit = Optic.set Substance.Unit_
+
+
+        let isoMorphGStandUnit =
+            (fun s -> s |> getUnit |> ValueUnit.unitToString),
+            (fun u s -> 
+                match u |> ValueUnit.unitFromString Mapping.GStandMap with
+                | Some u' -> s |> setUnit u'
+                | None -> s)
+
+
+        let getGStandUnit = Optic.get isoMorphGStandUnit
+
+
+        let setGStandUnit = Optic.set isoMorphGStandUnit
 
 
         let getDose = Optic.get Substance.Dose_
@@ -1129,6 +1158,10 @@ module DoseRule =
 
         let setDosePerTimeNormDosePerM2Min = Optic.set perDosePerTimeNormDosePerM2MinLens
 
+        // ToDo copy to the rest 
+        let setDosePerTimeNormDosePerM2MinGStand v s =
+            s |> setDosePerTimeNormDosePerM2Min ((v, s |> getGStandUnit) |> Some)
+
 
         let perDosePerTimeNormDosePerM2MaxLens = Substance.Dose_ >-> Dose.perTimeNormDosePerM2MaxLens
 
@@ -1137,6 +1170,10 @@ module DoseRule =
 
 
         let setDosePerTimeNormDosePerM2Max = Optic.set perDosePerTimeNormDosePerM2MaxLens
+
+
+        let setDosePerTimeNormDosePerM2MaxGStand v s =
+            s |> setDosePerTimeNormDosePerM2Max ((v, s |> getGStandUnit) |> Some)
 
 
         let perDoserPerTimeAbsDosePerM2Lens = Substance.Dose_ >-> Dose.perTimeAbsDosePerM2Lens
@@ -1157,6 +1194,10 @@ module DoseRule =
         let setDosePerTimeAbsDosePerM2Min = Optic.set perDosePerTimeAbsDosePerM2MinLens
 
 
+        let setDosePerTimeAbsDosePerM2MinGStand v s =
+            s |> setDosePerTimeAbsDosePerM2Min ((v, s |> getGStandUnit) |> Some)
+
+
         let perDosePerTimeAbsDosePerM2MaxLens = Substance.Dose_ >-> Dose.perTimeAbsDosePerM2MaxLens
 
 
@@ -1164,6 +1205,20 @@ module DoseRule =
 
 
         let setDosePerTimeAbsDosePerM2Max = Optic.set perDosePerTimeAbsDosePerM2MaxLens
+
+
+        let setDosePerTimeAbsDosePerM2MaxGStand v s =
+            s |> setDosePerTimeAbsDosePerM2Max ((v, s |> getGStandUnit) |> Some)
+            
+
+        let printDose (substs : Substance List) =
+            substs
+            |> List.fold (fun state s -> 
+                let n = s |> getName
+                if state = "" then n
+                else
+                    state + "\n" + n
+            ) ""
 
 
 
@@ -1261,7 +1316,6 @@ module DoseRule =
         static member Shape_ =
             (fun dr -> dr.Shape),
             (fun s dr -> { dr with Shape = s })
-
 
         static member Route_ =
             (fun dr -> dr.Route),
@@ -1538,6 +1592,11 @@ module DoseRule =
     let setPatientUndeterminedGender = Optic.set patientUndeterminedGenderLens
 
 
+    let addSubstance subst (dr : DoseRule) = 
+        { dr with Substances = dr.Substances |> List.append [subst] }
+
+
+    let getSubstances (dr : DoseRule) = dr.Substances
 
 
     let doseRuleText = """
@@ -1551,9 +1610,14 @@ Indicatie: {indication}
 
 Route: {route}
 
-Patient : {patient}
+Patient:
+{patient}
 
-Regels: {text}
+Doseringen:
+{doseringen}
+
+Regels: 
+{text}
     """
 
 
@@ -1564,10 +1628,11 @@ Regels: {text}
         |> String.replace "{route}" (dr |> getRouteName)
         |> String.replace "{atc}" dr.ATC
         |> String.replace "{therapygroup}" dr.TherapyGroup
-        |> String.replace "{therapysub}" dr.TherapySubGroup
+        |> String.replace "{therapysubgroup}" dr.TherapySubGroup
         |> String.replace "{indication}" dr.Indication
         |> String.replace "{route}" (dr.Route |> Route.toString)
         |> String.replace "{patient}" (dr.Patient |> Patient.toString)
+        |> String.replace "{doseringen}" (dr.Substances |> Substance.printDose)
         |> String.replace "{text}" ( 
             match dr.Text with
             | GSTandText txt 

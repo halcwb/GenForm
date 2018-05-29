@@ -1,11 +1,12 @@
-﻿#load "genproduct-files.fsx"
+﻿#load "references.fsx"
 
 #time
 
 open System
 
 let pwd = Environment.GetEnvironmentVariable("HOME")
-Environment.CurrentDirectory <- pwd + "/Development/GenFormService/" //__SOURCE_DIRECTORY__ + "/../../../"
+Environment.CurrentDirectory <- pwd + "/Development/GenForm/" 
+//__SOURCE_DIRECTORY__ + "/../../../"
 
 open Informedica.GenUtils.Lib
 open Informedica.GenUtils.Lib.BCL
@@ -170,4 +171,48 @@ GenPresProduct.getRoutes()
     |> Array.exists ((=) r)
     |> not
 )
+
+RuleFinder.createFilter None None None None "diclofenac" "" ""
+|> RuleFinder.find
+|> Array.map (fun dr -> 
+    (dr.Routes |> Array.map RuleFinder.createRoute, dr)
+)
+|> Array.groupBy (fun (r, _) ->
+    r
+)
+|> Array.map (fun (r, drs) ->
+    let drs =
+        drs
+        |> Array.map snd
+        |> Array.groupBy (fun dr -> 
+            (dr.Gender, dr.Age, dr.Weight, dr.BSA)
+        )
+    (r, drs)
+)
+|> Array.map (fun (r, drs) ->
+    let drs = 
+        drs |> Array.map (fun (pat, drs) ->
+            (pat, drs |> Array.map (DoseRule.toString ", ") |> Array.distinct)
+        )
+    (r, drs)
+)
+
+
+DoseRule.get ()
+|> Array.map (fun dr ->
+    dr.Freq
+)
+|> Array.distinct
+|> Array.sortBy (fun fr -> fr.Time)
+|> Array.map DoseRule.freqToString
+|> Array.iter (printfn "%s")
+
+DoseRule.get ()
+|> Array.filter (fun dr ->
+    dr.Freq.Time |> String.contains "eenmalig" &&
+    dr.Freq.Frequency > 1. 
+)
+|> Array.map (DoseRule.toString ", ")
+|> Array.iter (printfn "%s")
+
 

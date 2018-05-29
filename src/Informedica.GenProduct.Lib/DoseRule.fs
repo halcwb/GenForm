@@ -116,6 +116,10 @@ module DoseRule =
         ) { Min = None; Max = None }
 
 
+    let freqToString (freq : Frequency) = 
+        (string freq.Frequency) + " " + freq.Time
+
+
     let toString del (r: DoseRule)  =
         let minMaxToString n u p (mm: MinMax) s =
             let mms =
@@ -179,7 +183,7 @@ module DoseRule =
         let s = 
             if r.Freq.Frequency <= 0. then s
             else
-                s + "Freq: " + (string r.Freq.Frequency) + " " + r.Freq.Time + del
+                s + "Freq: " + (r.Freq |> freqToString) + " " + del
 
         let s = s |> minMaxToString "Norm" r.Unit 3 r.Norm
         let s = s |> minMaxToString "Norm/Kg" r.Unit 3 r.NormKg
@@ -343,8 +347,15 @@ module DoseRule =
 
 
     let getICPCRoute (icp : Zindex.BST642T.BST642T) = 
-        [| Names.getThes icp.GPKTWG Names.Route Names.Fifty |]
-
+        let r = Names.getThes icp.GPKTWG Names.Route Names.Fifty
+        if r = "TOEDIENINGSWEG NIET INGEVULD" ||
+           r = "PARENTERAAL" then Array.empty
+        else [|r|]
+        |> Array.collect (fun r ->
+            r 
+            |> String.splitAt ','
+            |> Array.map String.trim
+        )
 
     let getDoseType (bas : Zindex.BST641T.BST641T) =
         Zindex.BST902T.records ()
@@ -357,6 +368,7 @@ module DoseRule =
             if r |> Option.isNone then ""
             else r.Value.THNM50.Trim())
 
+
     let getICPCText (icp : Zindex.BST642T.BST642T) =
         Zindex.BST380T.records ()
         |> Array.tryFind (fun i ->
@@ -366,6 +378,7 @@ module DoseRule =
             if r.IsNone then ""
             else r.Value.ICPCTXT.Trim()
         )
+
 
     let getFrequency (cat: Zindex.BST643T.BST643T) = 
         Zindex.BST360T.records ()
@@ -412,7 +425,7 @@ module DoseRule =
                 { 
                     empty with 
                         Id           = dos.GPDDNR
-                        Routes        = getICPCRoute icp
+                        Routes       = getICPCRoute icp
                         DoseType     = getDoseType bas
                         IndicationId = icp.GPDID1
                         Indication   = getICPCText icp

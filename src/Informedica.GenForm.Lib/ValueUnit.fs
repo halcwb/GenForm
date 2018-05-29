@@ -13,6 +13,12 @@ module ValueUnit =
     let unitToString = Units.toString Units.Dutch Units.Short
 
 
+    let unitFromString m u = 
+            u
+            |> Mapping.mapUnit m Mapping.GenFormMap
+            |> Units.fromString
+
+
     let createUnit m v u =
         let s = 
             u
@@ -73,6 +79,7 @@ module ValueUnit =
                 |> Option.bind (fun vu2 -> vu1 + vu2 |> Some)
             )
         )
+
 
     let toStringPrec prec vu = 
         let v, u = vu |> ValueUnit.get

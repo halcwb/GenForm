@@ -110,7 +110,7 @@ module MinMax =
     let foldMaximize st mms = foldCond st mms
 
 
-    let inRange gte ste n minmax =
+    let inRange (gte: 'b -> 'b -> bool) (ste : 'b -> 'b -> bool) n minmax =
         match minmax with
         | None    -> true
         | Min min -> gte n min

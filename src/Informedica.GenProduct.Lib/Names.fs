@@ -107,7 +107,6 @@ module Names =
         |> Memoization.memoize
 
 
-
     let getConsumerContainers =
         fun () ->
             getItems ConsumerContainer TwentyFive

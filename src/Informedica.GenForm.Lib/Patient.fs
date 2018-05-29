@@ -11,6 +11,7 @@ module Patient =
 
     open ValueUnit
 
+
     type Age =
         | BirthDate of (BirthYear * BirthMonth * BirthDay)
         | AgeMonths of float
@@ -42,6 +43,7 @@ module Patient =
     and GestDays = int
 
 
+
     module Mapping =
 
         let weightMap =
@@ -68,14 +70,18 @@ module Patient =
             ) 
             |> Option.bind (fst >> Some)
 
+
         let mapWeight = map weightMap
 
+
         let mapHeight = map heightMap
+
 
         let mapGender s = 
             match s |> map genderMap with
             | Some g -> g
             | None -> Undetermined
+
 
 
     type Patient =
@@ -121,7 +127,7 @@ module Patient =
                 |> BigRational.fromFloat
                 |> Option.bind (fun br -> br |> create un |> Some)
             | None -> None
-           
+          
         let length = 
             let u = lu |> Mapping.mapHeight
 
@@ -131,7 +137,7 @@ module Patient =
                 |> BigRational.fromFloat
                 |> Option.bind (fun br -> br |> create un |> Some)
             | None -> None
-           
+          
         let gender = Mapping.mapGender gn
 
         {
@@ -182,5 +188,6 @@ module Patient =
 
             (w ** n1) * (h ** n2) * n3 
             |> BigRational.fromFloat
+
         | _ -> None
         

@@ -641,6 +641,21 @@ module ValueUnit =
         (vu1 |> toBase) |> cp <| (vu2 |> toBase)
 
 
+    let eq = cmp (=)
+
+
+    let lt = cmp (>)
+
+
+    let st = cmp (>)
+
+
+    let lte = cmp (>=)
+
+
+    let ste = cmp (<=)
+
+
     let convertTo u vu =
         vu
         |> toBase

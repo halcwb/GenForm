@@ -6,7 +6,6 @@
 #r @".\..\..\..\src\Informedica.GenUtils.Lib\bin\Debug\netstandard2.0\Informedica.GenUtils.Lib.dll"
 #r @".\..\..\..\src\Informedica.GenUnits.Lib\bin\Debug\netstandard2.0\Informedica.GenUnits.Lib.dll"
 
-#load @"./../../../src/Informedica.GenUnits.Lib/scripts/genunits-files.fsx"
 #load @"./../../../src/Informedica.GenProduct.Lib/FilePath.fs"
 #load @"./../../../src/Informedica.GenProduct.Lib/Json.fs"
 #load @"./../../../src/Informedica.GenProduct.Lib/Parser.fs"
