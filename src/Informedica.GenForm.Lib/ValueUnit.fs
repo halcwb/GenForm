@@ -80,6 +80,9 @@ module ValueUnit =
             )
         )
 
+    let remBr s = 
+        (String.regex "\[[^\]]*]").Replace(s, "")
+
 
     let toStringPrec prec vu = 
         let v, u = vu |> ValueUnit.get
@@ -90,6 +93,9 @@ module ValueUnit =
             |> Double.fixPrecision prec
             |> string
 
-        let us = u |> unitToString
+        let us = 
+            u 
+            |> unitToString
+            |> remBr
 
         vs + " " + us

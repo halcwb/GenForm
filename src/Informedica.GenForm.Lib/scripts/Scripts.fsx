@@ -19,9 +19,6 @@ open Informedica.GenForm.Lib
 FilePath.formulary |> (fun p -> printfn "%s" p; p) |> File.exists
 let printResult m r = printf m; printfn " %A" r; r
     
-let remBr s = 
-    (String.regex "\[[^\]]*]").Replace(s, "")
-
 
 DoseRule.empty
 |> DoseRule.setGeneric "pacetamol"
@@ -39,10 +36,10 @@ DoseRule.empty
 |> DoseRule.setPatientMinBSA (Some 2.0)
 |> DoseRule.setPatientMaxBSA (Some 1.0)
 |> DoseRule.toString
-|> remBr
 
 
 open Informedica.GenForm.Lib.DoseRule
+open Informedica.GenForm.Lib.DoseRule.Dose
 
 
 let mapMinMax setMin setMax (minmax : DoseRule.MinMax) dr =
@@ -74,6 +71,36 @@ let mapFreq (fr: DoseRule.Frequency) =
     )
     |> ValueUnit.fromString
 
+
+let mapDoses qty u (dr : Informedica.GenProduct.Lib.DoseRule.DoseRule) =
+    let fr = mapFreq dr.Freq
+
+    let toVu perKg perM2 v =
+        let u = 
+            if not perKg then u
+            else
+                u |> ValueUnit.per ValueUnit.Units.Weight.kiloGram
+
+        let u = 
+            if not perM2 then u
+            else
+                u |> ValueUnit.per ValueUnit.Units.BSA.M2
+
+        match u |> ValueUnit.fromFloat (v * qty) with
+        | Some vu -> vu * fr |> Some
+        | None -> None
+    
+    let minmax perKg perM2 (mm : Informedica.GenProduct.Lib.DoseRule.MinMax) =
+        MinMax.empty
+        |> MinMax.setMinOpt (mm.Min |> Option.bind (toVu perKg perM2))
+        |> MinMax.setMaxOpt (mm.Max |> Option.bind (toVu perKg perM2))
+
+    dr.Norm   |> minmax false false,
+    dr.Abs    |> minmax false false,
+    dr.NormKg |> minmax true false,
+    dr.AbsKg  |> minmax true false,
+    dr.NormM2 |> minmax false true,
+    dr.AbsM2  |> minmax false true
 
 let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
 
@@ -140,8 +167,76 @@ let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
                 match u |> ValueUnit.createFromGStand 1. with
                 | Some vu ->
                     let _, u = vu |> ValueUnit.get
+
+                    let doses =
+                        qts
+                        |> Array.map(fun (r, v) ->
+                            mapDoses v u r
+                        )
+
+                    let norm = 
+                        doses
+                        |> Array.map(fun (norm, _, _, _, _, _) -> norm)
+                        |> Array.toList
+                        |> MinMax.foldMaximize
+                       
+
+                    let abs = 
+                        doses
+                        |> Array.map(fun (_, abs, _, _, _, _) -> abs)
+                        |> Array.toList
+                        |> MinMax.foldMaximize
+
+                    let normKg = 
+                        doses
+                        |> Array.map(fun (_, _, normKg, _, _, _) -> normKg)
+                        |> Array.toList
+                        |> MinMax.foldMaximize
+
+                    let absKg = 
+                        doses
+                        |> Array.map(fun (_, _, _, absKg, _, _) -> absKg)
+                        |> Array.toList
+                        |> MinMax.foldMaximize
+
+                    let normM2 = 
+                        doses
+                        |> Array.map(fun (_, _, _, _, normM2, _) -> normM2)
+                        |> Array.toList
+                        |> MinMax.foldMaximize
+
+                    let absM2 = 
+                        doses
+                        |> Array.map(fun (_, _, _, _, _, absM2) -> absM2)
+                        |> Array.toList
+                        |> MinMax.foldMaximize
+
+                    let dose =
+                        Dose.emptyDoseValue
+                        |> Dose.setNormDose norm
+                        |> Dose.setAbsDose abs
+                        |> Dose.setNormDosePerKg normKg
+                        |> Dose.setAbsDosePerKg absKg
+                        |> Dose.setNormDosePerM2 normM2
+                        |> Dose.setAbsDosePerM2 absM2
+
+                    let frqs =
+                        qts
+                        |> Array.map (fun (r, _) ->
+                            r.Freq.Frequency
+                            |> BigRational.fromFloat
+                        )
+                        |> Array.distinct
+                        |> Array.filter Option.isSome
+                        |> Array.map Option.get
+                        |> Array.sort
+                        |> Array.toList
+
                     state
-                    |> addSubstance (Substance.init n u)
+                    |> addSubstance (
+                        Substance.init n u
+                        |> Substance.setDose (Dose.empty |> Dose.add frqs None dose)
+                    )
                 | None -> state
             ) dr
         )
@@ -174,7 +269,7 @@ let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
                                 let tm, drs = time
                                 let (gen, age, wght, bsa) , _ = pat
 
-                                yield empty
+                                yield DoseRule.empty
                                       |> setGeneric gpp.Name
                                       |> setATC atc
                                       |> setTherapyGroup g.TherapeuticMainGroup
@@ -200,29 +295,6 @@ let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
 
 
 mapDoseRule (GenPresProduct.filter "diclofenac" "" "")
-|> List.map (fun dr -> dr |> toString)
+|> List.map (fun dr -> dr |> DoseRule.toString)
 |> List.iter (printfn "%s")
 
-
-
-DoseRule.get ()
-|> Array.map (fun dr ->
-    dr.Freq.Time
-)
-|> Array.distinct
-|> Array.sort
-
-
-
-DoseRule.get ()
-|> Array.map (fun dr ->
-    dr.Freq
-)
-|> Array.distinct
-|> Array.map mapFreq
-|> Array.distinct
-|> Array.sort
-|> Array.iter (printfn "%A")
-
-BigRational.Parse("1")
-1N |> BigRational.toString

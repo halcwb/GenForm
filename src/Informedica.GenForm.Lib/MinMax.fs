@@ -119,13 +119,11 @@ module MinMax =
 
 
     let toString toStr minmax = 
-        let s =
-            match minmax with
-            | None -> ""
-            | Min min -> "vanaf " + (min |> toStr)
-            | Max max ->
-                "tot " + (max |> toStr)
-            | MinAndMax (min, max) -> (min |> toStr) + " - " + (max |> toStr)
+        match minmax with
+        | None -> ""
+        | Min min -> "vanaf " + (min |> toStr)
+        | Max max ->
+            "tot " + (max |> toStr)
+        | MinAndMax (min, max) -> (min |> toStr) + " - " + (max |> toStr)
 
-        if s = "" then "" else s + " "
 

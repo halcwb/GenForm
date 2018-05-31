@@ -383,6 +383,12 @@ module ValueUnit =
     let create u v = (v, u) |> ValueUnit
 
 
+    let generalUnit v s = (s, v) |> General
+
+
+    let generalValueUnit n v s = create (generalUnit v s) n 
+
+
     let get (ValueUnit (v, u)) = v, u
 
 
@@ -637,20 +643,19 @@ module ValueUnit =
 
 
     let cmp cp vu1 vu2 =
-        printfn "%A %A %A" vu1 cp vu2
         (vu1 |> toBase) |> cp <| (vu2 |> toBase)
 
 
     let eq = cmp (=)
 
 
-    let lt = cmp (>)
+    let gt = cmp (>)
 
 
     let st = cmp (>)
 
 
-    let lte = cmp (>=)
+    let gte = cmp (>=)
 
 
     let ste = cmp (<=)
@@ -883,10 +888,10 @@ module ValueUnit =
                 { Unit = Time.year; Group = Group.NoGroup;  Abbreviation = { Eng = "yr"; Dut = "jr" }; Name = { Eng = "year"; Dut = "jaar" }; Synonyms = [] }
                 { Unit = Time.month; Group = Group.NoGroup;  Abbreviation = { Eng = "mo"; Dut = "mnd" }; Name = { Eng = "month"; Dut = "maand" }; Synonyms = [] }
                 { Unit = Time.week; Group = Group.NoGroup;  Abbreviation = { Eng = "wk"; Dut = "wk" }; Name = { Eng = "week"; Dut = "week" }; Synonyms = [] }
-                { Unit = Time.day; Group = Group.NoGroup;  Abbreviation = { Eng = "d"; Dut = "d" }; Name = { Eng = "day"; Dut = "dag" }; Synonyms = [] }
-                { Unit = Time.hour; Group = Group.NoGroup;  Abbreviation = { Eng = "hr"; Dut = "u" }; Name = { Eng = "hour"; Dut = "uur" }; Synonyms = [] }
+                { Unit = Time.day; Group = Group.NoGroup;  Abbreviation = { Eng = "day"; Dut = "dag" }; Name = { Eng = "day"; Dut = "dag" }; Synonyms = [] }
+                { Unit = Time.hour; Group = Group.NoGroup;  Abbreviation = { Eng = "hr"; Dut = "uur" }; Name = { Eng = "hour"; Dut = "uur" }; Synonyms = [] }
                 { Unit = Time.minute; Group = Group.NoGroup;  Abbreviation = { Eng = "min"; Dut = "min" }; Name = { Eng = "minute"; Dut = "minuut" }; Synonyms = [] }
-                { Unit = Time.second; Group = Group.NoGroup;  Abbreviation = { Eng = "s"; Dut = "s" }; Name = { Eng = "second"; Dut = "seconde" }; Synonyms = [] }
+                { Unit = Time.second; Group = Group.NoGroup;  Abbreviation = { Eng = "sec"; Dut = "sec" }; Name = { Eng = "second"; Dut = "seconde" }; Synonyms = [] }
                              
                 { Unit = Molar.mol; Group = Group.NoGroup;  Abbreviation = { Eng = "mol"; Dut = "mol" }; Name = { Eng = "mol"; Dut = "mol" }; Synonyms = [] }
                 { Unit = Molar.milliMol; Group = Group.NoGroup;  Abbreviation = { Eng = "mmol"; Dut = "mmol" }; Name = { Eng = "millimol"; Dut = "millimol" }; Synonyms = [] }
@@ -922,8 +927,9 @@ module ValueUnit =
                     udt.Group |> Group.toString |> String.equalsCapInsens gs
 
                 match units |> List.tryFind (fun udt -> udt |> eqsUnit && udt |> eqsGroup) with
-                | Some udt -> udt.Unit |> Some
-                | None     -> None
+                | Some udt -> udt.Unit 
+                | None     -> generalUnit 1N s
+                |> Some
 
             | _ -> None
 
@@ -931,18 +937,39 @@ module ValueUnit =
 
         let toString loc verb u =
             let gtost u g = u + "[" + (g |> Group.toString) + "]"
-            match u |> tryFind with
-            | Some udt -> 
-                match loc with
-                | English ->
-                    match verb with
-                    | Short -> udt.Group |> gtost udt.Abbreviation.Eng
-                    | Long  -> udt.Group |> gtost udt.Name.Eng
-                | Dutch ->
-                    match verb with
-                    | Short -> udt.Group |> gtost udt.Abbreviation.Dut
-                    | Long  -> udt.Group |> gtost udt.Name.Dut
-            | None -> ""
+
+            let rec str u =
+                match u with
+                | NoUnit -> ""
+
+                | CombiUnit (ul, op, ur) ->
+                    let uls = str ul
+                    let urs = str ur
+
+                    uls + (op |> opToStr) + urs
+
+                | General (n, v) ->
+                    let ustr = n + "[General]"
+                    if v > 1N then
+                        (1N |> BigRational.toString) + ustr
+                    else ustr
+
+                | _ -> 
+
+                    match u |> tryFind with
+                    | Some udt -> 
+                        match loc with
+                        | English ->
+                            match verb with
+                            | Short -> udt.Group |> gtost udt.Abbreviation.Eng
+                            | Long  -> udt.Group |> gtost udt.Name.Eng
+                        | Dutch ->
+                            match verb with
+                            | Short -> udt.Group |> gtost udt.Abbreviation.Dut
+                            | Long  -> udt.Group |> gtost udt.Name.Dut
+                    | None -> ""
+
+            str u
 
 
 
@@ -999,26 +1026,8 @@ module ValueUnit =
 
     let toString loc verb vu = 
         let v, u = vu |> get
-
-        let rec str u s =
-            match u with
-            | NoUnit -> ""
-
-            | CombiUnit (ul, op, ur) ->
-                let uls = str ul s
-                let urs = str ur s
-
-                uls + (op |> opToStr) + urs
-
-            | General (n, v) ->
-                let ustr = n + "[General]"
-                if v > 1N then
-                    (1N |> BigRational.toString) + ustr
-                else ustr
-
-            | _ -> u |> Units.toString loc verb
         
-        (v |> BigRational.toString) + " " + (str u "")
+        (v |> BigRational.toString) + " " + (Units.toString loc verb u)
 
 
     let fromString s =
@@ -1043,7 +1052,7 @@ module ValueUnit =
                 |> UnitItem.UnitItem
 
             let rec parse ul usl =
-                printfn "parsing %A" (usl |> String.concat " ")
+
                 match usl with
                 | []   -> ul
                 | [us] -> 
@@ -1067,7 +1076,6 @@ module ValueUnit =
             |> String.replace "-" (dels + "-" + dels)
             |> String.split dels
             |> parse []
-            |> (fun uil -> printfn "%A" uil; uil)
             |> UnitItem.listToUnit
 
         match s |> String.split " " with

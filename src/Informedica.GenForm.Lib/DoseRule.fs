@@ -33,6 +33,7 @@ module DoseRule =
     type Id = int
 
 
+
     module MinMax =
 
         open ValueUnit
@@ -40,7 +41,7 @@ module DoseRule =
         type MinMax = MinMax.MinMax<ValueUnit>
 
 
-        let inRange n minmax = MinMax.inRange lte ste n minmax
+        let inRange n minmax = MinMax.inRange gte ste n minmax
 
 
         let empty = MinMax.none
@@ -73,7 +74,19 @@ module DoseRule =
         let setMin = MinMax.setMin ValueUnit.ste
 
 
+        let setMinOpt vu mm = 
+            match vu with
+            | Some vu -> setMin vu mm
+            | None    -> mm
+
+
         let setMax = MinMax.setMax ValueUnit.ste
+
+
+        let setMaxOpt vu mm = 
+            match vu with
+            | Some vu -> setMax vu mm
+            | None    -> mm
 
 
         let foldMaximize = MinMax.foldMaximize ValueUnit.ste ValueUnit.st
@@ -259,8 +272,30 @@ module DoseRule =
                     s + label + ": " + mms
             if p = empty then "Alle patienten"
             else 
+                let age = 
+                    let yr = 1N |> ValueUnit.create ValueUnit.Units.Time.year
+
+                    match p.Age with
+                    | Informedica.GenForm.Lib.MinMax.None  -> p.Age
+                    | Informedica.GenForm.Lib.MinMax.Min(m) -> 
+                        if m |> ValueUnit.gte yr then m |> ValueUnit.convertTo ValueUnit.Units.Time.year
+                        else m
+                        |> MinMax.Min
+                    | Informedica.GenForm.Lib.MinMax.Max m ->
+                        if m |> ValueUnit.gte yr then m |> ValueUnit.convertTo ValueUnit.Units.Time.year
+                        else m
+                        |> MinMax.Max 
+                    | Informedica.GenForm.Lib.MinMax.MinAndMax (min, max) ->
+                        let min =
+                            if min |> ValueUnit.gte yr then min |> ValueUnit.convertTo ValueUnit.Units.Time.year
+                            else min
+                        let max =
+                            if max |> ValueUnit.gte yr then max |> ValueUnit.convertTo ValueUnit.Units.Time.year
+                            else max
+                        MinMax.MinAndMax (min, max)
+
                 ""
-                |> print "Leeftijd" p.Age
+                |> print "Leeftijd" age
                 |> print "Gewicht" p.Weight
                 |> print "BSA" p.BSA
                 |> (fun s -> 
@@ -504,16 +539,8 @@ module DoseRule =
     module Dose =
 
 
-        type Dose = 
-            {
-                /// The dose that can be given 
-                /// each time
-                PerTime : DoseValue Option
-                /// For each frequency time period
-                /// there is a specific dose
-                PerPeriod : (FreqPeriod * DoseValue) list
-            }
-        and FreqPeriod = BigRational list * TimePeriod
+        type Dose = Dose of (FreqPeriod * DoseValue) list
+        and FreqPeriod = FreqPeriod of BigRational list * TimePeriod Option
         and DoseValue = 
             {
                 /// The optional min/max total dose limits
@@ -532,13 +559,6 @@ module DoseRule =
         and TimePeriod = ValueUnit.Unit
 
 
-        let empty = 
-            {
-                PerTime = None
-                PerPeriod = []
-            }
-
-
         let emptyDoseValue = 
             {
                 NormDose      = MinMax.empty
@@ -549,28 +569,27 @@ module DoseRule =
                 AbsDosePerM2  = MinMax.empty
             }
 
+        
+        let emptyFreqPeriod =
+            ([], None) |> FreqPeriod
 
-        let createFreqs sl =
-            sl
-            |> List.map (Mapping.mapFreq Mapping.GStandMap Mapping.GenFormMap)
-            |> List.filter ((<>) "")
-            |> List.map (fun s ->
-                match s |> String.split "/" with
-                | [t;u] ->
-                    (t |> ValueUnit.fromString ,
-                     ValueUnit.Units.fromString u)
-                    |> Some
-                | _ -> None
-            ) 
-            |> List.filter Option.isSome
-            |> List.map Option.get
-            |> List.groupBy (fun (n, u) ->
-                u
-            )
-            |> List.map (fun (u, ns) ->
-                (ns 
-                |> List.map (fst >> ValueUnit.get >> fst) ), u
-            )
+
+        let empty = [] |> Dose
+
+
+        let create brl tpo dv =
+            let fp =
+                (brl, tpo) 
+                |> FreqPeriod
+            [ (fp, dv) ] |> Dose 
+
+        
+        let add brl tpo dv (Dose dvs) = 
+            let fp =
+                (brl, tpo) 
+                |> FreqPeriod
+            [ (fp, dv) ] @ dvs
+            |> Dose             
 
 
         type DoseValue with
@@ -747,183 +766,52 @@ module DoseRule =
 
         let setAbsDosePerM2Max = Optic.set absDosePerM2MaxLens
 
-        
-        type Dose with
 
-            static member PerTime_ =
-                (fun d -> if d.PerTime |> Option.isSome then d.PerTime |> Option.get else emptyDoseValue), 
-                (fun pt d -> { d with PerTime = Some pt })
+        let toString (Dose dvs) = 
+            dvs
+            |> List.fold (fun acc (FreqPeriod (frs, period), dv) ->
+                let f = 
+                    frs 
+                    |> List.map BigRational.toString
+                    |> String.concat ", "
+                    |> (fun s -> 
+                        if s = "" then s
+                        else
+                            match period with
+                            | Some p -> 
+                            s + " per " + (p |> ValueUnit.unitToString)
+                            | None -> s + " keer"
+                    )
+                
+                let getds get dn =
+                    dv 
+                    |> get 
+                    |> MinMax.toString
+                    |> (fun s -> 
+                        if s = "" then s
+                        else
+                            dn + ": " + s + " in " + f
+                    )
+
+                let ds = 
+                    [
+                        getds getNormDose      "Norm dose"
+                        getds getAbsDose       "Abs dose"
+                        getds getNormDosePerKg "Norm dose per kg"
+                        getds getAbsDosePerKg  "Abs dose per kg"
+                        getds getNormDosePerM2 "Norm dose per m2"
+                        getds getAbsDosePerM2  "Abs dose per m2"
+                    ]
+                    |> List.filter (String.notEmpty)
+                    |> String.concat "\n"
+
+                    
+                
+                if acc = "" then ds
+                    else 
+                        acc + "\n" + ds
+            ) ""
 
-            static member PerPeriod_ =
-                (fun d -> d.PerPeriod), (fun pp d -> { d with PerPeriod = pp })
-
-
-        let getPerTime = Optic.get Dose.PerTime_
-
-
-        let setPerTime = Optic.set Dose.PerTime_
-
-
-        let perTimeNormDoseLens = Dose.PerTime_ >-> DoseValue.NormDose_
-
-
-        let getPerTimeNormDose = Optic.get perTimeNormDoseLens
-
-
-        let setPerTimeNormDose = Optic.set perTimeNormDoseLens
-
-
-        let perTimeNormDoseMinLens = Dose.PerTime_ >-> normDoseMinLens
-
-
-        let getPertimeNormDoseMin = Optic.get perTimeNormDoseMinLens
-
-
-        let setPerTimeNormDoseMin = Optic.set perTimeNormDoseMinLens
-
-
-        let perTimeNormDoseMaxLens = Dose.PerTime_ >-> normDoseMaxLens
-
-
-        let getPertimeNormDoseMax = Optic.get perTimeNormDoseMaxLens
-
-
-        let setPerTimeNormDoseMax = Optic.set perTimeNormDoseMaxLens
-               
-
-        let perTimeAbsDoseLens = Dose.PerTime_ >-> DoseValue.AbsDose_
-
-
-        let getPerTimeAbsDose = Optic.get perTimeAbsDoseLens
-
-
-        let setPerTimeAbsDose = Optic.set perTimeAbsDoseLens
-
-
-        let perTimeAbsDoseMinLens = Dose.PerTime_ >-> absDoseMinLens
-
-
-        let getPertimeAbsDoseMin = Optic.get perTimeAbsDoseMinLens
-
-
-        let setPerTimeAbsDoseMin = Optic.set perTimeAbsDoseMinLens
-
-
-        let perTimeAbsDoseMaxLens = Dose.PerTime_ >-> absDoseMaxLens
-
-
-        let getPertimeAbsDoseMax = Optic.get perTimeAbsDoseMaxLens
-
-
-        let setPerTimeAbsDoseMax = Optic.set perTimeAbsDoseMaxLens
-
-
-        let perTimeNormDosePerKgLens = Dose.PerTime_ >-> DoseValue.NormDosePerKg_
-
-
-        let getPerTimeNormDosePerKg = Optic.get perTimeNormDosePerKgLens
-
-
-        let setPerTimeNormDosePerKg = Optic.set perTimeNormDosePerKgLens
-
-
-        let perTimeNormDosePerKgMinLens = Dose.PerTime_ >-> normDosePerKgMinLens
-
-
-        let getPertimeNormDosePerKgMin = Optic.get perTimeNormDosePerKgMinLens
-
-
-        let setPerTimeNormDosePerKgMin = Optic.set perTimeNormDosePerKgMinLens
-
-
-        let perTimeNormDosePerKgMaxLens = Dose.PerTime_ >-> normDosePerKgMaxLens
-
-
-        let getPertimeNormDosePerKgMax = Optic.get perTimeNormDosePerKgMaxLens
-
-
-        let setPerTimeNormDosePerKgMax = Optic.set perTimeNormDosePerKgMaxLens
-               
-
-        let perTimeAbsDosePerKgLens = Dose.PerTime_ >-> DoseValue.AbsDosePerKg_
-
-
-        let getPerTimeAbsDosePerKg = Optic.get perTimeAbsDosePerKgLens
-
-
-        let setPerTimeAbsDosePerKg = Optic.set perTimeAbsDosePerKgLens
-
-
-        let perTimeAbsDosePerKgMinLens = Dose.PerTime_ >-> absDosePerKgMinLens
-
-
-        let getPertimeAbsDosePerKgMin = Optic.get perTimeAbsDosePerKgMinLens
-
-
-        let setPerTimeAbsDosePerKgMin = Optic.set perTimeAbsDosePerKgMinLens
-
-
-        let perTimeAbsDosePerKgMaxLens = Dose.PerTime_ >-> absDosePerKgMaxLens
-
-
-        let getPertimeAbsDosePerKgMax = Optic.get perTimeAbsDosePerKgMaxLens
-
-
-        let setPerTimeAbsDosePerKgMax = Optic.set perTimeAbsDosePerKgMaxLens
-
-
-        let perTimeNormDosePerM2Lens = Dose.PerTime_ >-> DoseValue.NormDosePerM2_
-
-
-        let getPerTimeNormDosePerM2 = Optic.get perTimeNormDosePerM2Lens
-
-
-        let setPerTimeNormDosePerM2 = Optic.set perTimeNormDosePerM2Lens
-
-
-        let perTimeNormDosePerM2MinLens = Dose.PerTime_ >-> normDosePerM2MinLens
-
-
-        let getPertimeNormDosePerM2Min = Optic.get perTimeNormDosePerM2MinLens
-
-
-        let setPerTimeNormDosePerM2Min = Optic.set perTimeNormDosePerM2MinLens
-
-
-        let perTimeNormDosePerM2MaxLens = Dose.PerTime_ >-> normDosePerM2MaxLens
-
-
-        let getPertimeNormDosePerM2Max = Optic.get perTimeNormDosePerM2MaxLens
-
-
-        let setPerTimeNormDosePerM2Max = Optic.set perTimeNormDosePerM2MaxLens
-               
-
-        let perTimeAbsDosePerM2Lens = Dose.PerTime_ >-> DoseValue.AbsDosePerM2_
-
-
-        let getPerTimeAbsDosePerM2 = Optic.get perTimeAbsDosePerM2Lens
-
-
-        let setPerTimeAbsDosePerM2 = Optic.set perTimeAbsDosePerM2Lens
-
-
-        let perTimeAbsDosePerM2MinLens = Dose.PerTime_ >-> absDosePerM2MinLens
-
-
-        let getPertimeAbsDosePerM2Min = Optic.get perTimeAbsDosePerM2MinLens
-
-
-        let setPerTimeAbsDosePerM2Min = Optic.set perTimeAbsDosePerM2MinLens
-
-
-        let perTimeAbsDosePerM2MaxLens = Dose.PerTime_ >-> absDosePerM2MaxLens
-
-
-        let getPertimeAbsDosePerM2Max = Optic.get perTimeAbsDosePerM2MaxLens
-
-
-        let setPerTimeAbsDosePerM2Max = Optic.set perTimeAbsDosePerM2MaxLens
 
 
     module Shape =
@@ -1028,199 +916,17 @@ module DoseRule =
 
         
         let setDose = Optic.set Substance.Dose_
-
-
-        let perDosePerTimeLens = Substance.Dose_ >-> Dose.Dose.PerTime_
-
-
-        let getDosePerTime = Optic.get perDosePerTimeLens
-
-
-        let setDosePerTime = Optic.set perDosePerTimeLens
-
-
-        let perDoserPerTimeNormDoseLens = Substance.Dose_ >-> Dose.perTimeNormDoseLens
-
-
-        let getDosePerTimeNormDose = Optic.get perDoserPerTimeNormDoseLens
-
-        
-        let setDosePerTimeNormDose = Optic.set perDoserPerTimeNormDoseLens
-
-
-        let perDosePerTimeNormDoseMinLens = Substance.Dose_ >-> Dose.perTimeNormDoseMinLens
-
-
-        let getDosePerTimeNormDoseMin = Optic.get perDosePerTimeNormDoseMinLens
-
-
-        let setDosePerTimeNormDoseMin = Optic.set perDosePerTimeNormDoseMinLens
-
-
-        let perDosePerTimeNormDoseMaxLens = Substance.Dose_ >-> Dose.perTimeNormDoseMaxLens
-
-
-        let getDosePerTimeNormDoseMax = Optic.get perDosePerTimeNormDoseMaxLens
-
-
-        let setDosePerTimeNormDoseMax = Optic.set perDosePerTimeNormDoseMaxLens
-
-
-        let perDoserPerTimeAbsDoseLens = Substance.Dose_ >-> Dose.perTimeAbsDoseLens
-
-
-        let getDosePerTimeAbsDose = Optic.get perDoserPerTimeAbsDoseLens
-
-        
-        let setDosePerTimeAbsDose = Optic.set perDoserPerTimeAbsDoseLens
-
-
-        let perDosePerTimeAbsDoseMinLens = Substance.Dose_ >-> Dose.perTimeAbsDoseMinLens
-
-
-        let getDosePerTimeAbsDoseMin = Optic.get perDosePerTimeAbsDoseMinLens
-
-
-        let setDosePerTimeAbsDoseMin = Optic.set perDosePerTimeAbsDoseMinLens
-
-
-        let perDosePerTimeAbsDoseMaxLens = Substance.Dose_ >-> Dose.perTimeAbsDoseMaxLens
-
-
-        let getDosePerTimeAbsDoseMax = Optic.get perDosePerTimeAbsDoseMaxLens
-
-
-        let setDosePerTimeAbsDoseMax = Optic.set perDosePerTimeAbsDoseMaxLens
- 
-
-        let perDoserPerTimeNormDosePerKgLens = Substance.Dose_ >-> Dose.perTimeNormDosePerKgLens
-
-
-        let getDosePerTimeNormDosePerKg = Optic.get perDoserPerTimeNormDosePerKgLens
-
-        
-        let setDosePerTimeNormDosePerKg = Optic.set perDoserPerTimeNormDosePerKgLens
-
-
-        let perDosePerTimeNormDosePerKgMinLens = Substance.Dose_ >-> Dose.perTimeNormDosePerKgMinLens
-
-
-        let getDosePerTimeNormDosePerKgMin = Optic.get perDosePerTimeNormDosePerKgMinLens
-
-
-        let setDosePerTimeNormDosePerKgMin = Optic.set perDosePerTimeNormDosePerKgMinLens
-
-
-        let perDosePerTimeNormDosePerKgMaxLens = Substance.Dose_ >-> Dose.perTimeNormDosePerKgMaxLens
-
-
-        let getDosePerTimeNormDosePerKgMax = Optic.get perDosePerTimeNormDosePerKgMaxLens
-
-
-        let setDosePerTimeNormDosePerKgMax = Optic.set perDosePerTimeNormDosePerKgMaxLens
-
-
-        let perDoserPerTimeAbsDosePerKgLens = Substance.Dose_ >-> Dose.perTimeAbsDosePerKgLens
-
-
-        let getDosePerTimeAbsDosePerKg = Optic.get perDoserPerTimeAbsDosePerKgLens
-
-        
-        let setDosePerTimeAbsDosePerKg = Optic.set perDoserPerTimeAbsDosePerKgLens
-
-
-        let perDosePerTimeAbsDosePerKgMinLens = Substance.Dose_ >-> Dose.perTimeAbsDosePerKgMinLens
-
-
-        let getDosePerTimeAbsDosePerKgMin = Optic.get perDosePerTimeAbsDosePerKgMinLens
-
-
-        let setDosePerTimeAbsDosePerKgMin = Optic.set perDosePerTimeAbsDosePerKgMinLens
-
-
-        let perDosePerTimeAbsDosePerKgMaxLens = Substance.Dose_ >-> Dose.perTimeAbsDosePerKgMaxLens
-
-
-        let getDosePerTimeAbsDosePerKgMax = Optic.get perDosePerTimeAbsDosePerKgMaxLens
-
-
-        let setDosePerTimeAbsDosePerKgMax = Optic.set perDosePerTimeAbsDosePerKgMaxLens
-
-
-        let perDoserPerTimeNormDosePerM2Lens = Substance.Dose_ >-> Dose.perTimeNormDosePerM2Lens
-
-
-        let getDosePerTimeNormDosePerM2 = Optic.get perDoserPerTimeNormDosePerM2Lens
-
-        
-        let setDosePerTimeNormDosePerM2 = Optic.set perDoserPerTimeNormDosePerM2Lens
-
-
-        let perDosePerTimeNormDosePerM2MinLens = Substance.Dose_ >-> Dose.perTimeNormDosePerM2MinLens
-
-
-        let getDosePerTimeNormDosePerM2Min = Optic.get perDosePerTimeNormDosePerM2MinLens
-
-
-        let setDosePerTimeNormDosePerM2Min = Optic.set perDosePerTimeNormDosePerM2MinLens
-
-        // ToDo copy to the rest 
-        let setDosePerTimeNormDosePerM2MinGStand v s =
-            s |> setDosePerTimeNormDosePerM2Min ((v, s |> getGStandUnit) |> Some)
-
-
-        let perDosePerTimeNormDosePerM2MaxLens = Substance.Dose_ >-> Dose.perTimeNormDosePerM2MaxLens
-
-
-        let getDosePerTimeNormDosePerM2Max = Optic.get perDosePerTimeNormDosePerM2MaxLens
-
-
-        let setDosePerTimeNormDosePerM2Max = Optic.set perDosePerTimeNormDosePerM2MaxLens
-
-
-        let setDosePerTimeNormDosePerM2MaxGStand v s =
-            s |> setDosePerTimeNormDosePerM2Max ((v, s |> getGStandUnit) |> Some)
-
-
-        let perDoserPerTimeAbsDosePerM2Lens = Substance.Dose_ >-> Dose.perTimeAbsDosePerM2Lens
-
-
-        let getDosePerTimeAbsDosePerM2 = Optic.get perDoserPerTimeAbsDosePerM2Lens
-
-        
-        let setDosePerTimeAbsDosePerM2 = Optic.set perDoserPerTimeAbsDosePerM2Lens
-
-
-        let perDosePerTimeAbsDosePerM2MinLens = Substance.Dose_ >-> Dose.perTimeAbsDosePerM2MinLens
-
-
-        let getDosePerTimeAbsDosePerM2Min = Optic.get perDosePerTimeAbsDosePerM2MinLens
-
-
-        let setDosePerTimeAbsDosePerM2Min = Optic.set perDosePerTimeAbsDosePerM2MinLens
-
-
-        let setDosePerTimeAbsDosePerM2MinGStand v s =
-            s |> setDosePerTimeAbsDosePerM2Min ((v, s |> getGStandUnit) |> Some)
-
-
-        let perDosePerTimeAbsDosePerM2MaxLens = Substance.Dose_ >-> Dose.perTimeAbsDosePerM2MaxLens
-
-
-        let getDosePerTimeAbsDosePerM2Max = Optic.get perDosePerTimeAbsDosePerM2MaxLens
-
-
-        let setDosePerTimeAbsDosePerM2Max = Optic.set perDosePerTimeAbsDosePerM2MaxLens
-
-
-        let setDosePerTimeAbsDosePerM2MaxGStand v s =
-            s |> setDosePerTimeAbsDosePerM2Max ((v, s |> getGStandUnit) |> Some)
             
 
         let printDose (substs : Substance List) =
             substs
-            |> List.fold (fun state s -> 
-                let n = s |> getName
+            |> List.fold (fun state subst -> 
+                let n = 
+                    subst 
+                    |> getName
+                    |> (fun s -> 
+                        s + "\n" + (subst.Dose |> Dose.toString)
+                    )
                 if state = "" then n
                 else
                     state + "\n" + n
