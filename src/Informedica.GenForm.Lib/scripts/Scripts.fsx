@@ -48,6 +48,28 @@ let mapMinMax setMin setMax (minmax : DoseRule.MinMax) dr =
     |> setMax minmax.Max
 
 
+let mapTime s =
+    s
+    |> String.replace "per " ""
+    |> String.replace "dagen" "dag"
+    |> String.replace "weken" "week"
+    |> String.replace "maanden" "maand"
+    |> String.replace "minuten" "minuut"
+    |> String.replace "uren" "uur"
+    |> String.replace "eenmalig" ""
+    |> (fun s -> 
+        if s |> String.isNullOrWhiteSpace then "1 X[Count]"
+        else s + "[Time]"
+    )
+    |> (fun s' -> 
+        match s' |> String.split " " with
+        | [v;u] -> s + v + " " + u
+        | [u]   -> s + "1" + " " + u
+        | _ -> ""
+    )
+    |> ValueUnit.Units.fromString
+
+
 let mapFreq (fr: DoseRule.Frequency) =
     let s = fr.Frequency |> string
     let s = s + " X[Count]/"
@@ -132,7 +154,9 @@ let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
             g.Shape = gpp.Shape
         )
 
-    let addSubstances (dsrs : Informedica.GenProduct.Lib.DoseRule.DoseRule []) (dr : DoseRule) =
+    let addSubstances period (dsrs : Informedica.GenProduct.Lib.DoseRule.DoseRule []) (dr : DoseRule) =
+        let period = period |> mapTime
+
         let substs = 
             dsrs
             |> Array.collect (fun r ->
@@ -235,7 +259,7 @@ let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
                     state
                     |> addSubstance (
                         Substance.init n u
-                        |> Substance.setDose (Dose.empty |> Dose.add frqs None dose)
+                        |> Substance.setDose (Dose.empty |> Dose.add frqs period dose)
                     )
                 | None -> state
             ) dr
@@ -258,36 +282,48 @@ let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
                             )
                         // Group per patient
                         for pat in pats do
-                            let times = 
-                                pat
-                                |> snd
-                                |> Array.groupBy (fun dr ->
-                                    dr.Freq.Time
+                            let inds =
+                                let _, rs = pat
+                                rs
+                                |> Array.groupBy (fun r ->
+                                    r.Indication
                                 )
-                            // Group per frequency time
-                            for time in times do
-                                let tm, drs = time
-                                let (gen, age, wght, bsa) , _ = pat
+                            for ind in inds do
+                                
+                                let times = 
+                                    ind
+                                    |> snd
+                                    |> Array.groupBy (fun dr ->
+                                        dr.Freq.Time
+                                    )
+                                // Group per frequency time
+                                for time in times do
+                                    let ind = ind |> fst
+                                    let tm, drs = time
+                                    let (gen, age, wght, bsa) , _ = pat
 
-                                yield DoseRule.empty
-                                      |> setGeneric gpp.Name
-                                      |> setATC atc
-                                      |> setTherapyGroup g.TherapeuticMainGroup
-                                      |> setTherapySubGroup g.TherapeuticSubGroup
-                                      |> setShapeName gpp.Shape
-                                      |> setRouteName r
-                                      |> (fun dr ->
-                                            if gen = "man" then dr |> setPatientMaleGender true
-                                            elif gen = "vrouw" then dr |> setPatientFemaleGender true
-                                            else dr
-                                      )
-                                      |> mapMinMax setPatientMinAge setPatientMaxAge age
-                                      |> mapMinMax setPatientMinWeight setPatientMaxWeight wght
-                                      |> mapMinMax setPatientMinBSA setPatientMaxBSA bsa
-                                      |> addSubstances drs
-                                      |> (fun dr ->
-                                        { dr with Text = drs |> getText }
-                                      )
+                                    yield DoseRule.empty
+                                          |> setGeneric gpp.Name
+                                          |> setATC atc
+                                          |> setTherapyGroup g.TherapeuticMainGroup
+                                          |> setTherapySubGroup g.TherapeuticSubGroup
+                                          |> setShapeName gpp.Shape
+                                          |> setRouteName r
+                                          |> setIndication ind
+                                         
+                                          |> (fun dr ->
+                                                if gen = "man" then dr |> setPatientMaleGender true
+                                                elif gen = "vrouw" then dr |> setPatientFemaleGender true
+                                                else dr
+                                          )
+
+                                          |> mapMinMax setPatientMinAge setPatientMaxAge age
+                                          |> mapMinMax setPatientMinWeight setPatientMaxWeight wght
+                                          |> mapMinMax setPatientMinBSA setPatientMaxBSA bsa
+                                          |> addSubstances tm drs
+                                          |> (fun dr ->
+                                            { dr with Text = drs |> getText }
+                                          )
                                       
 
     ]

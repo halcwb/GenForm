@@ -278,19 +278,19 @@ module DoseRule =
                     match p.Age with
                     | Informedica.GenForm.Lib.MinMax.None  -> p.Age
                     | Informedica.GenForm.Lib.MinMax.Min(m) -> 
-                        if m |> ValueUnit.gte yr then m |> ValueUnit.convertTo ValueUnit.Units.Time.year
+                        if ValueUnit.gte m yr then m |> ValueUnit.convertTo ValueUnit.Units.Time.year
                         else m
                         |> MinMax.Min
                     | Informedica.GenForm.Lib.MinMax.Max m ->
-                        if m |> ValueUnit.gte yr then m |> ValueUnit.convertTo ValueUnit.Units.Time.year
+                        if ValueUnit.gte m yr then m |> ValueUnit.convertTo ValueUnit.Units.Time.year
                         else m
                         |> MinMax.Max 
                     | Informedica.GenForm.Lib.MinMax.MinAndMax (min, max) ->
                         let min =
-                            if min |> ValueUnit.gte yr then min |> ValueUnit.convertTo ValueUnit.Units.Time.year
+                            if ValueUnit.gte min yr then min |> ValueUnit.convertTo ValueUnit.Units.Time.year
                             else min
                         let max =
-                            if max |> ValueUnit.gte yr then max |> ValueUnit.convertTo ValueUnit.Units.Time.year
+                            if ValueUnit.gte max yr then max |> ValueUnit.convertTo ValueUnit.Units.Time.year
                             else max
                         MinMax.MinAndMax (min, max)
 
@@ -779,7 +779,7 @@ module DoseRule =
                         else
                             match period with
                             | Some p -> 
-                            s + " per " + (p |> ValueUnit.unitToString)
+                            s + " keer per " + (p |> ValueUnit.unitToString |> ValueUnit.remBr)
                             | None -> s + " keer"
                     )
                 
