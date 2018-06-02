@@ -313,9 +313,9 @@ module ValueUnit =
         let hour = minute * minute
         let day = 24N * hour
         let week = 7N * day
-        let month = 4N * week
-        let year = 365N * day 
-
+        let year = (365N + (1N / 4N)) * day 
+        let month = year / 12N
+ 
         let inline toBase m v  = v * m
         let inline toUnit m v  = v / m
 
