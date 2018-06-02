@@ -904,6 +904,57 @@ module ValueUnit =
             ]
             |> List.map (fun ud -> { ud with Group = ud.Unit |> Group.unitToGroup })
 
+        
+        let mapUnit = function 
+        | NoUnit -> (1N, NoUnit)
+        | General (n, v) -> (v, ((n, 1N) |> General)) 
+        | Count g ->
+            match g with
+            | Times n -> (n, Count.times)
+        | Mass g  ->
+            match g with
+            | KiloGram n  -> (n, Mass.kiloGram)
+            | Gram n      -> (n, Mass.gram)
+            | MilliGram n -> (n, Mass.milliGram)
+            | MicroGram n -> (n, Mass.microGram)
+            | NanoGram n  -> (n, Mass.nanoGram)
+        | Volume g  ->
+            match g with
+            | Liter n      -> (n, Volume.liter)
+            | DeciLiter n  -> (n, Volume.deciLiter)
+            | MilliLiter n -> (n, Volume.milliLiter)
+            | MicroLiter n -> (n, Volume.microLiter)
+        | Time g  ->
+            match g with
+            | Year n   -> (n, Time.year)
+            | Month n  -> (n, Time.month)
+            | Week n   -> (n, Time.week)
+            | Day n    -> (n, Time.day)
+            | Hour n   -> (n, Time.hour)
+            | Minute n -> (n, Time.minute)
+            | Second n -> (n, Time.second)
+        | Molar g ->
+            match g with
+            | Mol n      -> (n, Molar.mol)
+            | MilliMol n -> (n, Molar.milliMol)
+        | InterNatUnit g ->
+            match g with
+            | MIU n -> (n, InterNatUnit.MIU)
+            | IU n  -> (n, InterNatUnit.IU)
+        | Weight g -> 
+            match g with
+            | WeightKiloGram n -> (n, Weight.kiloGram)
+            | WeightGram n     -> (n, Weight.gram)
+        | Height g -> 
+            match g with
+            | HeightMeter n      -> (n, Height.meter)
+            | HeightCentiMeter n -> (n, Height.centiMeter)
+        | BSA g -> 
+            match g with
+            | M2 n -> (n, BSA.M2)
+        | CombiUnit (u1, op, u2) -> 
+            failwith <| sprintf "Cannot map combined unit %A" ((u1, op, u2) |> CombiUnit)
+
 
         let tryFind u =
             match units |> List.tryFind (fun udt -> udt.Unit = u) with
@@ -955,7 +1006,7 @@ module ValueUnit =
                     else ustr
 
                 | _ -> 
-
+                    let (v, u) = u |> mapUnit 
                     match u |> tryFind with
                     | Some udt -> 
                         match loc with
@@ -968,6 +1019,13 @@ module ValueUnit =
                             | Short -> udt.Group |> gtost udt.Abbreviation.Dut
                             | Long  -> udt.Group |> gtost udt.Name.Dut
                     | None -> ""
+                    |> (fun s -> 
+                        if s = "" then "" 
+                        else
+                            if v = 1N then s
+                            else
+                                (v |> BigRational.toString) + " " + s
+                    )
 
             str u
 

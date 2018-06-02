@@ -20,23 +20,6 @@ FilePath.formulary |> (fun p -> printfn "%s" p; p) |> File.exists
 let printResult m r = printf m; printfn " %A" r; r
     
 
-DoseRule.empty
-|> DoseRule.setGeneric "pacetamol"
-|> DoseRule.setShapeName "zetpil"
-|> DoseRule.setRouteName "RECTAAL"
-|> DoseRule.setATC "AB2029"
-|> DoseRule.setTherapyGroup "Pijnstilling"
-|> DoseRule.setTherapySubGroup "Pijnstilling paracetamol"
-|> DoseRule.setIndication "pijn"
-|> DoseRule.setPatientMinAge (Some 10.)
-|> DoseRule.setPatientMaxAge (None)
-|> DoseRule.setPatientFemaleGender true
-|> DoseRule.setPatientMinWeight (Some 5.)
-|> DoseRule.setPatientMaxWeight (Some 100.)
-|> DoseRule.setPatientMinBSA (Some 2.0)
-|> DoseRule.setPatientMaxBSA (Some 1.0)
-|> DoseRule.toString
-
 
 open Informedica.GenForm.Lib.DoseRule
 open Informedica.GenForm.Lib.DoseRule.Dose
@@ -60,12 +43,6 @@ let mapTime s =
     |> (fun s -> 
         if s |> String.isNullOrWhiteSpace then "1 X[Count]"
         else s + "[Time]"
-    )
-    |> (fun s' -> 
-        match s' |> String.split " " with
-        | [v;u] -> s + v + " " + u
-        | [u]   -> s + "1" + " " + u
-        | _ -> ""
     )
     |> ValueUnit.Units.fromString
 
@@ -123,6 +100,7 @@ let mapDoses qty u (dr : Informedica.GenProduct.Lib.DoseRule.DoseRule) =
     dr.AbsKg  |> minmax true false,
     dr.NormM2 |> minmax false true,
     dr.AbsM2  |> minmax false true
+
 
 let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
 
@@ -330,7 +308,18 @@ let mapDoseRule (gpps : GenPresProduct.GenPresProduct []) =
         
 
 
-mapDoseRule (GenPresProduct.filter "diclofenac" "" "")
+mapDoseRule (GenPresProduct.filter "TRIMETHOPRIM/SULFAMETHOXAZOL" "" "")
 |> List.map (fun dr -> dr |> DoseRule.toString)
 |> List.iter (printfn "%s")
 
+
+"per dag" |> ValueUnit.unitFromString Mapping.GStandMap
+
+GenPresProduct.getAssortment ()
+|> Array.filter (fun gpp ->
+    gpp.GenericProducts
+    |> Array.exists (fun gp ->
+        gp.Substances |> Array.length = 2
+    )
+)
+|> Array.map (fun gpp -> gpp.Name)
