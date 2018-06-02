@@ -21,7 +21,7 @@ let printResult m r = printf m; printfn " %A" r; r
     
 
 
-DoseRule.GStand.map (GenPresProduct.filter "gentamicine" "" "")
+DoseRule.GStand.map (GenPresProduct.filter "paracetamol" "" "")
 |> List.map (fun dr -> dr |> DoseRule.toString)
 |> List.iter (printfn "%s")
 
@@ -40,3 +40,9 @@ GenPresProduct.getAssortment ()
 "216 maand[Time]" 
 |> ValueUnit.fromString
 |> ValueUnit.convertTo ValueUnit.Units.Time.year
+
+GenPresProduct.filter "gentamicine" "" ""
+|> Array.map(fun gpp ->
+    gpp.Route
+)
+|> Array.distinct

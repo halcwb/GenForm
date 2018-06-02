@@ -304,6 +304,7 @@ module DoseRule =
                      | Some g -> "Geslacht: " + (g |> Patient.genderToString)
                      | None -> "")
                 )
+                |> String.trim
 
 
         type Patient with
@@ -804,6 +805,9 @@ module DoseRule =
                     ]
                     |> List.filter (String.notEmpty)
                     |> String.concat "\n"
+                    |> (fun s ->
+                        if s = "" then f else s
+                    )
 
                     
                 
@@ -1571,7 +1575,25 @@ Regels:
                                 Substance.init n u
                                 |> Substance.setDose (Dose.empty |> Dose.add frqs period dose)
                             )
-                        | None -> state
+                        | None -> 
+                            let frqs =
+                                qts
+                                |> Array.map (fun (r, _) ->
+                                    r.Freq.Frequency
+                                    |> BigRational.fromFloat
+                                )
+                                |> Array.distinct
+                                |> Array.filter Option.isSome
+                                |> Array.map Option.get
+                                |> Array.sort
+                                |> Array.toList
+
+                            state
+                            |> addSubstance (
+                                Substance.init n ValueUnit.NoUnit
+                                |> Substance.setDose (Dose.empty |> Dose.add frqs period Dose.emptyDoseValue)
+                            )
+
                     ) dr
                 )
 
