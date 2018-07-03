@@ -12,43 +12,66 @@ module DoseRule =
     open Informedica.GenUnits.Lib
 
 
+    /// Textual identifier of an entity
     type Name = string
 
 
+    /// Generic name of a product, constists of substance name or
+    /// list of substance names seperated by slash forward. Generic name
+    /// can be overruled by a custom name
     type Generic = string
 
 
+    /// The ATC code of a product
     type ATC = string
 
 
+    /// The ATC Therapy group
     type TherapyGroup = string
 
 
+    /// The ATC therapy subgroup
     type TherapySubGroup = string
 
 
+    /// The indication on which the dose information is based on
     type Indication = string
 
 
+    /// An identifier
     type Id = int
 
 
-
+    /// Handles optional min max values. A `MinMax` value has an
+    /// optional min and optional max value of the type `ValueUnit`.
+    /// For any value of `ValueUnit` it can be checked that this value
+    /// is `inRange` of a `MinMax` value. Moreover, because the type
+    /// is a `ValueUnit`, this allows comparison of values with different
+    /// units (but belonging to the same unit group). So, for exampe, when
+    /// the `MinMax` value is:
+    /// min = 100 mg and max = 1 g, it can be determined that 200 mg is in range
+    /// and 2 g is outside the range.
     module MinMax =
 
         open ValueUnit
 
+        /// The type that holds optional min max values 
+        /// of the type `ValueUnit`.
         type MinMax = MinMax.MinMax<ValueUnit>
 
 
+        /// Checks whether a `ValueUnit` `n` is in the range
+        /// of a `MinMax` value `minmax`.
         let inRange n minmax = MinMax.inRange gte ste n minmax
 
 
+        /// An 'empty' `MinMax` value
         let empty = MinMax.none
 
 
-        let toString minmax = 
-            let toStr = ValueUnit.toStringPrec 2
+
+        let toString prec minmax = 
+            let toStr = ValueUnit.toStringPrec prec
             
             minmax |> MinMax.toString toStr
 
@@ -264,8 +287,10 @@ module DoseRule =
 
 
         let toString p =
+            let mmtostr = MinMax.toString 2
+
             let print label (minmax : MinMax.MinMax) s = 
-                let mms = minmax |> MinMax.toString
+                let mms = minmax |> mmtostr
                 if mms = "" then s 
                 else
                     let s = if s = "" then s else s + "\n"
@@ -785,9 +810,11 @@ module DoseRule =
                     )
                 
                 let getds get dn =
+                    let mmtostr = MinMax.toString 2
+
                     dv 
                     |> get 
-                    |> MinMax.toString
+                    |> mmtostr
                     |> (fun s -> 
                         if s = "" then s
                         else
@@ -1361,13 +1388,22 @@ Regels:
 
         open Informedica.GenProduct.Lib
 
-        let mapMinMax setMin setMax (minmax : DoseRule.MinMax) dr =
+        module GST = DoseRule
+
+        /// Map GSTand min max float Option values to
+        /// a `DoseRule` `MinMax`
+        let mapMinMax (setMin : float Option -> DoseRule -> DoseRule) 
+                      (setMax : float Option -> DoseRule -> DoseRule) 
+                      (minmax : GST.MinMax) 
+                      (dr : DoseRule) : DoseRule =
             dr
             |> setMin minmax.Min
             |> setMax minmax.Max
 
 
-        let mapTime s =
+        /// Make sure that a GSTand time string 
+        /// is a valid unit time string
+        let parseTimeString s =
             s
             |> String.replace "per " ""
             |> String.replace "dagen" "dag"
@@ -1377,44 +1413,57 @@ Regels:
             |> String.replace "uren" "uur"
             |> String.replace "eenmalig" ""
             |> (fun s -> 
-                if s |> String.isNullOrWhiteSpace then "1 X[Count]"
+                if s |> String.isNullOrWhiteSpace then s
                 else s + "[Time]"
             )
+
+
+
+        /// Map a GStand time period to a valid unit
+        let mapTime s =
+            s
+            |> parseTimeString
             |> ValueUnit.Units.fromString
 
-
-        let mapFreq (fr: DoseRule.Frequency) =
+        
+        /// Map GStand frequency string to a valid 
+        /// frequency `ValueUnit`.
+        let mapFreq (fr: GST.Frequency) =
             let s = fr.Frequency |> string
-            let s = s + " X[Count]/"
+            let s = s + " X[Count]"
+
             fr.Time
-            |> String.replace "per " ""
-            |> String.replace "dagen" "dag"
-            |> String.replace "weken" "week"
-            |> String.replace "maanden" "maand"
-            |> String.replace "minuten" "minuut"
-            |> String.replace "uren" "uur"
-            |> String.replace "eenmalig" ""
-            |> (fun s -> 
-                if s |> String.isNullOrWhiteSpace then "1 X[Count]"
-                else s + "[Time]"
-            )
+            |> parseTimeString
             |> (fun s' -> 
                 match s' |> String.split " " with
-                | [v;u] -> s + v + " " + u
-                | [u]   -> s + "1" + " " + u
+                | [v;u] -> s + "/" + v + " " + u
+                | [u]   -> 
+                    if u |> String.isNullOrWhiteSpace then s
+                    else 
+                        s + "/1" + " " + u
                 | _ -> ""
             )
             |> ValueUnit.fromString
 
 
-        let mapDoses qty u (dr : DoseRule.DoseRule) =
-            let fr = mapFreq dr.Freq
+        /// Map GSTand doserule doses to 
+        /// - normal   min max dose
+        /// - absolute min max dose
+        /// - normal   min max dose per kg
+        /// - absolute min max dose per kg
+        /// - normal   min max dose per m2
+        /// - absolute min max dose per m2
+        /// by calculating 
+        /// - substance shape concentration * dose shape quantity * frequency
+        /// for each dose
+        let mapDoses qty unit (gstdsr : GST.DoseRule) =
+            let fr = mapFreq gstdsr.Freq
 
             let toVu perKg perM2 v =
                 let u = 
-                    if not perKg then u
+                    if not perKg then unit
                     else
-                        u |> ValueUnit.per ValueUnit.Units.Weight.kiloGram
+                        unit |> ValueUnit.per ValueUnit.Units.Weight.kiloGram
 
                 let u = 
                     if not perM2 then u
@@ -1425,42 +1474,48 @@ Regels:
                 | Some vu -> vu * fr |> Some
                 | None -> None
     
-            let minmax perKg perM2 (mm : Informedica.GenProduct.Lib.DoseRule.MinMax) =
+            let minmax perKg perM2 (mm : GST.MinMax) =
                 MinMax.empty
                 |> MinMax.setMinOpt (mm.Min |> Option.bind (toVu perKg perM2))
                 |> MinMax.setMaxOpt (mm.Max |> Option.bind (toVu perKg perM2))
 
-            dr.Norm   |> minmax false false,
-            dr.Abs    |> minmax false false,
-            dr.NormKg |> minmax true false,
-            dr.AbsKg  |> minmax true false,
-            dr.NormM2 |> minmax false true,
-            dr.AbsM2  |> minmax false true
+            gstdsr.Norm   |> minmax false false,
+            gstdsr.Abs    |> minmax false false,
+            gstdsr.NormKg |> minmax true false,
+            gstdsr.AbsKg  |> minmax true false,
+            gstdsr.NormM2 |> minmax false true,
+            gstdsr.AbsM2  |> minmax false true
 
-
+        /// Map a list of ` GenPresProduct` to it's 
+        /// corresponding doserules per GenPresProduct.
         let map (gpps : GenPresProduct.GenPresProduct []) =
 
+            // Get the doserules for a genpresproduct
             let getDrs (gpp :GenPresProduct.GenPresProduct) rt =
                 RuleFinder.createFilter None None None None gpp.Name gpp.Shape rt
                 |> RuleFinder.find
 
+            // Turn a list of doserules to a text string
             let getText drs =
                 drs
-                |> Array.map (fun dr -> dr |> DoseRule.toString2)
+                |> Array.map (fun dr -> dr |> GST.toString2)
                 |> Array.distinct
                 |> String.concat "\n" 
                 |> GSTandText
 
+            // Get the ATC codes for a GenPresProduct
             let atcs (gpp : GenPresProduct.GenPresProduct) =
                 gpp.GenericProducts
                 |> Array.map(fun gp -> gp.ATC)
                 |> Array.distinct
 
+            // Get the list of routes for a GenPresProduct
             let rts (gpp: GenPresProduct.GenPresProduct) = 
                 gpp.GenericProducts
                 |> Array.collect (fun gp -> gp.Route)
                 |> Array.distinct
 
+            // Get the list of ATC groups for a GenPresProduct
             let tgs (gpp: GenPresProduct.GenPresProduct) =
                 ATCGroup.get ()
                 |> Array.filter (fun g -> 
@@ -1468,11 +1523,17 @@ Regels:
                     g.Shape = gpp.Shape
                 )
 
-            let addSubstances period (dsrs : Informedica.GenProduct.Lib.DoseRule.DoseRule []) (dr : DoseRule) =
+            // Add a `DoseRule` `Substance` to a doserule with the corresponding substance
+            // doses
+            let addSubstances period (gstdsrs : GST.DoseRule []) (dr : DoseRule) =
+                // Get the time period for the dose rule
                 let period = period |> mapTime
 
+                // Get for each substance the name, unit and 
+                // concentration quantities to calculate the 
+                // dose by dose = dose in shape units * subst conc * freq
                 let substs = 
-                    dsrs
+                    gstdsrs
                     |> Array.collect (fun r ->
                         r.GenericProduct
                         |> Array.collect (fun gp -> 
@@ -1486,7 +1547,7 @@ Regels:
                     |> Array.distinct
                     |> Array.map (fun (n, u) ->
                         let qts =
-                            dsrs
+                            gstdsrs
                             |> Array.collect (fun r -> 
                                 r.GenericProduct
                                 |> Array.collect (fun gp ->
@@ -1498,104 +1559,96 @@ Regels:
                         n, u, qts
                     )
             
-                dr
-                |> (fun dr -> 
-                    substs
-                    |> Array.fold (fun state (n, u, qts) ->
-                        match u |> ValueUnit.createFromGStand 1. with
-                        | Some vu ->
-                            let _, u = vu |> ValueUnit.get
+                // Add the calculated substance doses to the dose rule
+                substs
+                |> Array.fold (fun state (n, u, qts) ->
+                    // Get the list of available frequencies
+                    let frqs =
+                        qts
+                        |> Array.map (fun (r, _) ->
+                            r.Freq.Frequency
+                            |> BigRational.fromFloat
+                        )
+                        |> Array.distinct
+                        |> Array.filter Option.isSome
+                        |> Array.map Option.get
+                        |> Array.sort
+                        |> Array.toList
 
-                            let doses =
-                                qts
-                                |> Array.map(fun (r, v) ->
-                                    mapDoses v u r
-                                )
-
-                            let norm = 
-                                doses
-                                |> Array.map(fun (norm, _, _, _, _, _) -> norm)
-                                |> Array.toList
-                                |> MinMax.foldMaximize
+                    match u |> ValueUnit.createFromGStand 1. with
+                    | Some vu ->
+                        let _, u = vu |> ValueUnit.get
+                        // Get all the doses
+                        let doses =
+                            qts
+                            |> Array.map(fun (r, v) ->
+                                mapDoses v u r
+                            )
+                        // Get the smallest min and largest max normal dose
+                        let norm = 
+                            doses
+                            |> Array.map(fun (norm, _, _, _, _, _) -> norm)
+                            |> Array.toList
+                            |> MinMax.foldMaximize
                        
+                        // Get the smallest min and largest max absolute dose
+                        let abs = 
+                            doses
+                            |> Array.map(fun (_, abs, _, _, _, _) -> abs)
+                            |> Array.toList
+                            |> MinMax.foldMaximize
 
-                            let abs = 
-                                doses
-                                |> Array.map(fun (_, abs, _, _, _, _) -> abs)
-                                |> Array.toList
-                                |> MinMax.foldMaximize
+                        // Get the smallest min and largest max normal dose per kg
+                        let normKg = 
+                            doses
+                            |> Array.map(fun (_, _, normKg, _, _, _) -> normKg)
+                            |> Array.toList
+                            |> MinMax.foldMaximize
 
-                            let normKg = 
-                                doses
-                                |> Array.map(fun (_, _, normKg, _, _, _) -> normKg)
-                                |> Array.toList
-                                |> MinMax.foldMaximize
+                        // Get the smallest min and largest max absolute dose per kg
+                        let absKg = 
+                            doses
+                            |> Array.map(fun (_, _, _, absKg, _, _) -> absKg)
+                            |> Array.toList
+                            |> MinMax.foldMaximize
 
-                            let absKg = 
-                                doses
-                                |> Array.map(fun (_, _, _, absKg, _, _) -> absKg)
-                                |> Array.toList
-                                |> MinMax.foldMaximize
+                        // Get the smallest min and largest max normal dose per m2
+                        let normM2 = 
+                            doses
+                            |> Array.map(fun (_, _, _, _, normM2, _) -> normM2)
+                            |> Array.toList
+                            |> MinMax.foldMaximize
 
-                            let normM2 = 
-                                doses
-                                |> Array.map(fun (_, _, _, _, normM2, _) -> normM2)
-                                |> Array.toList
-                                |> MinMax.foldMaximize
+                        // Get the smallest min and largest max absolute dose per m2
+                        let absM2 = 
+                            doses
+                            |> Array.map(fun (_, _, _, _, _, absM2) -> absM2)
+                            |> Array.toList
+                            |> MinMax.foldMaximize
 
-                            let absM2 = 
-                                doses
-                                |> Array.map(fun (_, _, _, _, _, absM2) -> absM2)
-                                |> Array.toList
-                                |> MinMax.foldMaximize
-
-                            let dose =
-                                Dose.emptyDoseValue
-                                |> Dose.setNormDose norm
-                                |> Dose.setAbsDose abs
-                                |> Dose.setNormDosePerKg normKg
-                                |> Dose.setAbsDosePerKg absKg
-                                |> Dose.setNormDosePerM2 normM2
-                                |> Dose.setAbsDosePerM2 absM2
-
-                            let frqs =
-                                qts
-                                |> Array.map (fun (r, _) ->
-                                    r.Freq.Frequency
-                                    |> BigRational.fromFloat
-                                )
-                                |> Array.distinct
-                                |> Array.filter Option.isSome
-                                |> Array.map Option.get
-                                |> Array.sort
-                                |> Array.toList
-
-                            state
-                            |> addSubstance (
-                                Substance.init n u
-                                |> Substance.setDose (Dose.empty |> Dose.add frqs period dose)
-                            )
-                        | None -> 
-                            let frqs =
-                                qts
-                                |> Array.map (fun (r, _) ->
-                                    r.Freq.Frequency
-                                    |> BigRational.fromFloat
-                                )
-                                |> Array.distinct
-                                |> Array.filter Option.isSome
-                                |> Array.map Option.get
-                                |> Array.sort
-                                |> Array.toList
-
-                            state
-                            |> addSubstance (
-                                Substance.init n ValueUnit.NoUnit
-                                |> Substance.setDose (Dose.empty |> Dose.add frqs period Dose.emptyDoseValue)
-                            )
-
-                    ) dr
-                )
+                        // Create the dose value
+                        let dose =
+                            Dose.emptyDoseValue
+                            |> Dose.setNormDose norm
+                            |> Dose.setAbsDose abs
+                            |> Dose.setNormDosePerKg normKg
+                            |> Dose.setAbsDosePerKg absKg
+                            |> Dose.setNormDosePerM2 normM2
+                            |> Dose.setAbsDosePerM2 absM2
+                        // Add the substance to the dose rule
+                        state
+                        |> addSubstance (
+                            Substance.init n u
+                            |> Substance.setDose (Dose.empty |> Dose.add frqs period dose)
+                        )
+                    | None -> 
+                        // Only frequences apply so only add those
+                        state
+                        |> addSubstance (
+                            Substance.init n ValueUnit.NoUnit
+                            |> Substance.setDose (Dose.empty |> Dose.add frqs period Dose.emptyDoseValue)
+                        )
+                ) dr
 
             // Map GStand DoseRule to DoseRule
             [
@@ -1620,6 +1673,7 @@ Regels:
                                         |> Array.groupBy (fun r ->
                                             r.Indication
                                         )
+                                    // Group per indication
                                     for ind in inds do
                                 
                                         let times = 
@@ -1628,7 +1682,7 @@ Regels:
                                             |> Array.groupBy (fun dr ->
                                                 dr.Freq.Time
                                             )
-                                        // Group per frequency time
+                                        // Group per frequency time period
                                         for time in times do
                                             let ind = ind |> fst
                                             let tm, drs = time

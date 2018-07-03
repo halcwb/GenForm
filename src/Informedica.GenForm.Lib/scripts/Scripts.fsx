@@ -20,8 +20,16 @@ FilePath.formulary |> (fun p -> printfn "%s" p; p) |> File.exists
 let printResult m r = printf m; printfn " %A" r; r
     
 
+GenPresProduct.getAssortment ()
+|> Array.filter (fun gpp ->
+    gpp.GenericProducts
+    |> Array.exists (fun gp ->
+        gp.Substances |> Array.length = 2
+    )
+)
 
-DoseRule.GStand.map (GenPresProduct.filter "paracetamol" "" "")
+
+DoseRule.GStand.map (GenPresProduct.filter "TRIMETHOPRIM/SULFAMETHOXAZOL" "" "")
 |> List.map (fun dr -> dr |> DoseRule.toString)
 |> List.iter (printfn "%s")
 
@@ -36,13 +44,30 @@ GenPresProduct.getAssortment ()
     )
 )
 |> Array.map (fun gpp -> gpp.Name)
+|> Array.distinct
 
 "216 maand[Time]" 
 |> ValueUnit.fromString
 |> ValueUnit.convertTo ValueUnit.Units.Time.year
 
 GenPresProduct.filter "gentamicine" "" ""
-|> Array.map(fun gpp ->
-    gpp.Route
+|> Array.collect(fun gpp ->
+    gpp.GenericProducts 
+    |> Array.collect (fun gp ->
+        gp.Substances |> Array.map (fun s -> s.SubstanceName, s.SubstanceQuantity, s.SubstanceUnit)
+    )
 )
 |> Array.distinct
+
+
+DoseRule.get ()
+|> Array.map (fun dr ->
+    dr.Freq
+)
+|> Array.distinct
+|> Array.sortBy (fun f -> f.Time, f.Frequency)
+|> Array.map (DoseRule.GStand.mapFreq >> ValueUnit.toStringPrec 1)
+|> Array.iter (printfn "%s")
+
+
+DoseRule.get ()
