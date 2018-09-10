@@ -5,7 +5,12 @@
 open System
 
 let pwd = Environment.GetEnvironmentVariable("HOME")
-Environment.CurrentDirectory <- pwd + "/Development/GenForm/" //__SOURCE_DIRECTORY__ + "/../../../"
+Environment.CurrentDirectory <- 
+    if pwd |> String.IsNullOrWhiteSpace then 
+        __SOURCE_DIRECTORY__ + "/../../../"
+
+    else 
+        pwd + "/Development/GenForm/" //__SOURCE_DIRECTORY__ + "/../../../"
 
 open MathNet.Numerics
 
@@ -70,4 +75,18 @@ DoseRule.get ()
 |> Array.iter (printfn "%s")
 
 
-DoseRule.get ()
+// Print the doserule text for trimethoprim/sulfamethoxazol
+DoseRule.GStand.map (GenPresProduct.filter "TRIMETHOPRIM/SULFAMETHOXAZOL" "" "")
+|> List.map Informedica.GenForm.Lib.DoseRule.toString
+|> List.iter (printfn "%s")
+
+// Get the doserules for the test case
+GenPresProduct.filter "gentamicine" "" "iv"
+|> Array.filter (fun gpp -> 
+    gpp.GenericProducts
+    |> Array.exists (fun gp -> gp.Id = 3689)
+)
+|> DoseRule.GStand.map
+// Pretty print
+|> List.map Informedica.GenForm.Lib.DoseRule.toString
+|> List.iter (printf "%s")

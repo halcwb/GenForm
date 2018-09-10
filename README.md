@@ -26,3 +26,11 @@ So with paket
 6. Using Expecto you need to restrict Argu to `~> 4`.
 
 Visual Studio it is most convenient to use the FSI with this file. Use of the FSI in *Visual Studion Code* is buggy.
+
+## Developing with `dotnet watch run`. 
+Make sure that the data directory is in the root of the main project, i.e. `src/Informedica.GenForm.Service/`. Go to that directory and start up with `dotnet watch run`.
+
+In the browser 2 requests can be run:
+
+1. `localhost:8080/test` Giving a test request and
+2. `localhost:8080/request?bty=2017&btm=1&btd=1&wth=10&hgt=100&pgk=3689`

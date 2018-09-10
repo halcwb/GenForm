@@ -137,23 +137,23 @@ module Dto =
             WeightKg = 10.
             BirthWeightGram = 3000.
             LengthCm = 70.
-            Gender = "Test"
+            Gender = ""
             GestAgeWeeks = 40
             GestAgeDays = 1
-            GPK = "000000"
-            ATC = "Test"
-            TherapyGroup = "Test"
-            TherapySubGroup = "Test"
-            Generic = "Test"
-            TradeProduct = "Test"
-            Shape = "Test"
-            Label = "Test"
+            GPK = "3689"
+            ATC = ""
+            TherapyGroup = ""
+            TherapySubGroup = ""
+            Generic = ""
+            TradeProduct = ""
+            Shape = ""
+            Label = ""
             Concentration = 1.
             ConcentrationUnit = "mg/ml"
             Multiple = 0.
             MultipleUnit = "mcg"
             Route = "oraal"
-            Indication = "Test"
+            Indication = ""
             Frequency = "2 x / 3 dagen"
             PerDose = false
             PerKg = true
@@ -163,7 +163,7 @@ module Dto =
             MaxDose = 20.
             AbsMaxTotal = 500.
             AbsMaxPerDose = 50.
-            Rules = "Test"
+            Rules = ""
         }
 
 
@@ -230,7 +230,11 @@ module Dto =
             | _ -> 
                 (string doses.[0].Freq.Frequency + " " + doses.[0].Freq.Time)
                 |> frequencyMapping GStandMap StandMap
-                |> Double.parse
+                |> (fun x -> 
+                    match x |> Double.tryParse with
+                    | Some n -> n
+                    | None -> 1.
+                )
 
         match doses with
         | [||] ->

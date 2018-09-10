@@ -29,6 +29,20 @@ module Main =
         member val unt = "" with get, set
 
 
+    let handleTestRequest =
+        fun (next : HttpFunc) (ctx : HttpContext) ->    
+            Dto.testDto
+            |> (fun dto -> printfn "request: %A" dto; dto)
+            |> Dto.findRules
+            |> (fun dto' -> printfn "response: %A" dto'; dto')
+            |> (fun dto' -> 
+                    match dto' with 
+                    | _ -> json dto' next ctx
+                    //| Some r -> json r next ctx
+                    //| None   -> json dto next ctx
+                )
+
+
     let handleRequest =
         fun (next : HttpFunc) (ctx : HttpContext) ->    
             let dto = 
@@ -56,7 +70,7 @@ module Main =
 
     let webApp =
         choose [
-            route "/test" >=> json Dto.testDto
+            route "/test"    >=> handleTestRequest  // json Dto.testDto
             route "/request" >=> handleRequest ]
 
 
