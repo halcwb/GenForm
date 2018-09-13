@@ -5,8 +5,7 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Unit.fs" />
-    <Compile Include="CombiUnit.fs" />
+    <Compile Include="ValueUnit.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\references.fsx" />
     <None Include="Scripts\Script.fsx" />
