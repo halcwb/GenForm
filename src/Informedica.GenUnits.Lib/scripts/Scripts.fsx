@@ -72,7 +72,7 @@ module Tests =
     
     // When two valueunits with the same unitgroup are divided you get a count group
     let (_, u) = (l5 / ml50) |> get  // = 100N times
-    u |> Group.unitToGroup    
+    u |> Group.unitToGroup           // now is a count group
 
     // Calculation with units
     ((mg400 + mg400)/ ml50)     // (400 mg[Mass] + 400 mg[Mass]) / 50 ml[Volume] = 16 mg[Mass]/ml[Volume]

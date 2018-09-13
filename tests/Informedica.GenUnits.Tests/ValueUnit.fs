@@ -3,6 +3,7 @@ module Tests
 open Expecto
 
 open MathNet.Numerics
+open System.Dynamic
 
 module VU = Informedica.GenUnits.Lib.ValueUnit
 
@@ -23,6 +24,9 @@ let l5 = 5N      |> VU.create VU.Units.Volume.liter
 // with only one unit: times. 
 let times3 = 3N |> VU.create VU.Units.Count.times
 let times100 = 100N |> VU.create VU.Units.Count.times
+
+
+let equals exp res = Expect.equal res exp ""
 
 
 [<Tests>]
@@ -113,20 +117,61 @@ let calculationTests =
         test "division by unit with the same unit group results in a count" {
             let (_, u) = (l5 / ml50) |> VU.get
             let g = u |> VU.Group.unitToGroup
-            printfn "%A" g
             Expect.isTrue (g = VU.Group.CountGroup) ""
         }
 
         test "can calculate with units" {
             (mg400 + mg400)
+            // 400 mg + 400 mg = 800 mg
             >>? "800 mg[Mass]"
             |> (fun vu -> vu / ml50)
+            // 800 mg / 50 ml = 16 mg/ml
             >>? "16 mg[Mass]/ml[Volume]"
             |> (fun vu -> vu * ml50)
+            // 16 mg/ml * 50 ml = 800 mg
             >>? "800 mg[Mass]"
+            // 800 mg - 400 mg = 400 mg
             |> (fun vu -> vu - mg400)
             >>? "400 mg[Mass]"
             |> ignore    
         }
+    ]
 
+
+[<Tests>]
+let conversionTests = 
+
+    testList "Conversion" [
+        
+        test "can convert from 5 liter to 5000 ml" {
+            5000N |> VU.create VU.Units.Volume.milliLiter
+            |> equals (l5 ==> VU.Units.Volume.milliLiter) 
+        }
+
+        test "unit group from 400 mg / day = mass per timegroup" {
+            (mg400 / (1N |> VU.create VU.Units.Time.day))
+            |> VU.get 
+            |> snd
+            |> VU.Group.unitToGroup
+            |> VU.Group.toString
+            |> equals "Mass/Time"
+        }
+
+        test "the number of possible units is the permutation of the units in each unitgroup" {
+            // get the number of units in the mass group
+            let mc = VU.Group.MassGroup   |> VU.Group.getUnits |> List.length
+            // get the number of units in the volume group
+            let vc = VU.Group.VolumeGroup |> VU.Group.getUnits |> List.length
+
+            (mg400 / ml50)
+            |> VU.get
+            |> snd
+            |> VU.Group.unitToGroup
+            |> VU.Group.getUnits
+            |> List.length
+            // the number of units for the Mass/Volume group is 
+            // the multiple of mc * vc
+            |> equals (mc* vc)
+        }
+    
     ]
