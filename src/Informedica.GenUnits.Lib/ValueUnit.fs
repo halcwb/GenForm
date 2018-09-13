@@ -409,7 +409,7 @@ module ValueUnit =
         | OpPer ->
             match u1, u2 with
             | _ when u1 |> Group.eqsGroup u2 ->
-                u1
+                count
             | _ when u2 |> Group.eqsGroup count ->
                 u1
             | _ -> (u1, OpPer, u2) |> CombiUnit
@@ -669,7 +669,7 @@ module ValueUnit =
         |> create u
 
 
-
+    
     type ValueUnit with
          
         static member (*) (vu1, vu2) = calc (*) vu1 vu2

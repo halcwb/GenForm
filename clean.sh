@@ -16,8 +16,8 @@ rm -r tests/Informedica.GenUnits.Tests/obj/
 rm -r tests/Informedica.GenProduct.Tests/bin/
 rm -r tests/Informedica.GenProduct.Tests/obj/
 
-rm -r packages/
-rm -r paket-files/
+# rm -r packages/
+# rm -r paket-files/
 
 # rm paket.lock
 # rm .paket/Paket.Restore.targets

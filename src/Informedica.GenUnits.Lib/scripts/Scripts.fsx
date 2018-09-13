@@ -50,7 +50,7 @@ module Tests =
     (ml50 > l5) // Returns true, but is false
 
     // Use the specific comparison operators
-    (ml50 >? l5) // Returns correct true
+    (ml50 >? l5) // Returns correct false
 
 
     (* CALCULATION WITH VALUE UNITS *)
@@ -71,7 +71,8 @@ module Tests =
     (mg400 + ml50) // System.Exception: cannot add or subtract different units Mass (MilliGram 1N) Volume (MilliLiter 1N)
     
     // When two valueunits with the same unitgroup are divided you get a count group
-    l5 / ml50  // = 100N times
+    let (_, u) = (l5 / ml50) |> get  // = 100N times
+    u |> Group.unitToGroup    
 
     // Calculation with units
     ((mg400 + mg400)/ ml50)     // (400 mg[Mass] + 400 mg[Mass]) / 50 ml[Volume] = 16 mg[Mass]/ml[Volume]
