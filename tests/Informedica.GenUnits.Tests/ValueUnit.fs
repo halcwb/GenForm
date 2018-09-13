@@ -16,9 +16,12 @@ let (>>*) u f =
 
 // Some basic units
 let mg400 = 400N |> VU.create VU.Units.Mass.milliGram
+let gram2 = 2N |> VU.create VU.Units.Mass.gram
 let ml50  = 50N  |> VU.create VU.Units.Volume.milliLiter
 let ml5  = 5N    |> VU.create VU.Units.Volume.milliLiter
 let l5 = 5N      |> VU.create VU.Units.Volume.liter 
+let day2 = 2N |> VU.create VU.Units.Time.day
+let hour3 = 3N |> VU.create VU.Units.Time.hour
 
 // The count group is a special unit group 
 // with only one unit: times. 
@@ -115,9 +118,20 @@ let calculationTests =
         }
 
         test "division by unit with the same unit group results in a count" {
+            // division by a simple unit
             let (_, u) = (l5 / ml50) |> VU.get
             let g = u |> VU.Group.unitToGroup
             Expect.isTrue (g = VU.Group.CountGroup) ""
+
+            // division by a more complex unit
+            let vu1 = (mg400 / ml5 / day2) 
+            let vu2 = (mg400 / l5  / hour3)
+
+            vu1 / vu2
+            |> VU.get
+            |> snd
+            |> VU.Group.unitToGroup
+            |> equals VU.Group.CountGroup
         }
 
         test "can calculate with units" {
