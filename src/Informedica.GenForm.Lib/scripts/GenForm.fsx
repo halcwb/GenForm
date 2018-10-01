@@ -1699,9 +1699,9 @@ module DoseRule =
             // GenericProducts the doserule applies to
             GenericProducts : string list
             // Indication the doserule applies to
-            IndicationDosages : IndicationsDosage list
+            IndicationsDosages : IndicationDosage list
         }
-    and IndicationsDosage =
+    and IndicationDosage =
         {
             Indications : string list
             RouteDosages : RouteDosage list
@@ -1715,9 +1715,9 @@ module DoseRule =
         {
             Patient : Patient
             // Dosage of the shape
-            ShapeDosage : ShapeDosage
+            ShapeDosage : ShapeDosage Option
             // List of substances that have a dosage
-            SubstDosages : SubstanceDosage list
+            SubstanceDosages : SubstanceDosage list
         }
 
 
@@ -1731,32 +1731,136 @@ module DoseRule =
             GenericSubGroup = gsg
             TradeProducts = tps
             GenericProducts = gps
-            IndicationDosages = idl
+            IndicationsDosages = idl
         }
+
+
+    let createIndicationsDosages inds dr =
+        { Indications = inds; RouteDosages = [] }::dr.IndicationsDosages
 
 
     let addIndications inds (dr : DoseRule) =
         {
             dr with 
-                IndicationDosages =
-                    { Indications = inds; RouteDosages = [] }::dr.IndicationDosages
+                IndicationsDosages =
+                    dr |> createIndicationsDosages inds
         }
 
+
+    let getIndicationsDosage inds (dr : DoseRule) = 
+        dr.IndicationsDosages  |> List.tryFindRest (fun x -> x.Indications = inds)
+
+
+    let createRouteDosages rt (inddos : IndicationsDosages) =
+        { 
+            inddos with 
+                RouteDosages = [ { Route = rt; PatientDosages = [] } ] 
+        }        
 
     let addRoute inds rt (dr : DoseRule) =
         {
             dr with
-                IndicationDosages =
-                    match dr.IndicationDosages 
-                          |> List.tryFindRest (fun x -> x.Indications = inds) with
+                IndicationsDosages =
+                    match dr |> getIndicationsDosage inds with
+                    | Some x, rest ->
+                        (x |> createRouteDosages rt)::rest 
+                    | None, _ -> dr.IndicationsDosages
+        }
+        
+
+    let getRouteDosage inds rt dr =
+        dr
+        |> getIndicationsDosage inds
+        |> fst
+        |> (fun id ->
+            match id with 
+            | Some id -> 
+                id.RouteDosages 
+                |> List.tryFindRest (fun x -> x.Route = rt)
+            | None -> None, []
+        )
+
+    let addPatient inds rt pat (dr : DoseRule) =
+        {
+            dr with
+                IndicationsDosages =
+                    match dr |> getIndicationsDosage inds with
                     | Some x, rest ->
                         { 
                             x with 
-                                RouteDosages = [ { Route = rt; PatientDosages = [] } ] 
+                                RouteDosages = 
+                                    match dr |> getRouteDosage inds rt with 
+                                    | Some x, rest ->
+                                        { x with 
+                                            PatientDosages =
+                                                [ { Patient = pat; ShapeDosage = None; SubstanceDosages = [] } ]
+                                                |> List.append x.PatientDosages
+                                        }::rest
+                                    | _ -> x.RouteDosages     
                         }::rest 
-                    | None, _ -> dr.IndicationDosages
+                    | None, _ -> dr.IndicationsDosages
         }
         
+    type IndicationDosage with
+    
+        static member Indications_ :
+            (IndicationDosage -> string list) * (string list -> IndicationDosage -> IndicationDosage) =
+            (fun inds -> inds.Indications) ,
+            (fun sl inds -> { inds with Indications = sl })
+    
+        static member RouteDosages_ :
+            (IndicationDosage -> RouteDosage list) * (RouteDosage list -> IndicationDosage -> IndicationDosage) =
+            (fun inds -> inds.RouteDosages) ,
+            (fun rdl inds -> { inds with RouteDosages = rdl })
+
+    
+    type DoseRule with
+    
+        static member Generic_ :
+            (DoseRule -> string) * (string -> DoseRule -> DoseRule) =
+            (fun dr -> dr.Generic),
+            (fun s dr -> { dr with Generic = s })
+
+        static member IndicationDosages_ :
+            (DoseRule -> IndicationDosage list) * (IndicationDosage list -> DoseRule -> DoseRule) =
+            (fun dr -> dr.IndicationsDosages) ,
+            (fun inds dr -> { dr with IndicationsDosages = inds })
+
+
+    let getGeneric = Optic.get DoseRule.Generic_
+    
+    
+    let setGeneric = Optic.set DoseRule.Generic_
+
+    
+    let getIndicationsDosages = Optic.get DoseRule.IndicationDosages_
+    
+    
+    let setIndicationsDosages = Optic.set DoseRule.IndicationDosages_
+    
+    
+    let indDosIndicationsPrism n =
+        DoseRule.IndicationDosages_ >-> List.pos_ n >?> IndicationDosage.Indications_
+
+
+    let getIndications n = Optic.get (indDosIndicationsPrism n)
+    
+    
+    let seIndications n = Optic.set (indDosIndicationsPrism n)
+    
+    
+    let indDosDosagesLens n =
+        DoseRule.IndicationDosages_ >-> List.pos_ n >?> IndicationDosage.RouteDosages_
+
+
+    let getRouteDosages inds (dr : DoseRule) =
+        match 
+            dr.IndicationsDosages
+            |> List.tryFindIndex (fun id -> id.Indications = inds) with 
+        | Some n -> dr |> Optic.get (indDosDosagesLens n)
+        | None -> None
+
+    
 
     let mdText = """
     Stofnaam: {generic}
@@ -1793,7 +1897,7 @@ module DoseRule =
         |> String.replace "{gengroup}" dr.GenericGroup
         |> String.replace "{gensub}" dr.GenericSubGroup
         |> (fun s ->
-            dr.IndicationDosages
+            dr.IndicationsDosages
             |> List.fold (fun acc id ->
                 let i = 
                     id.Indications 
@@ -1814,5 +1918,6 @@ module Test =
         DoseRule.doseRule "paracetamol" "N02BE01" "Zenuwstelsel" "Analgetica" "Overige analgetica en antipyretica" "Aceetanilidederivaten" [] [] []
         |> DoseRule.addIndications ["Milde pijn en koorts"]
         |> DoseRule.addRoute ["Milde pijn en koorts"] "Oraal"
+        |> DoseRule.addPatient ["Milde pijn en koorts"] "Oraal" (Patient.empty)
         |> DoseRule.print
         |> printfn "%s"
