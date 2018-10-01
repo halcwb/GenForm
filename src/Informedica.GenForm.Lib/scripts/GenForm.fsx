@@ -1670,6 +1670,7 @@ module Patient =
 
 
 module DoseRule =
+    open System.Configuration
 
 
     type Dosage = Dosage.Dosage
@@ -1751,22 +1752,11 @@ module DoseRule =
         dr.IndicationsDosages  |> List.tryFindRest (fun x -> x.Indications = inds)
 
 
-    let createRouteDosages rt (inddos : IndicationsDosages) =
+    let createRouteDosages rt (inddos : IndicationDosage) =
         { 
             inddos with 
                 RouteDosages = [ { Route = rt; PatientDosages = [] } ] 
         }        
-
-    let addRoute inds rt (dr : DoseRule) =
-        {
-            dr with
-                IndicationsDosages =
-                    match dr |> getIndicationsDosage inds with
-                    | Some x, rest ->
-                        (x |> createRouteDosages rt)::rest 
-                    | None, _ -> dr.IndicationsDosages
-        }
-        
 
     let getRouteDosage inds rt dr =
         dr
@@ -1779,27 +1769,27 @@ module DoseRule =
                 |> List.tryFindRest (fun x -> x.Route = rt)
             | None -> None, []
         )
-
-    let addPatient inds rt pat (dr : DoseRule) =
-        {
-            dr with
-                IndicationsDosages =
-                    match dr |> getIndicationsDosage inds with
-                    | Some x, rest ->
-                        { 
-                            x with 
-                                RouteDosages = 
-                                    match dr |> getRouteDosage inds rt with 
-                                    | Some x, rest ->
-                                        { x with 
-                                            PatientDosages =
-                                                [ { Patient = pat; ShapeDosage = None; SubstanceDosages = [] } ]
-                                                |> List.append x.PatientDosages
-                                        }::rest
-                                    | _ -> x.RouteDosages     
-                        }::rest 
-                    | None, _ -> dr.IndicationsDosages
-        }
+ 
+    type PatientDosage with
+    
+        static member Patient_ :
+            (PatientDosage -> Patient) * (Patient -> PatientDosage -> PatientDosage) =
+            (fun pd -> pd.Patient) ,
+            (fun pat pd -> { pd with Patient = pat })
+ 
+        
+    type RouteDosage with
+    
+        static member Route_ :
+            (RouteDosage -> string) * (string -> RouteDosage -> RouteDosage) =
+            (fun rd -> rd.Route) ,
+            (fun s rd -> { rd with Route = s })
+            
+        static member PatientDosages_ :
+            (RouteDosage -> PatientDosage list) * (PatientDosage list -> RouteDosage -> RouteDosage) =
+            (fun rd -> rd.PatientDosages) ,
+            (fun pdl rd -> { rd with PatientDosages = pdl })            
+            
         
     type IndicationDosage with
     
@@ -1843,10 +1833,13 @@ module DoseRule =
         DoseRule.IndicationDosages_ >-> List.pos_ n >?> IndicationDosage.Indications_
 
 
-    let getIndications n = Optic.get (indDosIndicationsPrism n)
+    let getIndications n dr = 
+        match dr |> Optic.get (indDosIndicationsPrism n) with 
+        | Some ids -> ids
+        | None     -> []
     
     
-    let seIndications n = Optic.set (indDosIndicationsPrism n)
+    let setIndications n = Optic.set (indDosIndicationsPrism n)
     
     
     let indDosDosagesLens n =
@@ -1857,10 +1850,117 @@ module DoseRule =
         match 
             dr.IndicationsDosages
             |> List.tryFindIndex (fun id -> id.Indications = inds) with 
-        | Some n -> dr |> Optic.get (indDosDosagesLens n)
-        | None -> None
-
+        | Some n -> 
+            match dr |> Optic.get (indDosDosagesLens n) with
+            | Some drs -> drs
+            | None -> []
+        | None -> []
+        
     
+    let setRouteDosages inds rds (dr : DoseRule) =
+        match 
+            dr.IndicationsDosages
+            |> List.tryFindIndex (fun id -> id.Indications = inds) with 
+            | Some n -> dr |> Optic.set (indDosDosagesLens n) rds
+            | None -> dr
+            
+        
+    let indxIndications inds (dr : DoseRule) =
+        dr.IndicationsDosages
+        |> List.tryFindIndex (fun id -> id.Indications = inds)       
+        
+    
+    let addRoute inds rt (dr : DoseRule) =
+        let rds = [ { Route = rt; PatientDosages = [] } ]
+        
+        match 
+            dr |> indxIndications inds with 
+            | Some n -> 
+                dr 
+                |> Optic.set (indDosDosagesLens n) (dr |> getRouteDosages inds |> List.append rds)
+            | None -> dr
+
+
+    let routeDosPatientDosagesPrism n1 n2 =
+        (indDosDosagesLens n1) >?> List.pos_ n2 >?> RouteDosage.PatientDosages_
+        
+
+    let indxRoute rt (ind : IndicationDosage) =
+        ind.RouteDosages
+        |> List.tryFindIndex (fun id -> id.Route = rt)       
+        
+        
+    let getRoutePatientDosages inds rt (dr : DoseRule) =
+        let nInd = dr |> indxIndications inds
+        
+        match nInd with 
+        | Some n1 -> 
+            match 
+                dr.IndicationsDosages.[n1]
+                |> indxRoute rt with 
+            | Some n2 ->
+                match dr 
+                      |> Optic.get (routeDosPatientDosagesPrism n1 n2) with 
+                | Some pds -> pds
+                | None -> []              
+            | None -> []
+        | None -> []    
+        
+        
+    let setRoutePatientDosages inds rt pds (dr : DoseRule) =
+        let nInd = dr |> indxIndications inds
+        
+        match nInd with 
+        | Some n1 -> 
+            match 
+                dr.IndicationsDosages.[n1]
+                |> indxRoute rt with 
+            | Some n2 ->
+                dr |> Optic.set (routeDosPatientDosagesPrism n1 n2) pds
+            | None -> dr
+        | None -> dr
+        
+        
+    let addPatient inds rt pat (dr : DoseRule) =
+        let nInd = dr |> indxIndications inds
+        
+        let pds =
+            dr
+            |> getRoutePatientDosages inds rt
+            |> List.append [ { Patient = pat; ShapeDosage = None; SubstanceDosages = [] } ]
+        
+        match nInd with 
+        | Some n1 -> 
+            match 
+                dr.IndicationsDosages.[n1]
+                |> indxRoute rt with 
+            | Some n2 ->
+                dr |> Optic.set (routeDosPatientDosagesPrism n1 n2) pds
+            | None -> dr
+        | None -> dr
+    
+    
+    let indxPatient pat (rtd : RouteDosage) =
+        rtd.PatientDosages
+        |> List.tryFindIndex (fun rd -> rd.Patient = pat)
+        
+    
+    let patDosPatientPrism n1 n2 n3 =
+        (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.Patient_
+    
+    
+    let getPatientAge inds rt pat dr = 
+        match dr |> indxIndications inds with 
+        | Some n1 ->
+            match dr.IndicationsDosages.[n1] |> indxRoute rt with 
+            | Some n2 ->
+                match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
+                | Some n3 ->
+                    dr |> Optic.get ((patDosPatientPrism n1 n2 n3) >?> Patient.Age_ )
+                | None -> None
+            | None -> None
+        | None -> None
+                
 
     let mdText = """
     Stofnaam: {generic}
