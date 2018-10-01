@@ -1674,8 +1674,6 @@ module DoseRule =
 
 
     type Dosage = Dosage.Dosage
-    type SubstanceDosage = Dosage
-    type ShapeDosage = Dosage
     type MinMax = MinMax.MinMax
     type Patient = Patient.Patient
 
@@ -1715,10 +1713,10 @@ module DoseRule =
     and PatientDosage =
         {
             Patient : Patient
-            // Dosage of the shape
-            ShapeDosage : ShapeDosage Option
+            // List of shapes that have a dosage
+            ShapeDosage : Dosage list
             // List of substances that have a dosage
-            SubstanceDosages : SubstanceDosage list
+            SubstanceDosages : Dosage list
         }
 
 
@@ -1776,6 +1774,11 @@ module DoseRule =
             (PatientDosage -> Patient) * (Patient -> PatientDosage -> PatientDosage) =
             (fun pd -> pd.Patient) ,
             (fun pat pd -> { pd with Patient = pat })
+    
+        static member ShapeDosage_ :
+            (PatientDosage -> Dosage list) * (Dosage list -> PatientDosage -> PatientDosage) =
+            (fun pd -> pd.ShapeDosage) ,
+            (fun sd pd -> { pd with ShapeDosage = sd })
  
         
     type RouteDosage with
@@ -1891,9 +1894,8 @@ module DoseRule =
         
         
     let getRoutePatientDosages inds rt (dr : DoseRule) =
-        let nInd = dr |> indxIndications inds
-        
-        match nInd with 
+
+        match dr |> indxIndications inds with 
         | Some n1 -> 
             match 
                 dr.IndicationsDosages.[n1]
@@ -1908,9 +1910,8 @@ module DoseRule =
         
         
     let setRoutePatientDosages inds rt pds (dr : DoseRule) =
-        let nInd = dr |> indxIndications inds
         
-        match nInd with 
+        match dr |> indxIndications inds with 
         | Some n1 -> 
             match 
                 dr.IndicationsDosages.[n1]
@@ -1922,22 +1923,14 @@ module DoseRule =
         
         
     let addPatient inds rt pat (dr : DoseRule) =
-        let nInd = dr |> indxIndications inds
         
         let pds =
             dr
             |> getRoutePatientDosages inds rt
-            |> List.append [ { Patient = pat; ShapeDosage = None; SubstanceDosages = [] } ]
+            |> List.append [ { Patient = pat; ShapeDosage = []; SubstanceDosages = [] } ]
         
-        match nInd with 
-        | Some n1 -> 
-            match 
-                dr.IndicationsDosages.[n1]
-                |> indxRoute rt with 
-            | Some n2 ->
-                dr |> Optic.set (routeDosPatientDosagesPrism n1 n2) pds
-            | None -> dr
-        | None -> dr
+        dr 
+        |> setRoutePatientDosages inds rt pds
     
     
     let indxPatient pat (rtd : RouteDosage) =
@@ -1949,19 +1942,161 @@ module DoseRule =
         (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.Patient_
     
     
-    let getPatientAge inds rt pat dr = 
+    let private patientGetter prism inds rt pat dr = 
         match dr |> indxIndications inds with 
         | Some n1 ->
             match dr.IndicationsDosages.[n1] |> indxRoute rt with 
             | Some n2 ->
                 match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
                 | Some n3 ->
-                    dr |> Optic.get ((patDosPatientPrism n1 n2 n3) >?> Patient.Age_ )
+                    dr |> Optic.get ((patDosPatientPrism n1 n2 n3) >?> prism)
                 | None -> None
             | None -> None
         | None -> None
-                
+    
+    
+    let private patientSetter prism inds rt vu pat dr = 
+        match dr |> indxIndications inds with 
+        | Some n1 ->
+            match dr.IndicationsDosages.[n1] |> indxRoute rt with 
+            | Some n2 ->
+                match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
+                | Some n3 ->
+                    let pat = 
+                        pat |> prism vu
+                    dr |> Optic.set ((patDosPatientPrism n1 n2 n3)) pat, pat
+                | None -> dr, pat
+            | None -> dr, pat
+        | None -> dr, pat
 
+ 
+    let getPatientInclMinAge = patientGetter Patient.inclMinAge
+                  
+    
+    let setPatientInclMinAge = patientSetter Patient.setInclMinAge 
+
+ 
+    let getPatientExclMinAge = patientGetter Patient.exclMinAge
+                  
+    
+    let setPatientExclMinAge = patientSetter Patient.setExclMinAge 
+ 
+ 
+    let getPatientInclMaxAge = patientGetter Patient.inclMaxAge
+                  
+    
+    let setPatientInclMaxAge = patientSetter Patient.setInclMaxAge 
+
+ 
+    let getPatientExclMaxAge = patientGetter Patient.exclMaxAge
+                  
+    
+    let setPatientExclMaxAge = patientSetter Patient.setExclMaxAge 
+
+    
+    let shapeDosagesPrism n1 n2 n3 =
+        (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.ShapeDosage_ 
+    
+    
+    let indxShapeDosage n (pat : PatientDosage) =
+        pat.ShapeDosage
+        |> List.tryFindIndex (fun sd -> sd.Name = n)
+         
+        
+    let getShapeDosages inds rt pat (dr : DoseRule) =
+
+        match dr |> indxIndications inds with 
+        | Some n1 -> 
+            match 
+                dr.IndicationsDosages.[n1]
+                |> indxRoute rt with 
+            | Some n2 ->
+                match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
+                | Some n3 ->
+                    match dr 
+                          |> Optic.get (shapeDosagesPrism n1 n2 n3) with 
+                    | Some sds -> sds
+                    | None -> []
+                | None -> []              
+            | None -> []
+        | None -> []    
+        
+        
+    let setShapeDosages inds rt sds pat (dr : DoseRule) =
+        
+        match dr |> indxIndications inds with 
+        | Some n1 -> 
+            match 
+                dr.IndicationsDosages.[n1]
+                |> indxRoute rt with 
+            | Some n2 ->
+                match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
+                | Some n3 ->
+                    dr 
+                    |> Optic.set (shapeDosagesPrism n1 n2 n3) sds 
+                | None -> dr              
+            | None -> dr
+        | None -> dr
+        
+        
+    let addShape inds rt shape pat (dr : DoseRule) =
+        
+        let sds =
+            dr
+            |> getShapeDosages inds rt pat
+            |> List.append [ { Dosage.empty with Name = shape } ]
+        
+        dr
+        |> setShapeDosages inds rt sds pat, pat
+
+    
+    let dosagePrism n1 n2 n3 n4 =
+        (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.ShapeDosage_ >?> List.pos_ n4
+ 
+    
+    let private shapeDosageGetter prism inds rt pat shape dr = 
+        match dr |> indxIndications inds with 
+        | Some n1 ->
+            match dr.IndicationsDosages.[n1] |> indxRoute rt with 
+            | Some n2 ->
+                match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
+                | Some n3 ->
+                    match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxShapeDosage shape with 
+                    | Some n4 ->
+                        dr |> Optic.get ((dosagePrism n1 n2 n3 n4) >?> prism) |> Some
+                    | None -> None
+                | None -> None
+            | None -> None
+        | None -> None
+
+
+    let private shapeDosageSetter prism inds rt shape vu pat dr = 
+        match dr |> indxIndications inds with 
+        | Some n1 ->
+            match dr.IndicationsDosages.[n1] |> indxRoute rt with 
+            | Some n2 ->
+                match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
+                | Some n3 ->
+                    match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxShapeDosage shape with 
+                    | Some n4 ->
+                        dr |> Optic.set ((dosagePrism n1 n2 n3 n4) >?> prism) vu, pat
+                    | None -> dr, pat
+                | None -> dr, pat
+            | None -> dr, pat
+        | None -> dr, pat
+        
+        
+    let getInclMinNormStartShapeDosage = shapeDosageGetter Dosage.inclMinNormStartDosagePrism
+
+
+    let setInclMinNormStartShapeDosage = shapeDosageSetter Dosage.inclMinNormStartDosagePrism
+    
+    
+    module Operators =
+        
+        let (|>>) (x1, x2) f = f x2 x1 
+ 
+ 
     let mdText = """
     Stofnaam: {generic}
 
@@ -2014,10 +2149,17 @@ module DoseRule =
 
 module Test =
 
+    open DoseRule.Operators
+
     let test () =
         DoseRule.doseRule "paracetamol" "N02BE01" "Zenuwstelsel" "Analgetica" "Overige analgetica en antipyretica" "Aceetanilidederivaten" [] [] []
         |> DoseRule.addIndications ["Milde pijn en koorts"]
         |> DoseRule.addRoute ["Milde pijn en koorts"] "Oraal"
         |> DoseRule.addPatient ["Milde pijn en koorts"] "Oraal" (Patient.empty)
+        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Oraal" (ValueUnit.create 1. "year") (Patient.empty) 
+        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Oraal" (ValueUnit.create 10. "year") 
+        |>> DoseRule.addShape ["Milde pijn en koorts"] "Oraal" "tablet"
+        |>> DoseRule.setInclMinNormStartShapeDosage ["Milde pijn en koorts"] "Oraal" "tablet" (ValueUnit.create 1. "tablet")
+        |> fst
         |> DoseRule.print
         |> printfn "%s"
