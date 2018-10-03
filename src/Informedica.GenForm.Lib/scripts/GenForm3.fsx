@@ -38,6 +38,8 @@ module List =
         |> String.replace ";" ","
     
 
+    let prepend l1 l2 = List.append l2 l1
+
 
 module ValueUnit =
 
@@ -451,7 +453,7 @@ module DoseRange =
         >+ (nb |> mmtoStr nbu)
         |> (fun s -> 
             if s |> String.isNullOrWhiteSpace then s
-            else "Normaal grenzen:\n" + s
+            else "Normaal dosering: " + s
         )
         |> (fun sn ->
             let sa =
@@ -461,7 +463,7 @@ module DoseRange =
             if sa |> String.isNullOrWhiteSpace then sn
             else 
                 sn + "\n" +
-                "Absolute grenzen:\n" + sa
+                "Maximale dosering: " + sa
         )
         
         
@@ -470,7 +472,7 @@ module Dosage =
 
 
     type DoseRange = DoseRange.DoseRange
-
+    type ValueUnit = ValueUnit.ValueUnit
 
     /// Dosage
     type Dosage =
@@ -485,7 +487,13 @@ module Dosage =
             /// Total dosage per time period
             TotalDosage : DoseRange * TimeUnit
             /// Allowed frequencies
+            Frequencies : Frequency
+        }
+    and Frequency = 
+        {
             Frequencies : Frequencies
+            TimeUnit : TimeUnit
+            MinimalInterval : ValueUnit Option
         }
     and Frequencies = int list
     and TimeUnit = string
@@ -502,8 +510,28 @@ module Dosage =
             Frequencies = freqs
         }
 
+    let emptyFrequencies = { Frequencies = []; TimeUnit = ""; MinimalInterval = None }
 
-    let empty = create "" DoseRange.empty DoseRange.empty (DoseRange.empty, "") (DoseRange.empty, "" ) []
+
+    let empty = create "" DoseRange.empty DoseRange.empty (DoseRange.empty, "") (DoseRange.empty, "" ) emptyFrequencies
+
+
+    type Frequency with
+
+        static member Frequencies_ :
+            (Frequency -> Frequencies) * (Frequencies -> Frequency -> Frequency) =
+            (fun fr -> fr.Frequencies) ,
+            (fun frs fr -> { fr with Frequencies = frs })
+
+        static member TimeUnit_ :
+            (Frequency -> TimeUnit) * (TimeUnit -> Frequency -> Frequency) =
+            (fun fr -> fr.TimeUnit) ,
+            (fun tu fr -> { fr with TimeUnit = tu })
+
+        static member MinimalInterval_ :
+            (Frequency -> ValueUnit Option) * (ValueUnit Option -> Frequency -> Frequency) =
+            (fun fr -> fr.MinimalInterval) ,
+            (fun mi fr -> { fr with MinimalInterval = mi })
 
 
     type Dosage with
@@ -534,7 +562,7 @@ module Dosage =
             (fun dt d -> { d with TotalDosage = dt })
             
         static member Frequencies_ :
-            (Dosage -> Frequencies) * (Frequencies -> Dosage -> Dosage) =
+            (Dosage -> Frequency) * (Frequency -> Dosage -> Dosage) =
             (fun d -> d.Frequencies) ,
             (fun frqs d -> { d with Frequencies = frqs })        
 
@@ -542,6 +570,18 @@ module Dosage =
     module Optics =
 
         module DoseRange = DoseRange.Optics
+
+
+        let freqsFrequencyLens =
+            Dosage.Frequencies_ >-> Frequency.Frequencies_
+
+        
+        let timeUnitFrequencyLens =
+            Dosage.Frequencies_ >-> Frequency.TimeUnit_
+
+
+        let minIntervalValueFrequencyLens =
+            Dosage.Frequencies_ >-> Frequency.MinimalInterval_
 
 
         let inclMinNormStartDosagePrism =
@@ -1025,10 +1065,18 @@ module Dosage =
             else s + "/" + tu
         )
         |> (fun s -> 
-            if freqs |> List.isEmpty || tu |> String.isNullOrWhiteSpace then s
+            if freqs.Frequencies |> List.isEmpty || freqs.TimeUnit |> String.isNullOrWhiteSpace then s
             else
-                sprintf "%sToegestane frequenties: %s keer per %s" s (freqs |> List.toString) tu
+                sprintf "%sToegestane frequenties: %s keer per %s" s (freqs.Frequencies |> List.toString) freqs.TimeUnit
+                |> (fun s ->
+                    match freqs.MinimalInterval with
+                    | Some mi ->
+                        s + "\n" + (sprintf "Minimaal interval: %s" (mi |> ValueUnit.toString))
+                    | None -> s
+
+                )
         )
+        
 
 
 
@@ -2551,11 +2599,58 @@ module DoseRule =
                 | None -> dr, pat
             | None -> dr, pat
 
+    
+        let private substanceMinIntervalGetter prism inds rt pat substance dr = 
+            match dr |> indxIndications inds with 
+            | Some n1 ->
+                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
+                | Some n2 ->
+                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
+                    | Some n3 ->
+                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
+                        | Some n4 ->
+                            match dr 
+                                  |> Optic.get ((substanceDosagePrism n1 n2 n3 n4) >?> prism) with
+                            | Some mi -> mi
+                            | None -> None
+                        | None -> None
+                    | None -> None
+                | None -> None
+            | None -> None
 
-        let getFrequenciessubstanceDosage = substanceFrequenciesGetter Dosage.Frequencies_
+
+        let private substanceMinIntervalSetter prism inds rt substance vu pat dr = 
+            match dr |> indxIndications inds with 
+            | Some n1 ->
+                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
+                | Some n2 ->
+                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
+                    | Some n3 ->
+                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
+                        | Some n4 ->
+                            dr |> Optic.set ((substanceDosagePrism n1 n2 n3 n4) >?> prism) vu, pat
+                        | None -> dr, pat
+                    | None -> dr, pat
+                | None -> dr, pat
+            | None -> dr, pat
 
 
-        let setFrequenciessubstanceDosage = substanceFrequenciesSetter Dosage.Frequencies_
+        let getFreqsFrequencySubstanceDosage = substanceFrequenciesGetter Dosage.freqsFrequencyLens
+
+
+        let setFreqsFrequencySubstanceDosage = substanceFrequenciesSetter Dosage.freqsFrequencyLens
+
+
+        let getTimeUnitFrequencySubstanceDosage = substanceUnitGetter Dosage.timeUnitFrequencyLens
+
+
+        let setTimeUnitFrequencySubstanceDosage = substanceUnitSetter Dosage.timeUnitFrequencyLens
+        
+
+        let getMinIntervalFrequencySubstanceDosage = substanceMinIntervalGetter Dosage.minIntervalValueFrequencyLens
+        
+
+        let setMinIntervalFrequencySubstanceDosage = substanceMinIntervalSetter Dosage.minIntervalValueFrequencyLens
 
         
         let getInclMinNormStartSubstanceDosage = substanceDosageGetter Dosage.inclMinNormStartDosagePrism
@@ -3221,19 +3316,84 @@ module Test =
     module DoseRule = DoseRule.Optics
 
     let test () =
+
         DoseRule.doseRule "paracetamol" "N02BE01" "Zenuwstelsel" "Analgetica" "Overige analgetica en antipyretica" "Aceetanilidederivaten" [] [] []
+        
         |> DoseRule.addIndications ["Milde pijn en koorts"]
         |> DoseRule.addRoute ["Milde pijn en koorts"] "Oraal"
         |> DoseRule.addPatient ["Milde pijn en koorts"] "Oraal" (Patient.empty)
         |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Oraal" (ValueUnit.create 3. "maanden") (Patient.empty) 
         |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Oraal" (ValueUnit.create 18. "jaar") 
         |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Oraal" "paracetamol"
-        |>> DoseRule.setFrequenciessubstanceDosage  ["Milde pijn en koorts"] "Oraal" "paracetamol" [1..4]
-        |>> DoseRule.setTimeUnitSubstanceDosage   ["Milde pijn en koorts"] "Oraal" "paracetamol" "dag"
+        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Oraal" "paracetamol" [1..4]
+        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Oraal" "paracetamol" "dag"
+        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.create 4. "uur" |> Some)
         |>> DoseRule.setInclMaxAbsSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.create 500. "mg")
         |>> DoseRule.setNormWeightUnitSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" "kg"
         |>> DoseRule.setInclMinNormWeightSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.create 10. "mg")
         |>> DoseRule.setInclMaxNormWeightSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.create 15. "mg")
+
+        |> fst
+        |> DoseRule.addRoute ["Milde pijn en koorts"] "Rectaal"
+        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 3. "maanden") (Patient.empty) 
+        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 1. "jaar") 
+        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
+        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" "dag"
+        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 6. "uur" |> Some)
+        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 120. "mg")
+
+        |> fst
+        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 1. "jaar") (Patient.empty) 
+        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 4. "jaar") 
+        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
+        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" "dag"
+        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 6. "uur" |> Some)
+        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 240. "mg")
+
+        |> fst
+        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 4. "jaar") (Patient.empty) 
+        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 6. "jaar") 
+        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
+        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" "dag"
+        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 6. "uur" |> Some)
+        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 240. "mg")
+
+        |> fst
+        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 6. "jaar") (Patient.empty) 
+        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 12. "jaar") 
+        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
+        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" "dag"
+        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 6. "uur" |> Some)
+        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 500. "mg")
+
+        |> fst
+        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 12. "jaar") (Patient.empty) 
+        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 18. "jaar") 
+        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
+        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" "dag"
+        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 6. "uur" |> Some)
+        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 500. "mg")
+
+        |> fst
+        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 12. "jaar") (Patient.empty) 
+        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 18. "jaar") 
+        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
+        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" "dag"
+        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 6. "uur" |> Some)
+        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 1000. "mg")
+
         |> fst
         |> DoseRule.print
         |> printfn "%s"
