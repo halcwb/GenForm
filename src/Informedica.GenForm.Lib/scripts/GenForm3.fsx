@@ -14,6 +14,71 @@ open Aether
 open Aether.Operators
 
 
+module String =
+
+    open System
+
+
+    let equals s1 s2 = s1 = s2
+
+
+    /// Apply `f` to string `s`
+    let apply f (s: String) = f s
+    
+
+    /// Utility to enable type inference
+    let get = apply id
+
+    /// Get the length of s
+    let length s = (s |> get).Length
+
+    /// Get a substring starting at `start` with length `length`
+    let substring start length (s: string) = s.Substring(start, length)
+
+
+    /// Return the rest of a string as a string
+    let restString s = substring 1 ((s |> length) - 1) s
+
+
+    /// Check whether **s1** starts with
+    /// **s2** using string comparison **eqs**
+    let startsWithEqs eqs s2 s1 =
+        if s2 |> length > (s1 |> length) then false
+        else
+            s1 |> substring 0 (s2 |> length) |> eqs s2
+
+
+    /// Check whether **s1** starts with
+    /// **s2** caps sensitive
+    let startsWith = startsWithEqs equals
+
+    /// Check whether **s1** ends with
+    /// **s2** using string comparison **eqs**
+    let endsWithEqs eqs s2 s1 =
+        let len1 = s1 |> length
+        let len2 = s2 |> length
+        
+        if len2 > len1 || len2 = 0 then false
+        else
+            s1 |> substring (len1 - len2) (len1 - (len1 - len2)) |> eqs s2
+
+
+    /// Check whether **s1** ends with
+    /// **s2** caps sensitive
+    let endsWith = endsWithEqs equals
+
+
+    let removeTrailing trail s =
+        if s |> endsWith trail |> not then s
+        else
+            let len = trail |> length
+            s |> substring 0 ((s |> length) - len)
+            
+
+    let removeTrailingEOL = removeTrailing "\n"
+
+
+
 
 module List =
 
@@ -78,6 +143,14 @@ module ValueUnit =
 
     let toString vu = 
         sprintf "%A %s" (vu |> Optics.getValue) (vu |> Optics.getUnit)
+
+
+
+module ValueUnitTests =
+    
+    let toString () =
+        ValueUnit.create 1. "mg"
+        |> ValueUnit.toString
 
 
 
@@ -229,11 +302,22 @@ module MinMax =
         match min, max with
         | None, None -> ""
         | Some min_, Some max_ -> 
-            sprintf "%s - %s "(min_ |> minToString) (max_ |> maxToString)
+            sprintf "%s - %s" (min_ |> minToString) (max_ |> maxToString)
         | Some min_, None -> 
             (min_ |> minToString) 
         | None, Some max_ -> 
             (max_ |> maxToString)
+
+
+module MinMaxTests =
+
+    module MinMax = MinMax.Optics
+
+    let toString () =
+        MinMax.empty
+        |> MinMax.setMin (ValueUnit.create 1. "mg" |> MinMax.Inclusive)
+        |> MinMax.setMax (ValueUnit.create 10. "mg" |> MinMax.Inclusive)
+        |> MinMax.toString
 
 
 
@@ -432,7 +516,9 @@ module DoseRange =
     let toString ({ Norm = norm; NormWeight = normwght; NormBSA = normbsa; Abs = abs; AbsWeight = abswght; AbsBSA = absbsa}) =
         let (>+) sl sr = 
             if sl |> String.isNullOrWhiteSpace then sr
-            else sl + "\n" + sr
+            else
+                let sr = if sr |> String.isNullOrWhiteSpace then sr else "\n" + sr
+                sl + sr
         
         let nw, nwu = normwght
         let nb, nbu = normbsa
@@ -462,11 +548,25 @@ module DoseRange =
                 >+ (ab |> mmtoStr abu)
             if sa |> String.isNullOrWhiteSpace then sn
             else 
-                sn + "\n" +
-                "Maximale dosering: " + sa
+                let sn = if sn |> String.isNullOrWhiteSpace then sn else sn + "\n"
+                sn + "Maximale dosering: " + sa
         )
         
-        
+
+
+module DoseRangeTests =
+
+    module DoseRange = DoseRange.Optics
+
+    let setMaxNormDose = Optic.set DoseRange.inclMaxNormLens
+    let setMaxAbsDose = Optic.set DoseRange.inclMaxAbsLens
+
+    let toString () =
+        DoseRange.empty
+        |> setMaxNormDose (ValueUnit.create 10. "mg")
+        |> setMaxAbsDose (ValueUnit.create 100. "mg")
+        |> DoseRange.toString
+
     
 module Dosage =
 
@@ -1043,31 +1143,26 @@ module Dosage =
 
     let toString ({ StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs }) =
         let (>+) sl sr = 
-            let l, s = sr
-            
+            let l, s, u = sr
+            let u = if u |> String.isNullOrWhiteSpace then u else "/" + u
+
             if s |> String.isNullOrWhiteSpace then sl
-            else l + "\n" + s + (if sl |> String.isNullOrWhiteSpace then sl else "\n" + sl)
+            else 
+                (if sl |> String.isNullOrWhiteSpace then sl else sl + "\n") + l + "\n" + s + u + "\n"
             
         let rt, ru = rate
         let tt, tu = total
                 
         ""
-        >+ ("Start dosering: ", start |> DoseRange.toString)
-        >+ ("Keer dosering: ", single |> DoseRange.toString)
-        >+ ("Continue dosering: ", (rt |> DoseRange.toString))
+        >+ ("Start dosering: ", start |> DoseRange.toString, "")
+        >+ ("Keer dosering: ", single |> DoseRange.toString, "")
+        >+ ("Continue dosering: ", rt |> DoseRange.toString, ru)
+        >+ ("Totaal dosering: ",   tt |> DoseRange.toString, tu)
         |> (fun s -> 
-            if rt |> DoseRange.toString |> String.isNullOrWhiteSpace then s
-            else s + "/" + ru
-        )
-        >+ ("Totaal dosering: ", (tt |> DoseRange.toString))
-        |> (fun s -> 
-            if tt |> DoseRange.toString |> String.isNullOrWhiteSpace then s
-            else s + "/" + tu
-        )
-        |> (fun s -> 
-            if freqs.Frequencies |> List.isEmpty || freqs.TimeUnit |> String.isNullOrWhiteSpace then s
+            if freqs.Frequencies |> List.isEmpty || 
+               freqs.TimeUnit |> String.isNullOrWhiteSpace then s
             else
-                sprintf "%sToegestane frequenties: %s keer per %s" s (freqs.Frequencies |> List.toString) freqs.TimeUnit
+                sprintf "%s\nToegestane frequenties: %s keer per %s" s (freqs.Frequencies |> List.toString) freqs.TimeUnit
                 |> (fun s ->
                     match freqs.MinimalInterval with
                     | Some mi ->
@@ -1076,7 +1171,27 @@ module Dosage =
 
                 )
         )
-        
+        |> String.removeTrailingEOL
+
+
+
+module DosageTests =
+    
+    module Dosage = Dosage.Optics
+
+    let setNormMinStartDose = Optic.set Dosage.inclMinNormStartDosagePrism
+    let setAbsMaxStartDose = Optic.set Dosage.inclMaxAbsStartDosagePrism
+
+    let setNormMinSingleDose = Optic.set Dosage.inclMinNormSingleDosagePrism
+    let setAbsMaxSingleDose = Optic.set Dosage.inclMaxAbsSingleDosagePrism
+
+    let toString () =
+        Dosage.empty
+        |> setNormMinStartDose (ValueUnit.create 10. "mg")
+        |> setAbsMaxStartDose (ValueUnit.create 1. "gram")
+        |> setNormMinSingleDose (ValueUnit.create 10. "mg")
+        |> setAbsMaxSingleDose (ValueUnit.create 1. "gram")
+        |> Dosage.toString 
 
 
 
@@ -1270,6 +1385,7 @@ module Patient =
         >+ ("Gewicht: ", wght |> MinMax.toString)
         >+ ("BSA: ", bsa |> MinMax.toString)
         >+ ("Geslacht: ", gen |> genderToString)
+        |> String.removeTrailingEOL
 
 
 
@@ -1341,7 +1457,8 @@ module DoseRule =
 
 
     let createIndicationsDosages inds dr =
-        { Indications = inds; RouteDosages = [] }::dr.IndicationsDosages
+        dr.IndicationsDosages
+        |> List.prepend [ { Indications = inds; RouteDosages = [] } ]
 
 
     let addIndications inds (dr : DoseRule) =
@@ -1442,7 +1559,7 @@ module DoseRule =
                 dr |> indxIndications inds with 
                 | Some n -> 
                     dr 
-                    |> Optic.set (indDosDosagesLens n) (dr |> getRouteDosages inds |> List.append rds)
+                    |> Optic.set (indDosDosagesLens n) (dr |> getRouteDosages inds |> List.prepend rds)
                 | None -> dr
 
 
@@ -1489,7 +1606,7 @@ module DoseRule =
             let pds =
                 dr
                 |> getRoutePatientDosages inds rt
-                |> List.append [ { Patient = pat; ShapeDosages = []; SubstanceDosages = [] } ]
+                |> List.prepend [ { Patient = pat; ShapeDosages = []; SubstanceDosages = [] } ]
         
             dr 
             |> setRoutePatientDosages inds rt pds
@@ -1680,7 +1797,7 @@ module DoseRule =
             let sds =
                 dr
                 |> getShapeDosages inds rt pat
-                |> List.append [ { Dosage.empty with Name = shape } ]
+                |> List.prepend [ { Dosage.empty with Name = shape } ]
         
             dr
             |> setShapeDosages inds rt sds pat, pat
@@ -2386,7 +2503,7 @@ module DoseRule =
             let sds =
                 dr
                 |> getSubstanceDosages inds rt pat
-                |> List.append [ { Dosage.empty with Name = substance } ]
+                |> List.prepend [ { Dosage.empty with Name = substance } ]
         
             dr
             |> setSubstanceDosages inds rt sds pat, pat
@@ -3263,12 +3380,10 @@ Route: {route}
 
     let mdPatientText = """
 {patient}
-
 """
 
     let mdDosageText = """
 {dosage}
-
 """
 
     let print (dr : DoseRule) =
@@ -3282,7 +3397,7 @@ Route: {route}
         |> (fun s ->
             dr.IndicationsDosages
             |> List.fold (fun acc id ->
-                let i = 
+                let ind = 
                     id.Indications 
                     |> String.concat ", "
 
@@ -3293,17 +3408,16 @@ Route: {route}
                         let shds =
                             pd.ShapeDosages
                             |> List.fold (fun acc sd ->
-                                acc + (sd |> Dosage.toString)
+                                acc + (mdDosageText |> String.replace "{dosage}" (sd |> Dosage.toString))
                             ) (acc + (mdPatientText |> String.replace "{patient}" (pd.Patient |> Patient.toString)))
                             
                         pd.SubstanceDosages 
                         |> List.fold (fun acc sd ->
-                            acc + (sd |> Dosage.toString)
+                            acc + (mdDosageText |> String.replace "{dosage}" (sd |> Dosage.toString))
                         ) shds
-                        |> (fun sds -> mdDosageText |> String.replace "{dosage}" sds)
                                                 
                     ) (acc + (mdRouteText |> String.replace "{route}" rd.Route))
-                ) (acc + (mdIndicationText |> String.replace "{indication}" i))
+                ) (acc + (mdIndicationText |> String.replace "{indication}" ind))
             ) s
         )
 
@@ -3377,22 +3491,26 @@ module Test =
         |> fst
         |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
         |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 12. "jaar") (Patient.empty) 
-        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 18. "jaar") 
+        |>> DoseRule.setPatientInclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 18. "jaar") 
         |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
         |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
         |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" "dag"
         |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 6. "uur" |> Some)
-        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 500. "mg")
+        |>> DoseRule.setInclMinNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 500. "mg")
+        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 1000. "mg")
+        |>> DoseRule.setTimeUnitSubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol"  "dag"
+        |>> DoseRule.setInclMaxAbsTotalSubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol"  (ValueUnit.create 3000. "mg")
 
         |> fst
-        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 12. "jaar") (Patient.empty) 
-        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.create 18. "jaar") 
-        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
-        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" "dag"
-        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 6. "uur" |> Some)
-        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.create 1000. "mg")
+        |> DoseRule.addIndications ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"]
+        |> DoseRule.addRoute ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal"
+        |> DoseRule.addPatient ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (Patient.empty)
+        |> DoseRule.setPatientInclMinGestAge ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (ValueUnit.create 28. "weken") (Patient.empty) 
+        |>> DoseRule.setPatientInclMaxGestAge ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (ValueUnit.create 33. "weken") 
+        |>> DoseRule.addSubstance ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol"
+        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" [3]
+        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" "dag"
+        |>> DoseRule.setInclMaxNormWeightTotalSubstanceDosage ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" (ValueUnit.create 30. "mg")
 
         |> fst
         |> DoseRule.print
