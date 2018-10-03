@@ -10,12 +10,37 @@
 open Informedica.GenUtils.Lib.BCL
 open Informedica.GenUtils.Lib
 
-open Aether
-open Aether.Operators
+module Lens =
+        
+    open FSharp.Quotations
+    open FSharp.Quotations.Patterns
+    open FSharp.Quotations.Evaluator
+    open Microsoft.FSharp.Reflection
+    open System.Reflection
 
+    let private eval = QuotationEvaluator.EvaluateUntyped
+
+    module internal Record =
+
+        let Fields = FSharpType.GetRecordFields
+        let Type (p:PropertyInfo) = p.DeclaringType
+        let ValuesOr p v o = 
+            Type p |> Fields 
+            |> Array.map (fun x -> if x = p then v else x.GetValue(o))
+        let Make t xs = FSharpValue.MakeRecord(t,xs,false)
+        let With p v o = ValuesOr p v o |> Make (Type p)
+        let rec Update<'a,'b> = function
+            | PropertyGet(None,_,[]),v -> v
+            | PropertyGet(Some(PropertyGet(_) as pg),p,[]),v -> 
+                Update(pg,(With p v (eval pg)))
+            | _ -> failwith "blaargh"
+
+    let With (e:Expr<'a>) (v:'a) = Record.Update(e.Raw,v) :?> 'b
 
 
 module List =
+
+    let toStr = List.toString
 
     let tryFindRest pred xs =
         let rec find x xs notx =
@@ -27,6 +52,14 @@ module List =
 
         find None xs []
 
+
+    let toString xs =
+        xs
+        |> toStr
+        |> String.replace "[" ""
+        |> String.replace "]" ""
+        |> String.replace ";" ","
+    
 
 
 module ValueUnit =
@@ -46,29 +79,17 @@ module ValueUnit =
 
 
     let create v u = { Value = v; Unit = u }
+    
+    let apply f (vu : ValueUnit) = f vu
+
+    
+    let get = apply id
+
+    
+    let getValue vu = (vu |> get).Value
 
 
-    type ValueUnit with
-
-        static member Value_ :
-            (ValueUnit -> float) * (float -> ValueUnit -> ValueUnit) =
-            (fun vu -> vu.Value), (fun v vu -> { vu with Value = v })
-
-        static member Unit_ :
-            (ValueUnit -> string) * (string -> ValueUnit -> ValueUnit) =
-            (fun vu -> vu.Unit), (fun u vu -> { vu with Unit = u })
-
-
-    let getValue = Optic.get ValueUnit.Value_
-
-
-    let setValue = Optic.set ValueUnit.Value_ 
-
-
-    let getUnit = Optic.get ValueUnit.Unit_
-
-
-    let setUnit = Optic.set ValueUnit.Unit_ 
+    let getUnit vu = (vu |> get).Unit
 
 
     let toString vu = 
@@ -119,248 +140,7 @@ module MinMax =
 
 
     let maxExcl v = max (v |> exclusive) 
-
-
-    type Value with
-
-        static member Inclusive_ =
-            (fun v ->
-                match v with
-                | Inclusive v_ -> v_ |> Some 
-                | Exclusive _  -> None
-            ), 
-            (fun x v ->
-                match v with 
-                | Inclusive _ -> x |> Inclusive
-                | Exclusive _ -> v
-            )
-
-
-        static member Exclusive_ =
-            (fun v ->
-                match v with
-                | Inclusive _  -> None
-                | Exclusive v_ -> v_ |> Some
-            ), 
-            (fun x v ->
-                match v with 
-                | Inclusive _ -> v
-                | Exclusive _ -> x |> Exclusive
-            )
-
-
-    let getInclusive = Optic.get Value.Inclusive_
-
-
-    let setInclusive = Optic.set Value.Inclusive_
-
-
-    let getExclusive = Optic.get Value.Exclusive_
-
-
-    let setExclusive = Optic.set Value.Exclusive_
-
-
-    let inclusiveValueLens = Value.Inclusive_ >?> ValueUnit.Value_
-
-
-    let getInclusiveValue = Optic.get inclusiveValueLens
-
-
-    let setInclusiveValue = Optic.set inclusiveValueLens 
-    
-
-    let inclusiveUnitLens = Value.Inclusive_ >?> ValueUnit.Unit_
-
-
-    let getInclusiveUnit = Optic.get inclusiveUnitLens
-
-
-    let setInclusiveUnit = Optic.set inclusiveUnitLens 
-    
-
-    let exclusiveValueLens = Value.Exclusive_ >?> ValueUnit.Value_
-
-
-    let getExclusiveValue = Optic.get exclusiveValueLens
-
-
-    let setExclusiveValue = Optic.set exclusiveValueLens 
-    
-
-    let exclusiveUnitLens = Value.Exclusive_ >?> ValueUnit.Unit_
-
-
-    let getExclusiveUnit = Optic.get exclusiveUnitLens
-
-
-    let setExclusiveUnit = Optic.set exclusiveUnitLens 
-    
-
-    type MinMax with
-
-        static member Min_ :
-            (MinMax -> Value Option) * (Value -> MinMax -> MinMax) =
-            (fun mm -> mm.Min), 
-            (fun v mm -> { mm with Min = Some v })
-
-        static member Max_ :
-            (MinMax -> Value Option) * (Value -> MinMax -> MinMax) =
-            (fun mm -> mm.Max), 
-            (fun v mm -> { mm with Max = Some v })
-
-
-    let getMin = Optic.get MinMax.Min_
-
-
-    let setMin = Optic.set MinMax.Min_
-
-
-    let inclMinLens = 
-        (fun mm -> 
-            match mm |> getMin with 
-            | Some min -> 
-                match min with 
-                | Inclusive v -> Some v 
-                | _ -> None 
-            | None -> None),
-        (fun vu mm -> mm |> setMin (vu |> inclusive))
-
-
-    let getInclMin = Optic.get inclMinLens
-
-
-    let setInclMin = Optic.set inclMinLens
-
-
-    let valueInclMinLens = inclMinLens >?> ValueUnit.Value_
-
-
-    let getValueInclMin = Optic.get valueInclMinLens
-
-
-    let setValueInclMin = Optic.set valueInclMinLens
-
-
-    let unitInclMinLens = inclMinLens >?> ValueUnit.Unit_
-
-
-    let getUnitInclMin = Optic.get unitInclMinLens
-
-
-    let setUnitInclMin = Optic.set unitInclMinLens
-
-
-    let exclMinLens = 
-        (fun mm -> 
-            match mm |> getMin with 
-            | Some min -> 
-                match min with 
-                | Exclusive v -> Some v 
-                | _ -> None 
-            | None -> None),
-        (fun vu mm -> mm |> setMin (vu |> exclusive))
-
-
-    let getExclMin = Optic.get exclMinLens
-
-
-    let setExclMin = Optic.set exclMinLens
-    
-
-    let valueExclMinLens = exclMinLens >?> ValueUnit.Value_
-
-
-    let getValueExclMin = Optic.get valueExclMinLens
-
-
-    let setValueExclMin = Optic.set valueExclMinLens
-
-
-    let unitExclMinLens = exclMinLens >?> ValueUnit.Unit_
-
-
-    let getUnitExclMin = Optic.get unitExclMinLens
-
-
-    let setUnitExclMin = Optic.set unitExclMinLens
-
-
-    let getMax = Optic.get MinMax.Max_
-
-
-    let setMax = Optic.set MinMax.Max_
-
-
-    let inclMaxLens = 
-        (fun mm -> 
-            match mm |> getMax with 
-            | Some max -> 
-                match max with 
-                | Inclusive v -> Some v 
-                | _ -> None 
-            | None -> None),
-        (fun vu mm -> mm |> setMax (vu |> inclusive))
-
-
-    let getInclMax = Optic.get inclMaxLens
-
-
-    let setInclMax = Optic.set inclMaxLens
-
-
-    let valueInclMaxLens = inclMaxLens >?> ValueUnit.Value_
-
-
-    let getValueInclMax = Optic.get valueInclMaxLens
-
-
-    let setValueInclMax = Optic.set valueInclMaxLens
-
-
-    let unitInclMaxLens = inclMaxLens >?> ValueUnit.Unit_
-
-
-    let getUnitInclMax = Optic.get unitInclMaxLens
-
-
-    let setUnitInclMax = Optic.set unitInclMaxLens
-
-
-    let exclMaxLens = 
-        (fun mm -> 
-            match mm |> getMax with 
-            | Some max -> 
-                match max with 
-                | Exclusive v -> Some v 
-                | _ -> None 
-            | None -> None),
-        (fun vu mm -> mm |> setMax (vu |> exclusive))
-
-
-    let getExclMax = Optic.get exclMaxLens
-
-
-    let setExclMax = Optic.set exclMaxLens
-    
-
-    let valueExclMaxLens = exclMaxLens >?> ValueUnit.Value_
-
-
-    let getValueExclMax = Optic.get valueExclMaxLens
-
-
-    let setValueExclMax = Optic.set valueExclMaxLens
-
-
-    let unitExclMaxLens = exclMaxLens >?> ValueUnit.Unit_
-
-
-    let getUnitExclMax = Optic.get unitExclMaxLens
-
-
-    let setUnitExclMax = Optic.set unitExclMaxLens
-    
+        
 
     let toString { Min = min; Max = max } =
         let minToString min =
@@ -432,123 +212,368 @@ module DoseRange =
     let empty = create MinMax.empty emptyWeight emptyBSA MinMax.empty emptyWeight emptyBSA
 
 
-    type DoseRange with
-
-        static member Norm_ :
-            (DoseRange -> MinMax) * (MinMax -> DoseRange -> DoseRange) =
-            (fun dr -> dr.Norm),
-            (fun mm dr -> { dr with Norm = mm })
-
-        static member NormWeight_ :
-            (DoseRange -> (MinMax * WeightUnit)) * ((MinMax * WeightUnit) -> DoseRange -> DoseRange) =
-            (fun dr -> dr.NormWeight),
-            (fun mm dr -> { dr with NormWeight = mm })
-
-        static member NormBSA_ :
-            (DoseRange -> (MinMax * BSAUnit)) * ((MinMax * BSAUnit) -> DoseRange -> DoseRange) =
-            (fun dr -> dr.NormBSA),
-            (fun mm dr -> { dr with NormBSA = mm })
-
-        static member Abs_ :
-            (DoseRange -> MinMax) * (MinMax -> DoseRange -> DoseRange) =
-            (fun dr -> dr.Abs),
-            (fun mm dr -> { dr with Abs = mm })
-
-        static member AbsWeight_ :
-            (DoseRange -> (MinMax * WeightUnit)) * ((MinMax * WeightUnit) -> DoseRange -> DoseRange) =
-            (fun dr -> dr.AbsWeight),
-            (fun mm dr -> { dr with AbsWeight = mm })
-
-        static member AbsBSA_ :
-            (DoseRange -> (MinMax * BSAUnit)) * ((MinMax * BSAUnit) -> DoseRange -> DoseRange) =
-            (fun dr -> dr.AbsBSA),
-            (fun mm dr -> { dr with AbsBSA = mm })
-
-
-    let getNorm = Optic.get DoseRange.Norm_
-
-
-    let setNorm = Optic.set DoseRange.Norm_
-
-
-    let minNormLens = DoseRange.Norm_ >-> MinMax.Min_
-
-
-    let getMinNorm = Optic.get minNormLens
-
-
-    let setMinNorm = Optic.set minNormLens
-
-
-    let inclMinNormLens =
-        DoseRange.Norm_ >-> (MinMax.inclMinLens) 
-
-
-    let getInclMinNorm = Optic.get inclMinNormLens 
-
-
-    let setInclMinNorm = Optic.set inclMinNormLens
-
-
-    let exclMinNormLens =
-        DoseRange.Norm_ >-> (MinMax.exclMinLens) 
-
-
-    let getExclMinNorm = Optic.get exclMinNormLens 
-
-
-    let setExclMinNorm = Optic.set exclMinNormLens
-
-
-    let maxNormLens = DoseRange.Norm_ >-> MinMax.Max_
-
-
-    let getMaxNorm = Optic.get maxNormLens
-
-
-    let setMaxNorm = Optic.set maxNormLens
-
-
-    let inclMaxNormLens =
-        DoseRange.Norm_ >-> (MinMax.inclMaxLens) 
-
-
-    let getInclMaxNorm = Optic.get inclMaxNormLens 
-
-
-    let setInclMaxNorm = Optic.set inclMaxNormLens
-
-
-    let exclMaxNormLens =
-        DoseRange.Norm_ >-> (MinMax.exclMaxLens) 
-
-
-    let getExclMaxNorm = Optic.get exclMaxNormLens 
-
-
-    let setExclMaxNorm = Optic.set exclMaxNormLens
-
-
-    let getNormWeight = Optic.get DoseRange.NormWeight_
-
-
-    let setNormWeight = Optic.set DoseRange.NormWeight_
+    let toString ({ Norm = norm; NormWeight = normwght; NormBSA = normbsa; Abs = abs; AbsWeight = abswght; AbsBSA = absbsa}) =
+        let (>+) sl sr = 
+            if sl |> String.isNullOrWhiteSpace then sr
+            else sl + "\n" + sr
         
+        let nw, nwu = normwght
+        let nb, nbu = normbsa
+        let aw, nau = abswght
+        let ab, nbu = absbsa
+        
+        let mmtoStr u mm = 
+            mm 
+            |> MinMax.toString 
+            |> (fun s -> 
+                if s |> String.isNullOrWhiteSpace || u |> String.isNullOrWhiteSpace then s 
+                else s + " " + u
+            )
+            
+        norm 
+        |> MinMax.toString
+        >+ (nw |> mmtoStr nwu)
+        >+ (nb |> mmtoStr nbu)
+        |> (fun s -> 
+            if s |> String.isNullOrWhiteSpace then s
+            else "Normaal grenzen:\n" + s
+        )
+        |> (fun sn ->
+            let sa =
+                abs |> MinMax.toString
+                >+ (aw |> mmtoStr nau)
+                >+ (ab |> mmtoStr nbu)
+            if sa |> String.isNullOrWhiteSpace then sn
+            else 
+                sn +
+                "Absolute grenzen:\n" + sa
+        )
+        
+        
+    
+module Dosage =
 
-    let minNormWeightLens = DoseRange.NormWeight_ >-> fst_ >-> MinMax.Min_
+
+    type DoseRange = DoseRange.DoseRange
 
 
-    let getMinNormWeight = Optic.get minNormWeightLens
+    /// Dosage
+    type Dosage =
+        {
+            Name : string
+            /// Dosage at the start
+            StartDosage : DoseRange
+            /// Dosage per administration
+            SingleDosage : DoseRange
+            /// Dosage rate
+            RateDosage : DoseRange * RateUnit
+            /// Total dosage per time period
+            TotalDosage : DoseRange * TimeUnit
+            /// Allowed frequencies
+            Frequencies : Frequencies
+        }
+    and Frequencies = int list
+    and TimeUnit = string
+    and RateUnit = string
 
 
-    let setMinNormWeight = Optic.set minNormWeightLens
+    let create nm start single rate total freqs =
+        {
+            Name = nm
+            StartDosage = start
+            SingleDosage = single
+            RateDosage = rate
+            TotalDosage = total
+            Frequencies = freqs
+        }
 
 
-    let inclMinNormWeightLens =
-        DoseRange.NormWeight_ >-> (MinMax.inclMinLens) 
+    let empty = create "" DoseRange.empty DoseRange.empty (DoseRange.empty, "") (DoseRange.empty, "" ) []
 
 
-    let getInclMinNormWeight = Optic.get inclMinNormWeightLens 
+    let toString ({ StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs }) =
+        let (>+) sl sr = 
+            let l, s = sr
+            
+            if s |> String.isNullOrWhiteSpace then sl
+            else l + "\n" + s + (if sl |> String.isNullOrWhiteSpace then sl else "\n" + sl)
+            
+        let rt, ru = rate
+        let tt, tu = total
+        
+        let ru = if ru |> String.isNullOrWhiteSpace then ru else "/" + ru
+        let tu = if tu |> String.isNullOrWhiteSpace then tu else "/" + tu
+        
+        ""
+        >+ ("Start dosering: ", start |> DoseRange.toString)
+        >+ ("Keer dosering: ", single |> DoseRange.toString)
+        >+ ("Continue dosering: ", (rt |> DoseRange.toString) + " " + ru)
+        >+ ("Totaal dosering: ", (tt |> DoseRange.toString) + " " + tu)
+        |> (fun s -> 
+            if freqs |> List.isEmpty then s
+            else
+                let tu = "dag"
+                sprintf "%s\nToegestande frequenties: %s keer per %s" s (freqs |> List.toString) tu
+        )
 
 
-    let setInclMinNormWeight = Optic.set inclMinNormWeightLens
+
+module Patient = 
+
+
+    type MinMax = MinMax.MinMax
+
+
+    type Patient =
+        {
+            GestAge : MinMax
+            Age : MinMax
+            Weight : MinMax
+            BSA : MinMax
+            Gender : Gender
+        }
+    and Gender = Male | Female | Undetermined
+
+
+    let create ga age wght bsa gend =
+        {
+            GestAge = ga
+            Age = age
+            Weight = wght
+            BSA = bsa
+            Gender = gend
+        }
+
+
+    let empty = create MinMax.empty MinMax.empty MinMax.empty MinMax.empty Undetermined
+
+
+    let genderToString = function
+    | Male -> "man"
+    | Female -> "vrouw"
+    | Undetermined -> ""
+
+
+    let toString ({ GestAge = ga; Age = age; Weight = wght; BSA = bsa; Gender = gen }) =
+        let (>+) sl sr = 
+            let l, s = sr
+            
+            if s |> String.isNullOrWhiteSpace then sl
+            else sl + " " + l + s
+        
+        "Patient: "
+        >+ ("Zwangerschapsduur: ", ga |> MinMax.toString)
+        >+ ("Leeftijd: ", age |> MinMax.toString)
+        >+ ("Gewicht: ", wght |> MinMax.toString)
+        >+ ("BSA: ", bsa |> MinMax.toString)
+        >+ ("Geslacht: ", gen |> genderToString)
+
+
+
+module DoseRule =
+
+
+    type Dosage = Dosage.Dosage
+    type MinMax = MinMax.MinMax
+    type Patient = Patient.Patient
+
+
+    /// Doserule
+    type DoseRule =
+        {   
+            // Generic the doserule applies to
+            Generic : string
+            // The ATC code
+            ATC : string
+            // ATCTherapyGroup the doserule applies to
+            ATCTherapyGroup : string
+            // ATCTherapySubGroup the doserule applies to
+            ATCTherapySubGroup : string
+            // The generic group the doserule applies to
+            GenericGroup : string
+            // The generic subgroup the doserule applies to
+            GenericSubGroup : string
+            // The doserules per indication(-s)
+            IndicationsDosages : IndicationDosage list
+        }
+    and IndicationDosage =
+        {
+            // The indication(-s) the dose rule applies to
+            Indications : string list
+            // The dosage rules per administration route
+            RouteDosages : RouteDosage list
+        }
+    and RouteDosage =
+        {
+            // Administration route
+            Route : string
+            // TradeProducts the doserule applies to
+            TradeProducts : string list
+            // GenericProducts the doserule applies to
+            GenericProducts : string list
+            // The dosage rules per patient group
+            PatientDosages : PatientDosage list
+        } 
+    and PatientDosage =
+        {
+            // The patient group the doserules applies
+            Patient : Patient
+            // List of shapes that have a dosage
+            ShapeDosages : Dosage list
+            // List of substances that have a dosage
+            SubstanceDosages : Dosage list
+        }
+
+
+    let doseRule gen atc thg sub ggp gsg tps gps idl =
+        {   
+            Generic = gen
+            ATC = atc
+            ATCTherapyGroup = thg
+            ATCTherapySubGroup = sub
+            GenericGroup = ggp
+            GenericSubGroup = gsg
+            IndicationsDosages = idl
+        }
+
+
+    let createIndicationsDosages inds dr =
+        { Indications = inds; RouteDosages = [] }::dr.IndicationsDosages
+
+
+    let addIndications inds (dr : DoseRule) =
+        {
+            dr with 
+                IndicationsDosages =
+                    dr |> createIndicationsDosages inds
+        }
+            
+        
+    let indxIndications inds (dr : DoseRule) =
+        dr.IndicationsDosages
+        |> List.tryFindIndex (fun id -> id.Indications = inds)       
+
+        
+    let addRoute inds rt (dr : DoseRule) =
+        let rds = [ { Route = rt; GenericProducts = []; TradeProducts = []; PatientDosages = [] } ]
+        
+        match 
+            dr |> indxIndications inds with 
+            | Some n -> 
+                { 
+                    dr with
+                        IndicationsDosages =
+                            dr.IndicationsDosages
+                            |> List.mapi (fun i dos ->
+                                if i = n then
+                                    { 
+                                        dos with 
+                                            RouteDosages = 
+                                                dos.RouteDosages 
+                                                |> List.append rds 
+                                    }
+                                else dos
+                            )
+                }
+
+            | None -> dr
+    
+
+    module Operators =
+        
+        let (|>>) (x1, x2) f = f x2 x1 
+
+ 
+ 
+    let mdText = """
+Stofnaam: {generic}
+
+ATC code: {atc}
+
+Therapeutische groep: {thergroup} 
+
+Therapeutische subgroep: {thersub}
+
+Generiek groep: {gengroup}
+
+Generiek subgroep: {gensub}
+
+Doseringen:
+"""
+
+    let mdIndicationText = """
+Indicatie: {indication}
+"""
+
+
+    let mdRouteText = """
+Route: {route}
+"""
+
+    let mdPatientText = """
+{patient}
+
+"""
+
+    let mdDosageText = """
+{dosage}
+
+"""
+
+    let print (dr : DoseRule) =
+        mdText
+        |> String.replace "{generic}" dr.Generic
+        |> String.replace "{atc}" dr.ATC
+        |> String.replace "{thergroup}" dr.ATCTherapyGroup
+        |> String.replace "{thersub}" dr.ATCTherapySubGroup
+        |> String.replace "{gengroup}" dr.GenericGroup
+        |> String.replace "{gensub}" dr.GenericSubGroup
+        |> (fun s ->
+            dr.IndicationsDosages
+            |> List.fold (fun acc id ->
+                let i = 
+                    id.Indications 
+                    |> String.concat ", "
+
+                id.RouteDosages
+                |> List.fold (fun acc rd -> 
+                    rd.PatientDosages
+                    |> List.fold (fun acc pd ->
+                        let shds =
+                            pd.ShapeDosages
+                            |> List.fold (fun acc sd ->
+                                acc + (sd |> Dosage.toString)
+                            ) (acc + (mdPatientText |> String.replace "{patient}" (pd.Patient |> Patient.toString)))
+                            
+                        pd.SubstanceDosages 
+                        |> List.fold (fun acc sd ->
+                            acc + (sd |> Dosage.toString)
+                        ) shds
+                        |> (fun sds -> mdDosageText |> String.replace "{dosage}" sds)
+                                                
+                    ) (acc + (mdRouteText |> String.replace "{route}" rd.Route))
+                ) (acc + (mdIndicationText |> String.replace "{indication}" i))
+            ) s
+        )
+
+
+
+module Test =
+
+    open DoseRule.Operators
+    
+
+    let test () =
+        DoseRule.doseRule "paracetamol" "N02BE01" "Zenuwstelsel" "Analgetica" "Overige analgetica en antipyretica" "Aceetanilidederivaten" [] [] []
+        |> DoseRule.addIndications ["Milde pijn en koorts"]
+        |> DoseRule.addRoute ["Milde pijn en koorts"] "Oraal"
+        |> DoseRule.addPatient ["Milde pijn en koorts"] "Oraal" (Patient.empty)
+        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Oraal" (ValueUnit.create 3. "maanden") (Patient.empty) 
+        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Oraal" (ValueUnit.create 18. "jaar") 
+        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Oraal" "paracetamol"
+        //|>> DoseRule.setFrequenciessubstanceDosage  ["Milde pijn en koorts"] "Oraal" "paracetamol" [1..4]
+        //|>> DoseRule.setInclMinNormWeightSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.create 10. "mg")
+        //|>> DoseRule.setInclMaxNormWeightSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.create 15. "mg")
+        //|> fst
+        |> DoseRule.print
+        |> printfn "%s"
