@@ -5,6 +5,7 @@
   <ItemGroup>
     <None Include="Scripts\references.fsx" />
     <None Include="Scripts\Scripts.fsx" />
+    <None Include="Scripts\GenForm3.fsx" />
     <Compile Include="Utils\String.fs" />
     <Compile Include="Mapping.fs" />
     <Compile Include="MinMax.fs" />

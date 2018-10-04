@@ -34,7 +34,7 @@ GenPresProduct.getAssortment ()
 )
 
 
-DoseRule.GStand.map (GenPresProduct.filter "TRIMETHOPRIM/SULFAMETHOXAZOL" "" "")
+DoseRule.GStand.map (GenPresProduct.filter "paracetamol" "" "")
 |> List.map (fun dr -> dr |> DoseRule.toString)
 |> List.iter (printfn "%s")
 

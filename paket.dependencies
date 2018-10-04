@@ -5,6 +5,8 @@ storage: none
 
 source https://api.nuget.org/v3/index.json
 
+nuget NETStandard.Library
+
 nuget MathNet.Numerics.FSharp
 nuget Expecto
 nuget FsCheck

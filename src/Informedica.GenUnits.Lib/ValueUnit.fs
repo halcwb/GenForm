@@ -652,7 +652,7 @@ module ValueUnit =
     let gt = cmp (>)
 
 
-    let st = cmp (>)
+    let st = cmp (<)
 
 
     let gte = cmp (>=)
