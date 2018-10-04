@@ -27,6 +27,7 @@ open Informedica.GenUtils.Lib
 
 open Aether
 open Aether.Operators
+open Informedica.GenProduct.Lib
 
 
 module String =
@@ -345,7 +346,6 @@ module MinMax =
     let valueSTE = applyValue (<=?) (<=?) (<=?) (<=?) 
 
 
-
     let isValid ({ Min = min; Max = max }) =
         match min, max with
         | None, None -> true
@@ -354,15 +354,79 @@ module MinMax =
             applyValue (<=?) (<?) (<?) (<?) v1 v2
 
 
-    let setMin mm min =
+    let setMin min mm =
         let mm_ = { mm with Min = min }
         if mm_ |> isValid then mm_ else mm
 
 
-    let setMax mm max =
+    let setMax max mm =
         let mm_ = { mm with Max = max }
         if mm_ |> isValid then mm_ else mm
+
+
+    let setMinCond cond min (mm : MinMax) =
+        match mm.Min, mm.Max with
+        | Some m, Some max ->
+            if cond min m |> not then mm
+            else
+                mm
+                |> setMin (Some min)
+                |> setMax (Some max)
+        | None, Some max -> 
+            mm
+            |> setMin (Some min)
+            |> setMax (Some max)
+        | None, None    -> 
+            mm
+            |> setMin (Some min)
+        | Some m, None   -> 
+            if cond min m |> not then mm
+            else 
+                mm
+                |> setMin (Some min)
+
+
+    let setMaxCond cond max (mm : MinMax) =
+        match mm.Min, mm.Max with
+        | Some min, Some m ->
+            if cond max m |> not then mm
+            else
+                mm
+                |> setMin (Some min)
+                |> setMax (Some max)
+        | Some min, None -> 
+            mm
+            |> setMin (Some min)
+            |> setMax (Some max)
+        | None, None  -> 
+            mm
+            |> setMax (Some max)
+        | None, Some m -> 
+            if cond max m |> not then mm
+            else 
+                mm
+                |> setMax (Some max)
         
+
+    let foldCond cond (mms : MinMax list) =
+        let condMax m1 m2 = cond m2 m1
+        mms |> List.fold (fun acc mm ->
+            match mm.Min, mm.Max with
+            | None, None         -> acc
+            | Some min, None     -> setMinCond cond min acc
+            | None, Some max     -> setMaxCond condMax max acc
+            | Some min, Some max ->
+                acc
+                |> setMinCond cond min
+                |> setMaxCond condMax max
+        ) empty
+     
+
+    let foldMinimize = foldCond valueLT
+     
+
+    let foldMaximize = foldCond valueST
+
 
     type Value with
     
@@ -397,12 +461,12 @@ module MinMax =
         static member Min_ :
             (MinMax -> Value Option) * (Value -> MinMax -> MinMax) =
             (fun mm -> mm.Min), 
-            (fun v mm -> v |> Some |> setMin mm)
+            (fun v mm -> mm |> setMin (Some v))
     
         static member Max_ :
             (MinMax -> Value Option) * (Value -> MinMax -> MinMax) =
             (fun mm -> mm.Max), 
-            (fun v mm -> v |> Some |> setMax mm)
+            (fun v mm -> mm |> setMax (Some v))
 
 
     
@@ -513,6 +577,22 @@ module MinMaxTests =
 
     module MinMax = MinMax.Optics
 
+    let v1, v2 = 
+        ValueUnit.substanceInGStandUnit 10. "milligram" |> Option.get ,
+        ValueUnit.substanceInGStandUnit 20. "milligram" |> Option.get
+        
+    let incl1, incl2 =
+        v1 |> MinMax.inclusive, 
+        v2 |> MinMax.inclusive
+
+    let v3, v4 = 
+        ValueUnit.substanceInGStandUnit 30. "milligram" |> Option.get ,
+        ValueUnit.substanceInGStandUnit 40. "milligram" |> Option.get
+        
+    let incl3, incl4 =
+        v3 |> MinMax.inclusive, 
+        v4 |> MinMax.inclusive
+
 
     let toString () =
         MinMax.empty
@@ -521,14 +601,7 @@ module MinMaxTests =
         |> MinMax.toString
 
 
-    let valueST () =
-        let v1, v2 = 
-            ValueUnit.substanceInGStandUnit 10. "milligram" |> Option.get ,
-            ValueUnit.substanceInGStandUnit 20. "milligram" |> Option.get
-        
-        let incl1, incl2 =
-            v1 |> MinMax.inclusive, 
-            v2 |> MinMax.inclusive
+    let valueComp () =
 
         printfn "%A < %A = %A" incl1 incl2 (MinMax.valueST incl1 incl2)
         printfn "%A < %A = %A" incl1 incl1 (MinMax.valueST incl1 incl1)
@@ -539,6 +612,32 @@ module MinMaxTests =
         printfn "%A > %A = %A" incl1 incl1 (MinMax.valueLT incl1 incl1)
         printfn "%A >= %A = %A" incl1 incl2 (MinMax.valueLTE incl1 incl2)
         printfn "%A >= %A = %A" incl1 incl1 (MinMax.valueLTE incl1 incl1)
+
+
+    let testFold () =
+        let mms = 
+            [
+                MinMax.empty
+                MinMax.empty |> MinMax.setMin incl1
+                MinMax.empty |> MinMax.setMin incl2
+                MinMax.empty |> MinMax.setMax incl3
+                MinMax.empty |> MinMax.setMax incl4
+                MinMax.empty |> MinMax.setMin incl1 |> MinMax.setMax incl3
+                MinMax.empty |> MinMax.setMin incl2 |> MinMax.setMax incl3
+                MinMax.empty |> MinMax.setMin incl3 |> MinMax.setMax incl3
+                MinMax.empty |> MinMax.setMin incl4 |> MinMax.setMax incl4
+            ]
+
+        mms
+        |> MinMax.foldMaximize
+        |> MinMax.toString
+        |> printfn "Maximized:\n%s"
+
+
+        mms
+        |> MinMax.foldMinimize
+        |> MinMax.toString
+        |> printfn "Minimized:\n%s"
 
 
 
