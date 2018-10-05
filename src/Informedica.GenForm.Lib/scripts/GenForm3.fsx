@@ -428,6 +428,16 @@ module MinMax =
     let foldMaximize = foldCond valueST
 
 
+    let inRange v (mm : MinMax) =
+        match mm.Min, mm.Max with
+        | None, None -> true
+        | Some v_, None -> valueLTE v v_
+        | None, Some v_ -> valueSTE v v_
+        | Some v1, Some v2 ->
+            (valueLTE v v1) && (valueSTE v v2)
+
+
+
     type Value with
     
         static member Inclusive_ =
@@ -545,6 +555,11 @@ module MinMax =
             )
         
 
+    let valueToString = function
+        | Inclusive vu -> sprintf "incl %s" (vu |> ValueUnit.toStringPrec 2)
+        | Exclusive vu -> sprintf "excl %s" (vu |> ValueUnit.toStringPrec 2)
+
+
     let toString { Min = min; Max = max } =
         let vuToStr = ValueUnit.toStringPrec 2
 
@@ -614,6 +629,7 @@ module MinMaxTests =
         printfn "%A >= %A = %A" incl1 incl1 (MinMax.valueLTE incl1 incl1)
 
 
+    // ToDo handle None cases correctly?
     let testFold () =
         let mms = 
             [
@@ -638,6 +654,44 @@ module MinMaxTests =
         |> MinMax.foldMinimize
         |> MinMax.toString
         |> printfn "Minimized:\n%s"
+
+
+    let inRange () =
+        let mm1 = MinMax.empty
+        let mm2 = 
+            MinMax.empty
+            |> MinMax.setMin incl1
+        let mm3 = 
+            MinMax.empty
+            |> MinMax.setMax incl4
+        let mm4 =
+            MinMax.empty
+            |> MinMax.setMin incl2
+            |> MinMax.setMax incl3
+
+        let test v mm =
+            printfn "%A in range: %A = %A" (v |> MinMax.valueToString) (mm |> MinMax.toString) (MinMax.inRange v mm)
+
+
+        [
+            (incl1, mm1)
+            (incl2, mm1)
+            (incl3, mm1)
+            (incl4, mm1)
+            (incl1, mm2)
+            (incl2, mm2)
+            (incl3, mm2)
+            (incl4, mm2)
+            (incl1, mm3)
+            (incl2, mm3)
+            (incl3, mm3)
+            (incl4, mm3)
+            (incl1, mm4)
+            (incl2, mm4)
+            (incl3, mm4)
+            (incl4, mm4)
+        ]
+        |> List.iter (fun (v, mm) -> test v mm)
 
 
 
