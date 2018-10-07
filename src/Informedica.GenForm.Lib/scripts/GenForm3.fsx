@@ -949,6 +949,7 @@ module DoseRangeTests =
         |> setMaxAbsDose (ValueUnit.createFromGStand 100. "milligram")
         |> DoseRange.toString
 
+
     
 module Dosage =
 
@@ -1832,25 +1833,34 @@ module DoseRule =
         {
             // Administration route
             Route : string
-            // TradeProducts the doserule applies to
-            TradeProducts : string list
-            // GenericProducts the doserule applies to
-            GenericProducts : string list
-            // The dosage rules per patient group
-            PatientDosages : PatientDosage list
+            // The dosage rules per shape
+            ShapeDosages : ShapeDosage list
         } 
+    and ShapeDosage =
+        {
+            // Name of the shape the doserule applies to
+            Shape : String list
+            // TradeProducts the doserule applies to
+            TradeProducts : TradeProduct list
+            // GenericProducts the doserule applies to
+            GenericProducts : GenericProduct list
+            // Patients to wich the doserule applies to
+            PatientDosages : PatientDosage list
+        }
     and PatientDosage =
         {
             // The patient group the doserules applies
             Patient : Patient
             // List of shapes that have a dosage
-            ShapeDosages : Dosage list
+            ShapeDosage : Dosage
             // List of substances that have a dosage
-            SubstanceDosages : Dosage list
+            SubstanceDosages : Dosage list            
         }
+    and TradeProduct = string
+    and GenericProduct = string
 
 
-    let doseRule gen atc thg sub ggp gsg tps gps idl =
+    let create gen atc thg sub ggp gsg idl =
         {   
             Generic = gen
             ATC = atc
@@ -1862,17 +1872,96 @@ module DoseRule =
         }
 
 
-    let createIndicationsDosages inds dr =
+    let createIndicationDosage inds =
+        { Indications = inds; RouteDosages = [] }
+            
+
+    let createRouteDosage rt =
+        if rt |> String.isNullOrWhiteSpace then None
+        else 
+            { Route = rt; ShapeDosages = [] } 
+            |> Some
+
+
+    let createShapeDosage shp gps tps =        
+        if shp |> List.exists String.isNullOrWhiteSpace then None
+        else 
+            { Shape = shp; GenericProducts = gps; TradeProducts = tps; PatientDosages = [] }
+            |> Some
+
+
+    let createDosage n = Dosage.empty |> (Optic.set Dosage.Name_) n
+
+
+    let createPatientDosage pat =
+        { Patient = pat; ShapeDosage = Dosage.empty; SubstanceDosages = [] }
+
+
+    let createSubstanceDosage sn =
+        if sn |> String.isNullOrWhiteSpace then None
+        else sn |> createDosage |> Some
+            
+        
+    let indxIndications inds (dr : DoseRule) =
         dr.IndicationsDosages
-        |> List.prepend [ { Indications = inds; RouteDosages = [] } ]
+        |> List.tryFindIndex (fun id -> id.Indications = inds)       
+        
+
+    let indxRoute inds rt dr =
+        dr
+        |> indxIndications inds
+        |> Option.bind (fun ni -> 
+            match
+                dr.IndicationsDosages.[ni].RouteDosages 
+                |> List.tryFindIndex (fun rd -> rd.Route = rt) with
+            | None -> None
+            | Some nr -> (ni, nr) |> Some
+        )
+
+
+    let indxShape inds rt shp dr =
+        match dr |> indxRoute inds rt with
+        | Some (ni, nr) ->
+            match dr.IndicationsDosages.[ni].RouteDosages.[nr].ShapeDosages
+                  |> List.tryFindIndex (fun sd -> sd.Shape = shp) with
+            | Some ns -> (ni, nr, ns) |> Some
+            | None -> None
+        | None -> None
+
+
+    let indxPatient inds rt shp pat dr =
+        match dr |> indxShape inds rt shp with
+        | Some (ni, nr, ns) ->
+            match
+                dr.IndicationsDosages.[ni].RouteDosages.[nr].ShapeDosages.[ns].PatientDosages
+                |> List.tryFindIndex (fun rd -> rd.Patient = pat) with
+            | Some np ->  (ni, nr, ns, np) |> Some
+            | None -> None
+        | None -> None
+
+
+    let indxSubstance inds rt shp pat n dr =
+        match dr |> indxPatient inds rt shp pat with
+        | Some (ni, nr, ns, np) ->
+            match dr.IndicationsDosages.[ni].RouteDosages.[nr].ShapeDosages.[np].PatientDosages.[ns].SubstanceDosages
+                  |> List.tryFindIndex (fun sd -> sd.Name = n) with
+            | Some n -> (ni, nr, np, ns, n) |> Some
+            | None -> None
+        | None -> None
 
 
     let addIndications inds (dr : DoseRule) =
-        {
-            dr with 
-                IndicationsDosages =
-                    dr |> createIndicationsDosages inds
-        }
+        let indd = createIndicationDosage inds
+
+        match dr |> indxIndications inds with
+        | Some _ -> dr
+        | None ->
+            {
+                dr with 
+                    IndicationsDosages =
+                        dr.IndicationsDosages
+                        |> List.prepend [ indd ]
+            }
 
  
     type PatientDosage with
@@ -1882,15 +1971,38 @@ module DoseRule =
             (fun pd -> pd.Patient) ,
             (fun pat pd -> { pd with Patient = pat })
     
-        static member ShapeDosages_ :
-            (PatientDosage -> Dosage list) * (Dosage list -> PatientDosage -> PatientDosage) =
-            (fun pd -> pd.ShapeDosages) ,
-            (fun sd pd -> { pd with ShapeDosages = sd })
+        static member ShapeDosage_ :
+            (PatientDosage -> Dosage) * (Dosage -> PatientDosage -> PatientDosage) =
+            (fun pd -> pd.ShapeDosage) ,
+            (fun sd pd -> { pd with ShapeDosage = sd })
     
         static member SubstanceDosages_ :
             (PatientDosage -> Dosage list) * (Dosage list -> PatientDosage -> PatientDosage) =
-            (fun pd -> pd.SubstanceDosages) ,
-            (fun sd pd -> { pd with SubstanceDosages = sd })
+            (fun sd -> sd.SubstanceDosages) ,
+            (fun d sd -> { sd with SubstanceDosages = d })
+
+
+    type ShapeDosage with
+    
+        static member Shape_ :
+            (ShapeDosage -> string list) * (string list -> ShapeDosage -> ShapeDosage) =
+            (fun rd -> rd.Shape) ,
+            (fun s rd -> { rd with Shape = s })
+
+        static member TradeProducts_ :
+            (ShapeDosage -> TradeProduct list) * (TradeProduct list -> ShapeDosage -> ShapeDosage) =
+            (fun sd -> sd.TradeProducts) ,
+            (fun tps sd -> { sd with TradeProducts = tps })
+
+        static member GenericProducts_ :
+            (ShapeDosage -> GenericProduct list) * (GenericProduct list -> ShapeDosage -> ShapeDosage) =
+            (fun sd -> sd.GenericProducts) ,
+            (fun tps sd -> { sd with GenericProducts = tps })
+            
+        static member PatientDosages_ :
+            (ShapeDosage -> PatientDosage list) * (PatientDosage list -> ShapeDosage -> ShapeDosage) =
+            (fun rd -> rd.PatientDosages) ,
+            (fun pdl rd -> { rd with PatientDosages = pdl })            
  
         
     type RouteDosage with
@@ -1900,10 +2012,10 @@ module DoseRule =
             (fun rd -> rd.Route) ,
             (fun s rd -> { rd with Route = s })
             
-        static member PatientDosages_ :
-            (RouteDosage -> PatientDosage list) * (PatientDosage list -> RouteDosage -> RouteDosage) =
-            (fun rd -> rd.PatientDosages) ,
-            (fun pdl rd -> { rd with PatientDosages = pdl })            
+        static member ShapeDosages_ :
+            (RouteDosage -> ShapeDosage list) * (ShapeDosage list -> RouteDosage -> RouteDosage) =
+            (fun rd -> rd.ShapeDosages) ,
+            (fun pdl rd -> { rd with ShapeDosages = pdl })            
             
         
     type IndicationDosage with
@@ -1942,116 +2054,130 @@ module DoseRule =
             DoseRule.IndicationDosages_ >-> List.pos_ n >?> IndicationDosage.RouteDosages_
 
 
-        let getRouteDosages inds (dr : DoseRule) =
-            match 
-                dr.IndicationsDosages
-                |> List.tryFindIndex (fun id -> id.Indications = inds) with 
-            | Some n -> 
+        let getRouteDosages indd dr =
+            match dr |> indxIndications indd with
+            | Some n ->
                 match dr |> Optic.get (indDosDosagesLens n) with
-                | Some drs -> drs
+                | Some rtds -> rtds
                 | None -> []
             | None -> []
-            
-        
-        let indxIndications inds (dr : DoseRule) =
-            dr.IndicationsDosages
-            |> List.tryFindIndex (fun id -> id.Indications = inds)       
         
     
-        let addRoute inds rt (dr : DoseRule) =
-            let rds = [ { Route = rt; GenericProducts = []; TradeProducts = []; PatientDosages = [] } ]
-        
-            match 
-                dr |> indxIndications inds with 
-                | Some n -> 
-                    dr 
-                    |> Optic.set (indDosDosagesLens n) (dr |> getRouteDosages inds |> List.prepend rds)
-                | None -> dr
-
-
-        let routeDosPatientDosagesPrism n1 n2 =
-            (indDosDosagesLens n1) >?> List.pos_ n2 >?> RouteDosage.PatientDosages_
-        
-
-        let indxRoute rt (ind : IndicationDosage) =
-            ind.RouteDosages
-            |> List.tryFindIndex (fun id -> id.Route = rt)       
-        
-        
-        let getRoutePatientDosages inds rt (dr : DoseRule) =
-
-            match dr |> indxIndications inds with 
-            | Some n1 -> 
+        let addRoute inds rt dr =
+            match rt |> createRouteDosage with
+            | None -> dr
+            | Some rtd ->
                 match 
-                    dr.IndicationsDosages.[n1]
-                    |> indxRoute rt with 
-                | Some n2 ->
-                    match dr 
-                          |> Optic.get (routeDosPatientDosagesPrism n1 n2) with 
-                    | Some pds -> pds
-                    | None -> []              
+                    dr |> indxIndications inds with 
+                    | Some n -> 
+                        match dr |> indxRoute inds rt with
+                        | Some _ -> dr
+                        | None -> 
+                            dr 
+                            |> Optic.set (indDosDosagesLens n) (dr |> getRouteDosages inds |> List.prepend [rtd])
+                    | None -> dr
+
+
+        let shapeDosagesPrism n1 n2 =
+            indDosDosagesLens n1 >?> List.pos_ n2 >?> RouteDosage.ShapeDosages_
+        
+        
+        let getShapeDosages inds rt dr =
+
+            match dr |> indxRoute inds rt with 
+            | Some (ni, nr) -> 
+                match dr |> Optic.get (shapeDosagesPrism ni nr) with 
+                | Some pds -> pds
+                | None -> []              
+            | None -> []
+        
+        
+        let setShapeDosages inds rt pds dr =
+
+            match dr |> indxRoute inds rt with 
+            | Some (ni, nr) -> 
+                dr 
+                |> Optic.set (shapeDosagesPrism ni nr) pds
+            | None -> dr
+        
+        
+        let addShape inds rt shp dr =
+            match createShapeDosage shp [] [] with
+            | None -> dr
+            | Some shpd ->
+
+                match dr |> indxShape inds rt shp with
+                | Some _ -> dr
+                | None ->
+                    let pds =
+                        dr
+                        |> getShapeDosages inds rt
+                        |> List.prepend [ shpd ]
+        
+                    dr 
+                    |> setShapeDosages inds rt pds
+
+
+        let shapeDosagePrism n1 n2 n3 =
+            shapeDosagesPrism n1 n2 >?> List.pos_ n3 
+        
+    
+        let patientDosagesPrism n1 n2 n3 =
+            shapeDosagePrism n1 n2 n3 >?> ShapeDosage.PatientDosages_
+
+        
+        let getPatientDosages inds rt shp dr =
+            match dr |> indxShape inds rt shp with 
+            | Some (ni, nr, ns) -> 
+                match dr 
+                      |> Optic.get (patientDosagesPrism ni nr ns) with 
+                | Some sds -> sds
                 | None -> []
             | None -> []    
         
         
-        let setRoutePatientDosages inds rt pds (dr : DoseRule) =
-        
-            match dr |> indxIndications inds with 
-            | Some n1 -> 
-                match 
-                    dr.IndicationsDosages.[n1]
-                    |> indxRoute rt with 
-                | Some n2 ->
-                    dr |> Optic.set (routeDosPatientDosagesPrism n1 n2) pds
-                | None -> dr
+        let setPatientDosages inds rt shp pds dr =        
+            match dr |> indxShape inds rt shp with 
+            | Some (ni, nr, ns) -> 
+                        dr 
+                        |> Optic.set (patientDosagesPrism ni nr ns) pds 
             | None -> dr
         
         
-        let addPatient inds rt pat (dr : DoseRule) =
+        let addPatient inds rt shp pat dr =
+            match dr |> indxPatient inds rt shp pat with
+            | Some _ -> dr
+            | None ->
+                let pds =
+                    dr
+                    |> getPatientDosages inds rt shp
+                    |> List.prepend [ createPatientDosage pat ]
         
-            let pds =
                 dr
-                |> getRoutePatientDosages inds rt
-                |> List.prepend [ { Patient = pat; ShapeDosages = []; SubstanceDosages = [] } ]
-        
-            dr 
-            |> setRoutePatientDosages inds rt pds
+                |> setPatientDosages inds rt shp pds
     
+
+        let patientDosagePrism n1 n2 n3 n4 =
+            patientDosagesPrism n1 n2 n3 >?> List.pos_ n4
+
+
+        let patientPrism n1 n2 n3 n4 =
+            patientDosagePrism n1 n2 n3 n4 >?> PatientDosage.Patient_
+
     
-        let indxPatient pat (rtd : RouteDosage) =
-            rtd.PatientDosages
-            |> List.tryFindIndex (fun rd -> rd.Patient = pat)
-        
-    
-        let patDosPatientPrism n1 n2 n3 =
-            (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.Patient_
-    
-    
-        let private patientGetter prism inds rt pat dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        dr |> Optic.get ((patDosPatientPrism n1 n2 n3) >?> prism)
-                    | None -> None
-                | None -> None
+        let private patientGetter prism inds rt shp pat dr = 
+            match dr |> indxPatient inds rt shp pat with
+            | Some (ni, nr, ns, np) ->
+                dr |> Optic.get ((patientPrism ni nr ns np) >?> prism)
             | None -> None
     
     
-        let private patientSetter prism inds rt vu pat dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        let pat = 
-                            pat |> prism vu
-                        dr |> Optic.set ((patDosPatientPrism n1 n2 n3)) pat, pat
-                    | None -> dr, pat
-                | None -> dr, pat
+        let private patientSetter prism inds rt shp vu pat dr = 
+            match dr |> indxPatient inds rt shp pat with 
+            | Some (ni, nr, ns, np) ->
+                let pat = 
+                    pat |> prism vu
+                dr |> Optic.set ((patientPrism ni nr ns np)) pat, pat
             | None -> dr, pat
 
  
@@ -2152,135 +2278,29 @@ module DoseRule =
 
         // TODO : add gender setting 
     
+        
+        let patientShapeDosagePrism n1 n2 n3 n4 =
+            patientDosagePrism n1 n2 n3 n4 >?> PatientDosage.ShapeDosage_
+ 
+        
+        let inline private shapeDosageGetter prism inds rt shp pat dr = 
+            match dr |> indxPatient inds rt shp pat with
+            | Some (ni, nr, ns, np) ->
+                dr |> Optic.get ((patientShapeDosagePrism ni nr ns np) >?> prism)
+            | None -> None
     
-        let shapeDosagesPrism n1 n2 n3 =
-            (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.ShapeDosages_ 
     
-    
-        let indxShapeDosage n (pat : PatientDosage) =
-            pat.ShapeDosages
-            |> List.tryFindIndex (fun sd -> sd.Name = n)
-         
-        
-        let getShapeDosages inds rt pat (dr : DoseRule) =
-
-            match dr |> indxIndications inds with 
-            | Some n1 -> 
-                match 
-                    dr.IndicationsDosages.[n1]
-                    |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr 
-                              |> Optic.get (shapeDosagesPrism n1 n2 n3) with 
-                        | Some sds -> sds
-                        | None -> []
-                    | None -> []              
-                | None -> []
-            | None -> []    
-        
-        
-        let setShapeDosages inds rt sds pat (dr : DoseRule) =
-        
-            match dr |> indxIndications inds with 
-            | Some n1 -> 
-                match 
-                    dr.IndicationsDosages.[n1]
-                    |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        dr 
-                        |> Optic.set (shapeDosagesPrism n1 n2 n3) sds 
-                    | None -> dr              
-                | None -> dr
+        let inline private shapeDosageSetter prism inds rt shp vu pat dr = 
+            match dr |> indxPatient inds rt shp pat with 
+            | Some (ni, nr, ns, np) ->  
+                dr |> Optic.set ((patientShapeDosagePrism ni nr ns np) >?> prism) vu
             | None -> dr
-        
-        
-        let addShape inds rt shape pat (dr : DoseRule) =
-        
-            let sds =
-                dr
-                |> getShapeDosages inds rt pat
-                |> List.prepend [ { Dosage.empty with Name = shape } ]
-        
-            dr
-            |> setShapeDosages inds rt sds pat, pat
-
-    
-        let shapeDosagePrism n1 n2 n3 n4 =
-            (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.ShapeDosages_ >?> List.pos_ n4
- 
-    
-        let private shapeDosageGetter prism inds rt pat shape dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxShapeDosage shape with 
-                        | Some n4 ->
-                            dr |> Optic.get ((shapeDosagePrism n1 n2 n3 n4) >?> prism) |> Some
-                        | None -> None
-                    | None -> None
-                | None -> None
-            | None -> None
 
 
-        let private shapeDosageSetter prism inds rt shape vu pat dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxShapeDosage shape with 
-                        | Some n4 ->
-                            dr |> Optic.set ((shapeDosagePrism n1 n2 n3 n4) >?> prism) vu, pat
-                        | None -> dr, pat
-                    | None -> dr, pat
-                | None -> dr, pat
-            | None -> dr, pat
- 
-    
-        let private shapeFrequenciesGetter prism inds rt pat shape dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxShapeDosage shape with 
-                        | Some n4 ->
-                            dr |> Optic.get ((shapeDosagePrism n1 n2 n3 n4) >?> prism)
-                        | None -> None
-                    | None -> None
-                | None -> None
-            | None -> None
+        let getFrequenciesShapeDosage = shapeDosageGetter Dosage.Frequencies_
 
 
-        let private shapeFrequenciesSetter prism inds rt shape vu pat dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxShapeDosage shape with 
-                        | Some n4 ->
-                            dr |> Optic.set ((shapeDosagePrism n1 n2 n3 n4) >?> prism) vu, pat
-                        | None -> dr, pat
-                    | None -> dr, pat
-                | None -> dr, pat
-            | None -> dr, pat
-
-
-        let getFrequenciesShapeDosage = shapeFrequenciesGetter Dosage.Frequencies_
-
-
-        let setFrequenciesShapeDosage = shapeFrequenciesSetter Dosage.Frequencies_
+        let setFrequenciesShapeDosage = shapeDosageSetter Dosage.Frequencies_
 
         
         let getInclMinNormStartShapeDosage = shapeDosageGetter Dosage.inclMinNormStartDosagePrism
@@ -2859,321 +2879,185 @@ module DoseRule =
         let setExclMaxAbsBSATotalShapeDosage = shapeDosageSetter Dosage.exclMaxAbsBSATotalDosagePrism
     
 
-        let substanceDosagesPrism n1 n2 n3 =
-            (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.SubstanceDosages_ 
-    
-    
-        let indxSubstanceDosage n (pat : PatientDosage) =
-            pat.SubstanceDosages
-            |> List.tryFindIndex (fun sd -> sd.Name = n)
-         
+        let substanceDosagesPrism n1 n2 n3 n4 =
+            patientDosagePrism n1 n2 n3 n4 >?> PatientDosage.SubstanceDosages_ 
+             
         
-        let getSubstanceDosages inds rt pat (dr : DoseRule) =
-
-            match dr |> indxIndications inds with 
-            | Some n1 -> 
-                match 
-                    dr.IndicationsDosages.[n1]
-                    |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr 
-                              |> Optic.get (substanceDosagesPrism n1 n2 n3) with 
-                        | Some sds -> sds
-                        | None -> []
-                    | None -> []              
+        let getSubstanceDosages inds rt shp pat dr =
+            match dr |> indxPatient inds rt shp pat with 
+            | Some (ni, nr, np, ns) -> 
+                match dr |> Optic.get (substanceDosagesPrism ni nr np ns) with
+                | Some sds -> sds
                 | None -> []
             | None -> []    
         
         
-        let setSubstanceDosages inds rt sds pat (dr : DoseRule) =
-        
-            match dr |> indxIndications inds with 
-            | Some n1 -> 
-                match 
-                    dr.IndicationsDosages.[n1]
-                    |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        dr 
-                        |> Optic.set (substanceDosagesPrism n1 n2 n3) sds 
-                    | None -> dr              
-                | None -> dr
+        let setSubstanceDosages inds rt shp pat sds dr =
+            match dr |> indxPatient inds rt shp pat with 
+            | Some (ni, nr, np, ns) -> 
+                dr 
+                |> Optic.set (substanceDosagesPrism ni nr np ns) sds 
             | None -> dr
 
         
-        let addSubstance inds rt substance pat (dr : DoseRule) =
+        let addSubstance inds rt shp pat sn dr  =
+            match sn |> createSubstanceDosage with
+            | None -> dr
+            | Some sds ->
+                match dr |> indxSubstance inds rt shp pat sn with
+                | Some _ -> dr
+                | None ->
+                    let sds =
+                        dr
+                        |> getSubstanceDosages inds rt shp pat
+                        |> List.prepend [sds]
         
-            let sds =
-                dr
-                |> getSubstanceDosages inds rt pat
-                |> List.prepend [ { Dosage.empty with Name = substance } ]
-        
-            dr
-            |> setSubstanceDosages inds rt sds pat, pat
+                    dr
+                    |> setSubstanceDosages inds rt shp pat sds
 
     
-        let substanceDosagePrism n1 n2 n3 n4 =
-            (routeDosPatientDosagesPrism n1 n2) >?> List.pos_ n3 >?> PatientDosage.SubstanceDosages_ >?> List.pos_ n4
+        let substanceDosagePrism n1 n2 n3 n4 n5 =
+            substanceDosagesPrism n1 n2 n3 n4  >?> List.pos_ n5
 
     
-        let inline private substanceUnitGetter prism inds rt pat substance dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
-                        | Some n4 ->
-                            dr |> Optic.get ((substanceDosagePrism n1 n2 n3 n4) >?> prism)
-                        | None -> None
-                    | None -> None
-                | None -> None
+        let inline private substanceDosageGetter prism inds rt shp pat sn dr = 
+            match dr |> indxSubstance inds rt shp pat sn with 
+            | Some (ni, nr, np, ns, n) ->
+                dr |> Optic.get ((substanceDosagePrism ni nr np ns n) >?> prism)
             | None -> None
 
 
-        let inline private substanceUnitSetter prism inds rt substance vu pat dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
-                        | Some n4 ->
-                            dr |> Optic.set ((substanceDosagePrism n1 n2 n3 n4) >?> prism) vu, pat
-                        | None -> dr, pat
-                    | None -> dr, pat
-                | None -> dr, pat
-            | None -> dr, pat
+        let inline private substanceDosageSetter prism inds rt shp pat sn vu dr = 
+            match dr |> indxSubstance inds rt shp pat sn with 
+            | Some (ni, nr, np, ns, n) ->
+                dr |> Optic.set ((substanceDosagePrism ni nr np ns n) >?> prism) vu
+            | None -> dr
 
 
-        let getRateUnitSubstanceDosage = substanceUnitGetter Dosage.rateUnitRateDosagePrism
+        let getRateUnitSubstanceDosage = substanceDosageGetter Dosage.rateUnitRateDosagePrism
 
 
-        let setRateUnitSubstanceDosage = substanceUnitSetter Dosage.rateUnitRateDosagePrism
+        let setRateUnitSubstanceDosage = substanceDosageSetter Dosage.rateUnitRateDosagePrism
 
 
-        let getTimeUnitSubstanceDosage = substanceUnitGetter Dosage.timeUnitTotalDosagePrism
+        let getTimeUnitSubstanceDosage = substanceDosageGetter Dosage.timeUnitTotalDosagePrism
 
 
-        let setTimeUnitSubstanceDosage = substanceUnitSetter Dosage.timeUnitTotalDosagePrism
+        let setTimeUnitSubstanceDosage = substanceDosageSetter Dosage.timeUnitTotalDosagePrism
 
 
-        let getNormWeightUnitStartSubstanceDosage = substanceUnitGetter Dosage.normWeightUnitStartDosagePrism
+        let getNormWeightUnitStartSubstanceDosage = substanceDosageGetter Dosage.normWeightUnitStartDosagePrism
 
 
-        let setNormWeightUnitStartSubstanceDosage = substanceUnitSetter Dosage.normWeightUnitStartDosagePrism
+        let setNormWeightUnitStartSubstanceDosage = substanceDosageSetter Dosage.normWeightUnitStartDosagePrism
 
 
-        let getNormBSAUnitStartSubstanceDosage = substanceUnitGetter Dosage.normBSAUnitStartDosagePrism
+        let getNormBSAUnitStartSubstanceDosage = substanceDosageGetter Dosage.normBSAUnitStartDosagePrism
 
 
-        let setNormBSAUnitStartSubstanceDosage = substanceUnitSetter Dosage.normBSAUnitStartDosagePrism
+        let setNormBSAUnitStartSubstanceDosage = substanceDosageSetter Dosage.normBSAUnitStartDosagePrism
 
 
-        let getNormWeightUnitSingleSubstanceDosage = substanceUnitGetter Dosage.normWeightUnitSingleDosagePrism
+        let getNormWeightUnitSingleSubstanceDosage = substanceDosageGetter Dosage.normWeightUnitSingleDosagePrism
 
 
-        let setNormWeightUnitSingleSubstanceDosage = substanceUnitSetter Dosage.normWeightUnitSingleDosagePrism
+        let setNormWeightUnitSingleSubstanceDosage = substanceDosageSetter Dosage.normWeightUnitSingleDosagePrism
 
 
-        let getNormBSAUnitSingleSubstanceDosage = substanceUnitGetter Dosage.normBSAUnitSingleDosagePrism
+        let getNormBSAUnitSingleSubstanceDosage = substanceDosageGetter Dosage.normBSAUnitSingleDosagePrism
 
 
-        let setNormBSAUnitSingleSubstanceDosage = substanceUnitSetter Dosage.normBSAUnitSingleDosagePrism
+        let setNormBSAUnitSingleSubstanceDosage = substanceDosageSetter Dosage.normBSAUnitSingleDosagePrism
 
     
-        let getNormWeightUnitRateSubstanceDosage = substanceUnitGetter Dosage.normWeightUnitRateDosagePrism
+        let getNormWeightUnitRateSubstanceDosage = substanceDosageGetter Dosage.normWeightUnitRateDosagePrism
 
 
-        let setNormWeightUnitRateSubstanceDosage = substanceUnitSetter Dosage.normWeightUnitRateDosagePrism
+        let setNormWeightUnitRateSubstanceDosage = substanceDosageSetter Dosage.normWeightUnitRateDosagePrism
 
 
-        let getNormBSAUnitRateSubstanceDosage = substanceUnitGetter Dosage.normBSAUnitRateDosagePrism
+        let getNormBSAUnitRateSubstanceDosage = substanceDosageGetter Dosage.normBSAUnitRateDosagePrism
 
 
-        let setNormBSAUnitRateSubstanceDosage = substanceUnitSetter Dosage.normBSAUnitRateDosagePrism
+        let setNormBSAUnitRateSubstanceDosage = substanceDosageSetter Dosage.normBSAUnitRateDosagePrism
 
 
-        let getNormWeightUnitTotalSubstanceDosage = substanceUnitGetter Dosage.normWeightUnitTotalDosagePrism
+        let getNormWeightUnitTotalSubstanceDosage = substanceDosageGetter Dosage.normWeightUnitTotalDosagePrism
 
 
-        let setNormWeightUnitTotalSubstanceDosage = substanceUnitSetter Dosage.normWeightUnitTotalDosagePrism
+        let setNormWeightUnitTotalSubstanceDosage = substanceDosageSetter Dosage.normWeightUnitTotalDosagePrism
 
 
-        let getNormBSAUnitTotalSubstanceDosage = substanceUnitGetter Dosage.normBSAUnitTotalDosagePrism
+        let getNormBSAUnitTotalSubstanceDosage = substanceDosageGetter Dosage.normBSAUnitTotalDosagePrism
 
 
-        let setNormBSAUnitTotalSubstanceDosage = substanceUnitSetter Dosage.normBSAUnitTotalDosagePrism
+        let setNormBSAUnitTotalSubstanceDosage = substanceDosageSetter Dosage.normBSAUnitTotalDosagePrism
 
 
-        let getAbsWeightUnitStartSubstanceDosage = substanceUnitGetter Dosage.absWeightUnitStartDosagePrism
+        let getAbsWeightUnitStartSubstanceDosage = substanceDosageGetter Dosage.absWeightUnitStartDosagePrism
 
 
-        let setAbsWeightUnitStartSubstanceDosage = substanceUnitSetter Dosage.absWeightUnitStartDosagePrism
+        let setAbsWeightUnitStartSubstanceDosage = substanceDosageSetter Dosage.absWeightUnitStartDosagePrism
 
 
-        let getAbsBSAUnitStartSubstanceDosage = substanceUnitGetter Dosage.absBSAUnitStartDosagePrism
+        let getAbsBSAUnitStartSubstanceDosage = substanceDosageGetter Dosage.absBSAUnitStartDosagePrism
 
 
-        let setAbsBSAUnitStartSubstanceDosage = substanceUnitSetter Dosage.absBSAUnitStartDosagePrism
+        let setAbsBSAUnitStartSubstanceDosage = substanceDosageSetter Dosage.absBSAUnitStartDosagePrism
 
 
-        let getAbsWeightUnitSingleSubstanceDosage = substanceUnitGetter Dosage.absWeightUnitSingleDosagePrism
+        let getAbsWeightUnitSingleSubstanceDosage = substanceDosageGetter Dosage.absWeightUnitSingleDosagePrism
 
 
-        let setAbsWeightUnitSingleSubstanceDosage = substanceUnitSetter Dosage.absWeightUnitSingleDosagePrism
+        let setAbsWeightUnitSingleSubstanceDosage = substanceDosageSetter Dosage.absWeightUnitSingleDosagePrism
 
 
-        let getAbsBSAUnitSingleSubstanceDosage = substanceUnitGetter Dosage.absBSAUnitSingleDosagePrism
+        let getAbsBSAUnitSingleSubstanceDosage = substanceDosageGetter Dosage.absBSAUnitSingleDosagePrism
 
 
-        let setAbsBSAUnitSingleSubstanceDosage = substanceUnitSetter Dosage.absBSAUnitSingleDosagePrism
-
-    
-        let getAbsWeightUnitRateSubstanceDosage = substanceUnitGetter Dosage.absWeightUnitRateDosagePrism
-
-
-        let setAbsWeightUnitRateSubstanceDosage = substanceUnitSetter Dosage.absWeightUnitRateDosagePrism
-
-
-        let getAbsBSAUnitRateSubstanceDosage = substanceUnitGetter Dosage.absBSAUnitRateDosagePrism
-
-
-        let setAbsBSAUnitRateSubstanceDosage = substanceUnitSetter Dosage.absBSAUnitRateDosagePrism
-
-
-        let getAbsWeightUnitTotalSubstanceDosage = substanceUnitGetter Dosage.absWeightUnitTotalDosagePrism
-
-
-        let setAbsWeightUnitTotalSubstanceDosage = substanceUnitSetter Dosage.absWeightUnitTotalDosagePrism
-
-
-        let getAbsBSAUnitTotalSubstanceDosage = substanceUnitGetter Dosage.absBSAUnitTotalDosagePrism
-
-
-        let setAbsBSAUnitTotalSubstanceDosage = substanceUnitSetter Dosage.absBSAUnitTotalDosagePrism
-
-
-        let private substanceDosageGetter prism inds rt pat substance dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
-                        | Some n4 ->
-                            dr |> Optic.get ((substanceDosagePrism n1 n2 n3 n4) >?> prism)
-                        | None -> None
-                    | None -> None
-                | None -> None
-            | None -> None
-
-
-        let private substanceDosageSetter prism inds rt substance vu pat dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
-                        | Some n4 ->
-                            dr |> Optic.set ((substanceDosagePrism n1 n2 n3 n4) >?> prism) vu, pat
-                        | None -> dr, pat
-                    | None -> dr, pat
-                | None -> dr, pat
-            | None -> dr, pat
+        let setAbsBSAUnitSingleSubstanceDosage = substanceDosageSetter Dosage.absBSAUnitSingleDosagePrism
 
     
-        let private substanceFrequenciesGetter prism inds rt pat substance dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
-                        | Some n4 ->
-                            dr |> Optic.get ((substanceDosagePrism n1 n2 n3 n4) >?> prism)
-                        | None -> None
-                    | None -> None
-                | None -> None
-            | None -> None
+        let getAbsWeightUnitRateSubstanceDosage = substanceDosageGetter Dosage.absWeightUnitRateDosagePrism
 
 
-        let private substanceFrequenciesSetter prism inds rt substance vu pat dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
-                        | Some n4 ->
-                            dr |> Optic.set ((substanceDosagePrism n1 n2 n3 n4) >?> prism) vu, pat
-                        | None -> dr, pat
-                    | None -> dr, pat
-                | None -> dr, pat
-            | None -> dr, pat
-
-    
-        let private substanceMinIntervalGetter prism inds rt pat substance dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
-                        | Some n4 ->
-                            match dr 
-                                  |> Optic.get ((substanceDosagePrism n1 n2 n3 n4) >?> prism) with
-                            | Some mi -> mi
-                            | None -> None
-                        | None -> None
-                    | None -> None
-                | None -> None
-            | None -> None
+        let setAbsWeightUnitRateSubstanceDosage = substanceDosageSetter Dosage.absWeightUnitRateDosagePrism
 
 
-        let private substanceMinIntervalSetter prism inds rt substance vu pat dr = 
-            match dr |> indxIndications inds with 
-            | Some n1 ->
-                match dr.IndicationsDosages.[n1] |> indxRoute rt with 
-                | Some n2 ->
-                    match dr.IndicationsDosages.[n1].RouteDosages.[n2] |> indxPatient pat with 
-                    | Some n3 ->
-                        match dr.IndicationsDosages.[n1].RouteDosages.[n2].PatientDosages.[n3] |> indxSubstanceDosage substance with 
-                        | Some n4 ->
-                            dr |> Optic.set ((substanceDosagePrism n1 n2 n3 n4) >?> prism) vu, pat
-                        | None -> dr, pat
-                    | None -> dr, pat
-                | None -> dr, pat
-            | None -> dr, pat
+        let getAbsBSAUnitRateSubstanceDosage = substanceDosageGetter Dosage.absBSAUnitRateDosagePrism
 
 
-        let getFreqsFrequencySubstanceDosage = substanceFrequenciesGetter Dosage.freqsFrequencyLens
+        let setAbsBSAUnitRateSubstanceDosage = substanceDosageSetter Dosage.absBSAUnitRateDosagePrism
 
 
-        let setFreqsFrequencySubstanceDosage = substanceFrequenciesSetter Dosage.freqsFrequencyLens
+        let getAbsWeightUnitTotalSubstanceDosage = substanceDosageGetter Dosage.absWeightUnitTotalDosagePrism
 
 
-        let getTimeUnitFrequencySubstanceDosage = substanceUnitGetter Dosage.timeUnitFrequencyLens
+        let setAbsWeightUnitTotalSubstanceDosage = substanceDosageSetter Dosage.absWeightUnitTotalDosagePrism
 
 
-        let setTimeUnitFrequencySubstanceDosage = substanceUnitSetter Dosage.timeUnitFrequencyLens
+        let getAbsBSAUnitTotalSubstanceDosage = substanceDosageGetter Dosage.absBSAUnitTotalDosagePrism
+
+
+        let setAbsBSAUnitTotalSubstanceDosage = substanceDosageSetter Dosage.absBSAUnitTotalDosagePrism
+
+
+        let getFreqsFrequencySubstanceDosage = substanceDosageGetter Dosage.freqsFrequencyLens
+
+
+        let setFreqsFrequencySubstanceDosage = substanceDosageSetter Dosage.freqsFrequencyLens
+
+
+        let getTimeUnitFrequencySubstanceDosage = substanceDosageGetter Dosage.timeUnitFrequencyLens
+
+
+        let setTimeUnitFrequencySubstanceDosage = substanceDosageSetter Dosage.timeUnitFrequencyLens
         
 
-        let getMinIntervalFrequencySubstanceDosage = substanceMinIntervalGetter Dosage.minIntervalValueFrequencyLens
+        let getMinIntervalFrequencySubstanceDosage = substanceDosageGetter Dosage.minIntervalValueFrequencyLens
         
 
-        let setMinIntervalFrequencySubstanceDosage = substanceMinIntervalSetter Dosage.minIntervalValueFrequencyLens
+        let setMinIntervalFrequencySubstanceDosage = substanceDosageSetter Dosage.minIntervalValueFrequencyLens
 
         
         let getInclMinNormStartSubstanceDosage = substanceDosageGetter Dosage.inclMinNormStartDosagePrism
@@ -3758,6 +3642,9 @@ module DoseRule =
         let (|>>) (x1, x2) f = f x2 x1 
 
  
+        let (|>>>) (x1, x2) f = f x2 x1, x2 
+
+
  
     let mdText = """
 Stofnaam: {generic}
@@ -3784,6 +3671,10 @@ Indicatie: {indication}
 Route: {route}
 """
 
+    let mdShapeText = """
+Vorm: {shape}
+"""
+
     let mdPatientText = """
 {patient}
 """
@@ -3791,6 +3682,7 @@ Route: {route}
     let mdDosageText = """
 {dosage}
 """
+
 
     let toString (dr : DoseRule) =
         mdText
@@ -3809,24 +3701,384 @@ Route: {route}
 
                 id.RouteDosages
                 |> List.fold (fun acc rd -> 
-                    rd.PatientDosages
-                    |> List.fold (fun acc pd ->
-                        let shds =
-                            pd.ShapeDosages
-                            |> List.fold (fun acc sd ->
-                                acc + (mdDosageText |> String.replace "{dosage}" (sd |> Dosage.toString))
-                            ) (acc + (mdPatientText |> String.replace "{patient}" (pd.Patient |> Patient.toString)))
+
+                    rd.ShapeDosages
+                    |> List.fold (fun acc sd ->
+
+                        sd.PatientDosages
+                        |> List.fold (fun acc pd ->
+
+                            let s =
+                                (mdPatientText
+                                 |> String.replace "{patient}" (pd.Patient |> Patient.toString)) +
+                                ("{dosage}" 
+                                 |> String.replace "{dosage}" (pd.ShapeDosage |> Dosage.toString))
                             
-                        pd.SubstanceDosages 
-                        |> List.fold (fun acc sd ->
-                            acc + (mdDosageText |> String.replace "{dosage}" (sd |> Dosage.toString))
-                        ) shds
+                            pd.SubstanceDosages
+                            |> List.fold (fun acc sd ->
+
+                                acc + (mdDosageText |> String.replace "{dosage}" (sd |> Dosage.toString))
+
+                            ) (acc + s)
+
+                        ) (acc + (mdShapeText |> String.replace "{shape}" (sd.Shape |> String.concat ",")))
                                                 
                     ) (acc + (mdRouteText |> String.replace "{route}" rd.Route))
+
                 ) (acc + (mdIndicationText |> String.replace "{indication}" ind))
             ) s
         )
 
+module GStand =
+
+    module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
+    module GST = Informedica.GenProduct.Lib.DoseRule
+
+    module DR = DoseRule
+
+    /// Map GSTand min max float Option values to
+    /// a `DoseRule` `MinMax`
+    let mapMinMax (setMin : float Option -> DR.DoseRule -> DR.DoseRule) 
+                  (setMax : float Option -> DR.DoseRule -> DR.DoseRule) 
+                  (minmax : GST.MinMax) 
+                  dr : DR.DoseRule =
+        dr
+        |> setMin minmax.Min
+        |> setMax minmax.Max
+
+ 
+    /// Make sure that a GSTand time string 
+    /// is a valid unit time string
+    let parseTimeString s =
+        s
+        |> String.replace "per " ""
+        |> String.replace "dagen" "dag"
+        |> String.replace "weken" "week"
+        |> String.replace "maanden" "maand"
+        |> String.replace "minuten" "minuut"
+        |> String.replace "uren" "uur"
+        |> String.replace "eenmalig" ""
+        |> (fun s -> 
+            if s |> String.isNullOrWhiteSpace then s
+            else s + "[Time]"
+        )
+
+
+    /// Map a GStand time period to a valid unit
+    let mapTime s =
+        s
+        |> parseTimeString
+        |> ValueUnit.Units.fromString
+
+
+    /// Map GStand frequency string to a valid 
+    /// frequency `ValueUnit`.
+    let mapFreq (fr: GST.Frequency) =
+        let s = fr.Frequency |> string
+        let s = s + " X[Count]"
+
+        fr.Time
+        |> parseTimeString
+        |> (fun s' -> 
+            match s' |> String.split " " with
+            | [v;u] -> s + "/" + v + " " + u
+            | [u]   -> 
+                if u |> String.isNullOrWhiteSpace then s
+                else 
+                    s + "/1" + " " + u
+            | _ -> ""
+        )
+        |> ValueUnit.fromString
+
+
+    /// Map GSTand doserule doses to 
+    /// - normal   min max dose
+    /// - absolute min max dose
+    /// - normal   min max dose per kg
+    /// - absolute min max dose per kg
+    /// - normal   min max dose per m2
+    /// - absolute min max dose per m2
+    /// by calculating 
+    /// - substance shape concentration * dose shape quantity * frequency
+    /// for each dose
+    let mapDoses qty unit (gstdsr : GST.DoseRule) =
+        let fr = mapFreq gstdsr.Freq
+
+        let setMin = Optic.set MinMax.Optics.inclMinLens
+        let setMax = Optic.set MinMax.Optics.exclMaxLens
+
+        let toVu perKg perM2 v =
+            let u = 
+                if not perKg then unit
+                else
+                    unit |> ValueUnit.per ValueUnit.Units.Weight.kiloGram
+
+            let u = 
+                if not perM2 then u
+                else
+                    u |> ValueUnit.per ValueUnit.Units.BSA.M2
+
+            match u |> ValueUnit.fromFloat (v * qty) with
+            | Some vu -> vu * fr |> Some
+            | None -> None
+    
+        let minmax perKg perM2 (mm : GST.MinMax) =
+            MinMax.empty
+            |> setMin (mm.Min |> Option.bind (toVu perKg perM2))
+            |> setMax (mm.Max |> Option.bind (toVu perKg perM2))
+
+        gstdsr.Norm   |> minmax false false,
+        gstdsr.Abs    |> minmax false false,
+        gstdsr.NormKg |> minmax true false,
+        gstdsr.AbsKg  |> minmax true false,
+        gstdsr.NormM2 |> minmax false true,
+        gstdsr.AbsM2  |> minmax false true
+
+
+    /// Map a list of ` GenPresProduct` to it's 
+    /// corresponding doserules per GenPresProduct.
+    let map (gpps : GenPresProduct.GenPresProduct []) =
+
+        let getNames (gpps : GenPresProduct.GenPresProduct []) =
+            gpps
+            |> Array.map (fun gpp ->
+                gpp.Name
+            )
+            |> Array.distinct
+
+        // Get the doserules for a genpresproduct
+        // ToDo Temp hack ignore route and shape
+        let getDrs name =
+            RuleFinder.createFilter None None None None name "" ""
+            |> RuleFinder.find
+
+        // Turn a list of doserules to a text string
+        let getText drs =
+            drs
+            |> Array.map (fun dr -> dr |> GST.toString2)
+            |> Array.distinct
+            |> String.concat "\n" 
+//            |> GSTandText
+
+        // Get the ATC codes for a GenPresProduct
+        let atcs (gpp : GenPresProduct.GenPresProduct) =
+            gpp.GenericProducts
+            |> Array.map(fun gp -> gp.ATC)
+            |> Array.distinct
+
+        // Get the list of routes for a GenPresProduct
+        let rts (gpp: GenPresProduct.GenPresProduct) = 
+            gpp.GenericProducts
+            |> Array.collect (fun gp -> gp.Route)
+            |> Array.distinct
+
+        // Get the list of ATC groups for a GenPresProduct
+        let tgs (gpp: GenPresProduct.GenPresProduct) =
+            ATCGroup.get ()
+            |> Array.filter (fun g -> 
+                atcs gpp |> Array.exists (fun a -> a |> String.equalsCapInsens g.ATC5) &&
+                g.Shape = gpp.Shape
+            )
+
+        // Add a `DoseRule` `Substance` to a doserule with the corresponding substance
+        // doses
+        //let addSubstances period (gstdsrs : GST.DoseRule []) (dr : DR.DoseRule) =
+        //    // Get the time period for the dose rule
+        //    let period = period |> mapTime
+
+        //    // Get for each substance the name, unit and 
+        //    // concentration quantities to calculate the 
+        //    // dose by dose = dose in shape units * subst conc * freq
+        //    let substs = 
+        //        gstdsrs
+        //        |> Array.collect (fun r ->
+        //            r.GenericProduct
+        //            |> Array.collect (fun gp -> 
+        //                gp.Substances 
+        //                |> Array.map (fun s -> 
+        //                    let u = s.Unit
+        //                    s.Name, u
+        //                )
+        //            )                
+        //        )
+        //        |> Array.distinct
+        //        |> Array.map (fun (n, u) ->
+        //            let qts =
+        //                gstdsrs
+        //                |> Array.collect (fun r -> 
+        //                    r.GenericProduct
+        //                    |> Array.collect (fun gp ->
+        //                        gp.Substances
+        //                        |> Array.filter (fun s -> s.Name = n)
+        //                        |> Array.map (fun s -> r, s.Quantity)
+        //                    )
+        //                )
+        //            n, u, qts
+        //        )
+            
+        //    // Add the calculated substance doses to the dose rule
+        //    substs
+        //    |> Array.fold (fun state (n, u, qts) ->
+        //        // Get the list of available frequencies
+        //        let frqs =
+        //            qts
+        //            |> Array.map (fun (r, _) ->
+        //                r.Freq.Frequency
+        //                |> BigRational.fromFloat
+        //            )
+        //            |> Array.distinct
+        //            |> Array.filter Option.isSome
+        //            |> Array.map Option.get
+        //            |> Array.sort
+        //            |> Array.toList
+
+        //        match u |> ValueUnit.createFromGStand 1. with
+        //        | Some vu ->
+        //            let _, u = vu |> ValueUnit.get
+        //            // Get all the doses
+        //            let doses =
+        //                qts
+        //                |> Array.map(fun (r, v) ->
+        //                    mapDoses v u r
+        //                )
+        //            // Get the smallest min and largest max normal dose
+        //            let norm = 
+        //                doses
+        //                |> Array.map(fun (norm, _, _, _, _, _) -> norm)
+        //                |> Array.toList
+        //                |> MinMax.foldMaximize
+                       
+        //            // Get the smallest min and largest max absolute dose
+        //            let abs = 
+        //                doses
+        //                |> Array.map(fun (_, abs, _, _, _, _) -> abs)
+        //                |> Array.toList
+        //                |> MinMax.foldMaximize
+
+        //            // Get the smallest min and largest max normal dose per kg
+        //            let normKg = 
+        //                doses
+        //                |> Array.map(fun (_, _, normKg, _, _, _) -> normKg)
+        //                |> Array.toList
+        //                |> MinMax.foldMaximize
+
+        //            // Get the smallest min and largest max absolute dose per kg
+        //            let absKg = 
+        //                doses
+        //                |> Array.map(fun (_, _, _, absKg, _, _) -> absKg)
+        //                |> Array.toList
+        //                |> MinMax.foldMaximize
+
+        //            // Get the smallest min and largest max normal dose per m2
+        //            let normM2 = 
+        //                doses
+        //                |> Array.map(fun (_, _, _, _, normM2, _) -> normM2)
+        //                |> Array.toList
+        //                |> MinMax.foldMaximize
+
+        //            // Get the smallest min and largest max absolute dose per m2
+        //            let absM2 = 
+        //                doses
+        //                |> Array.map(fun (_, _, _, _, _, absM2) -> absM2)
+        //                |> Array.toList
+        //                |> MinMax.foldMaximize
+
+        //            // Create the dose value
+        //            let dose =
+        //                Dose.emptyDoseValue
+        //                |> Dose.setNormDose norm
+        //                |> Dose.setAbsDose abs
+        //                |> Dose.setNormDosePerKg normKg
+        //                |> Dose.setAbsDosePerKg absKg
+        //                |> Dose.setNormDosePerM2 normM2
+        //                |> Dose.setAbsDosePerM2 absM2
+        //            // Add the substance to the dose rule
+        //            state
+        //            |> addSubstance (
+        //                Substance.init n u
+        //                |> Substance.setDose (Dose.empty |> Dose.add frqs period dose)
+        //            )
+        //        | None -> 
+        //            // Only frequences apply so only add those
+        //            state
+        //            |> addSubstance (
+        //                Substance.init n ValueUnit.NoUnit
+        //                |> Substance.setDose (Dose.empty |> Dose.add frqs period Dose.emptyDoseValue)
+        //            )
+        //    ) dr
+
+        [
+            for name in gpps |> getNames do
+                // Get all the dose rules
+                //let drs = name |> getDrs
+
+        ]
+
+
+        // Map GStand DoseRule to DoseRule
+        //[
+        //    for gpp in gpps do
+        //        // Group per route
+        //        for r in gpp |> rts do
+        //            // Get the doserules for the GenPresProduct
+        //            let drs = getDrs gpp r
+        //            // Get ATC's
+        //            for atc in gpp |> atcs do
+        //                // Get ATC Group's 
+        //                for g in gpp |> tgs do
+        //                    let pats =
+        //                        drs
+        //                        |> Array.groupBy (fun dr ->
+        //                            dr.Gender, dr.Age, dr.Weight, dr.BSA
+        //                        )
+        //                    // Group per patient
+        //                    for pat in pats do
+        //                        let inds =
+        //                            let _, rs = pat
+        //                            rs
+        //                            |> Array.groupBy (fun r ->
+        //                                r.Indication
+        //                            )
+        //                        // Group per indication
+        //                        for ind in inds do
+                                
+        //                            let times = 
+        //                                ind
+        //                                |> snd
+        //                                |> Array.groupBy (fun dr ->
+        //                                    dr.Freq.Time
+        //                                )
+        //                            // Group per frequency time period
+        //                            for time in times do
+        //                                let ind = ind |> fst
+        //                                let tm, drs = time
+        //                                let (gen, age, wght, bsa) , _ = pat
+
+        //                                yield 
+        //                                    DR.create gpp.Name atc g.TherapeuticMainGroup g.TherapeuticSubGroup "" "" []
+        //                                    |> DR.addIndications [ ind ]
+        //                                    |> DR.Optics.addRoute [ ind ] r
+        //                                        //|> setShapeName gpp.Shape
+        //                                        //|> setRouteName r
+        //                                        //|> setIndication ind
+                                         
+        //                                        //|> (fun dr ->
+        //                                        //    if gen = "man" then dr |> setPatientMaleGender true
+        //                                        //    elif gen = "vrouw" then dr |> setPatientFemaleGender true
+        //                                        //    else dr
+        //                                        //)
+
+        //                                        //|> mapMinMax setPatientMinAge setPatientMaxAge age
+        //                                        //|> mapMinMax setPatientMinWeight setPatientMaxWeight wght
+        //                                        //|> mapMinMax setPatientMinBSA setPatientMaxBSA bsa
+        //                                        //|> addSubstances tm drs
+        //                                        //|> (fun dr ->
+        //                                        //{ dr with Text = drs |> getText }
+        //                                        //)
+                                      
+
+        //]
+        
 
 
 module DoseRuleTests =
@@ -3839,87 +4091,223 @@ module DoseRuleTests =
 
     let toString () =
 
-        DoseRule.doseRule "paracetamol" "N02BE01" "Zenuwstelsel" "Analgetica" "Overige analgetica en antipyretica" "Aceetanilidederivaten" [] [] []
+        DoseRule.create "paracetamol" "N02BE01" "Zenuwstelsel" "Analgetica" "Overige analgetica en antipyretica" "Aceetanilidederivaten" []
         
-        |> DoseRule.addIndications ["Milde pijn en koorts"]
-        |> DoseRule.addRoute ["Milde pijn en koorts"] "Oraal"
-        |> DoseRule.addPatient ["Milde pijn en koorts"] "Oraal" (Patient.empty)
-        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Oraal" (3.  |> ValueUnit.ageInMo) (Patient.empty) 
-        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Oraal" (18.  |> ValueUnit.ageInYr) 
-        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Oraal" "paracetamol"
-        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Oraal" "paracetamol" [1..4]
-        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Oraal" "paracetamol" ValueUnit.Units.Time.day
-        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Oraal" "paracetamol" (4.  |> ValueUnit.timeHour)
-        |>> DoseRule.setInclMaxAbsSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.substanceInGStandUnit 500. "milligram")
-        |>> DoseRule.setNormWeightUnitSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" ValueUnit.Units.Weight.kiloGram
-        |>> DoseRule.setInclMinNormWeightSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.substanceInGStandUnit 10. "milligram")
-        |>> DoseRule.setInclMaxNormWeightSingleSubstanceDosage ["Milde pijn en koorts"] "Oraal" "paracetamol" (ValueUnit.substanceInGStandUnit 15. "milligram")
+        |> DoseRule.addIndications 
+            ["Milde pijn en koorts"]
 
-        |> fst
-        |> DoseRule.addRoute ["Milde pijn en koorts"] "Rectaal"
-        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInMo 3.) (Patient.empty) 
-        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 1.) 
-        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
-        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
-        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 120. "milligram")
+        |> DoseRule.addRoute 
+            ["Milde pijn en koorts"] 
+            "Oraal"
 
-        |> fst
-        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 1.) (Patient.empty) 
-        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 4.) 
-        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
-        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
-        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 240. "milligrammilligram")
+        |> DoseRule.addShape 
+            ["Milde pijn en koorts"] 
+            "Oraal" 
+             ["Drank"]
 
-        |> fst
-        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 4.) (Patient.empty) 
-        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 6.) 
-        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
-        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
-        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 240. "milligram")
+        |> DoseRule.addPatient
+            ["Milde pijn en koorts"] 
+            "Oraal" 
+            ["Drank"]
+            Patient.empty            
 
-        |> fst
-        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 6.) (Patient.empty) 
-        |>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 12.) 
-        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
-        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (6. |> ValueUnit.timeHour)
-        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 500. "milligram")
+        |> DoseRule.setPatientInclMinAge 
+            ["Milde pijn en koorts"] 
+            "Oraal" 
+            ["Drank"]
+            (3.  |> ValueUnit.ageInMo) 
+            Patient.empty
+
+        |>> DoseRule.setPatientExclMaxAge 
+            ["Milde pijn en koorts"] 
+            "Oraal"
+            ["Drank"]
+            (18.  |> ValueUnit.ageInYr) 
+        |>>> (fun pat dr ->
+            dr
+            |> DoseRule.addSubstance 
+                ["Milde pijn en koorts"] 
+                "Oraal"
+                ["Drank"]
+                pat
+                "paracetamol"
+        )
+        |>>> (fun pat dr ->
+            dr 
+            |> DoseRule.setFreqsFrequencySubstanceDosage  
+                ["Milde pijn en koorts"] 
+                "Oraal" 
+                ["Drank"]
+                pat
+                "paracetamol" 
+                [1..4]    
+        )
+        |>>> (fun pat dr ->
+            dr 
+            |> DoseRule.setTimeUnitFrequencySubstanceDosage  
+                ["Milde pijn en koorts"] 
+                "Oraal" 
+                ["Drank"]
+                pat
+                "paracetamol" 
+                ValueUnit.Units.Time.day 
+        )
+        |>>> (fun pat dr ->
+            dr 
+            |> DoseRule.setMinIntervalFrequencySubstanceDosage  
+                ["Milde pijn en koorts"] 
+                "Oraal" 
+                ["Drank"]
+                pat
+                "paracetamol" 
+                (4.  |> ValueUnit.timeHour)
+        )
+        |>>> (fun pat dr ->
+            dr 
+            |> DoseRule.setInclMaxAbsSingleSubstanceDosage  
+                ["Milde pijn en koorts"] 
+                "Oraal" 
+                ["Drank"]
+                pat
+                "paracetamol" 
+                (ValueUnit.substanceInGStandUnit 500. "milligram")
+        )        |>>> (fun pat dr ->
+            dr 
+            |> DoseRule.setNormWeightUnitSingleSubstanceDosage  
+                ["Milde pijn en koorts"] 
+                "Oraal" 
+                ["Drank"]
+                pat
+                "paracetamol" 
+                ValueUnit.Units.Weight.kiloGram
+        )
+        |>>> (fun pat dr ->
+            dr 
+            |> DoseRule.setInclMinNormWeightSingleSubstanceDosage  
+                ["Milde pijn en koorts"] 
+                "Oraal" 
+                ["Drank"]
+                pat
+                "paracetamol" 
+                (ValueUnit.substanceInGStandUnit 10. "milligram")
+        )
+        |>>> (fun pat dr ->
+            dr 
+            |> DoseRule.setInclMaxNormWeightSingleSubstanceDosage  
+                ["Milde pijn en koorts"] 
+                "Oraal" 
+                ["Drank"]
+                pat
+                "paracetamol" 
+                (ValueUnit.substanceInGStandUnit 15. "milligram")
+        )
+
+
+
+        //|> fst
+        //|> DoseRule.addRoute ["Milde pijn en koorts"] "Rectaal"
+        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInMo 3.) (Patient.empty) 
+        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 1.) 
+        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
+        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
+        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
+        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 120. "milligram")
+
+        //|> fst
+        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 1.) (Patient.empty) 
+        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 4.) 
+        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
+        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
+        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
+        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 240. "milligrammilligram")
+
+        //|> fst
+        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 4.) (Patient.empty) 
+        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 6.) 
+        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
+        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
+        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
+        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 240. "milligram")
+
+        //|> fst
+        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 6.) (Patient.empty) 
+        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 12.) 
+        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
+        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
+        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (6. |> ValueUnit.timeHour)
+        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 500. "milligram")
     
-        |> fst
-        |> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        |> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 12.) (Patient.empty) 
-        |>> DoseRule.setPatientInclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 18.) 
-        |>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
-        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        |>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (6. |> ValueUnit.timeHour)
-        |>> DoseRule.setInclMinNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 500. "milligram")
-        |>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 1000. "milligram")
-        |>> DoseRule.setTimeUnitSubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol"  ValueUnit.Units.Time.day
-        |>> DoseRule.setInclMaxAbsTotalSubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol"  (ValueUnit.substanceInGStandUnit 3000. "milligram")
+        //|> fst
+        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
+        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 12.) (Patient.empty) 
+        //|>> DoseRule.setPatientInclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 18.) 
+        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
+        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
+        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
+        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (6. |> ValueUnit.timeHour)
+        //|>> DoseRule.setInclMinNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 500. "milligram")
+        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 1000. "milligram")
+        //|>> DoseRule.setTimeUnitSubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol"  ValueUnit.Units.Time.day
+        //|>> DoseRule.setInclMaxAbsTotalSubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol"  (ValueUnit.substanceInGStandUnit 3000. "milligram")
 
-        |> fst
-        |> DoseRule.addIndications ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"]
-        |> DoseRule.addRoute ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal"
-        |> DoseRule.addPatient ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (Patient.empty)
-        |> DoseRule.setPatientInclMinGestAge ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (ValueUnit.ageInWk 28.) (Patient.empty) 
-        |>> DoseRule.setPatientInclMaxGestAge ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (ValueUnit.ageInWk 33.) 
-        |>> DoseRule.addSubstance ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol"
-        |>> DoseRule.setFreqsFrequencySubstanceDosage  ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" [3]
-        |>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" ValueUnit.Units.Time.day
-        |>> DoseRule.setInclMaxNormWeightTotalSubstanceDosage ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" (ValueUnit.substanceInGStandUnit 30. "milligram")
+        //|> fst
+        //|> DoseRule.addIndications ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"]
+        //|> DoseRule.addRoute ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal"
+        //|> DoseRule.addPatient ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (Patient.empty)
+        //|> DoseRule.setPatientInclMinGestAge ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (ValueUnit.ageInWk 28.) (Patient.empty) 
+        //|>> DoseRule.setPatientInclMaxGestAge ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (ValueUnit.ageInWk 33.) 
+        //|>> DoseRule.addSubstance ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol"
+        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" [3]
+        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" ValueUnit.Units.Time.day
+        //|>> DoseRule.setInclMaxNormWeightTotalSubstanceDosage ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" (ValueUnit.substanceInGStandUnit 30. "milligram")
 
         |> fst
         |> DoseRule.toString
         |> printfn "%s"
+
+
+module GStandTests =
+
+    let map n =
+          GenPresProduct.filter n "" ""
+          |> GStand.map
+          |> List.distinct
+          |> List.iter (DoseRule.toString >> (printfn "%s"))
+
+
+GenPresProduct.filter "paracetamol" "" ""
+|> Seq.collect (fun gpp ->
+    gpp.GenericProducts
+    |> Seq.map (fun gp -> gpp, gp.ATC)
+)
+|> Seq.groupBy (fun (gpp, atc) ->
+    gpp.Name, atc
+)
+|> Seq.map (fun x ->
+    let n, atc = x |> fst
+    let gpps_rts_drs = 
+        x 
+        |> snd
+        |> Seq.map fst
+        |> Seq.collect (fun gpp ->
+            gpp.Route
+            |> Seq.map (fun rt -> (gpp, rt))
+        )
+        |> Seq.map (fun gpp_rt ->
+            let gpp, rt = gpp_rt
+            let drs =
+                RuleFinder.createFilter None None None None gpp.Name gpp.Shape rt
+                |> RuleFinder.find
+            (gpp, rt, drs)
+        )
+
+    n, atc, gpps_rts_drs
+)
