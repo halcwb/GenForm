@@ -27,7 +27,6 @@ open Informedica.GenUtils.Lib
 
 open Aether
 open Aether.Operators
-open Informedica.GenProduct.Lib
 
 
 module String =
@@ -3729,585 +3728,281 @@ Vorm: {shape}
             ) s
         )
 
-module GStand =
 
-    module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
-    module GST = Informedica.GenProduct.Lib.DoseRule
 
-    module DR = DoseRule
 
-    /// Map GSTand min max float Option values to
-    /// a `DoseRule` `MinMax`
-    let mapMinMax (setMin : float Option -> DR.DoseRule -> DR.DoseRule) 
-                  (setMax : float Option -> DR.DoseRule -> DR.DoseRule) 
-                  (minmax : GST.MinMax) 
-                  dr : DR.DoseRule =
-        dr
-        |> setMin minmax.Min
-        |> setMax minmax.Max
+module GPP = Informedica.GenProduct.Lib.GenPresProduct
+module ATC = Informedica.GenProduct.Lib.ATCGroup
+module DR = Informedica.GenProduct.Lib.DoseRule
+module RF = Informedica.GenProduct.Lib.RuleFinder
+
+module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
+
+type GenPresProduct = GPP.GenPresProduct
+
+type DoseRule = DoseRule.DoseRule
+type IndicationDosage = DoseRule.IndicationDosage
+type RouteDosage = DoseRule.RouteDosage
+type ShapeDosage = DoseRule.ShapeDosage
+type PatientDosage = DoseRule.PatientDosage
+type SubstanceDosage = Dosage.Dosage
+type Patient = Patient.Patient
+type Dosage = Dosage.Dosage
+
+type FlatDoseRule =
+    {
+        DoseRule : DoseRule
+        IndicationDosage : IndicationDosage
+        RouteDosage : RouteDosage
+        ShapeDosage : ShapeDosage
+        PatientDosage : PatientDosage
+    }
+
+
+/// Map GSTand min max float Option values to
+/// a `DoseRule` `MinMax`
+let mapMinMax<'a> 
+              (setMin : float Option -> 'a -> 'a) 
+              (setMax : float Option -> 'a -> 'a) 
+              (minmax : DR.MinMax)
+              (o : 'a) =
+    o
+    |> setMin minmax.Min
+    |> setMax minmax.Max
 
  
-    /// Make sure that a GSTand time string 
-    /// is a valid unit time string
-    let parseTimeString s =
-        s
-        |> String.replace "per " ""
-        |> String.replace "dagen" "dag"
-        |> String.replace "weken" "week"
-        |> String.replace "maanden" "maand"
-        |> String.replace "minuten" "minuut"
-        |> String.replace "uren" "uur"
-        |> String.replace "eenmalig" ""
-        |> (fun s -> 
-            if s |> String.isNullOrWhiteSpace then s
-            else s + "[Time]"
-        )
+/// Make sure that a GSTand time string 
+/// is a valid unit time string
+let parseTimeString s =
+    s
+    |> String.replace "per " ""
+    |> String.replace "dagen" "dag"
+    |> String.replace "weken" "week"
+    |> String.replace "maanden" "maand"
+    |> String.replace "minuten" "minuut"
+    |> String.replace "uren" "uur"
+    |> String.replace "eenmalig" ""
+    |> (fun s -> 
+        if s |> String.isNullOrWhiteSpace then s
+        else s + "[Time]"
+    )
 
 
-    /// Map a GStand time period to a valid unit
-    let mapTime s =
-        s
-        |> parseTimeString
-        |> ValueUnit.Units.fromString
+/// Map a GStand time period to a valid unit
+let mapTime s =
+    s
+    |> parseTimeString
+    |> ValueUnit.Units.fromString
 
 
-    /// Map GStand frequency string to a valid 
-    /// frequency `ValueUnit`.
-    let mapFreq (fr: GST.Frequency) =
-        let s = fr.Frequency |> string
-        let s = s + " X[Count]"
+/// Map GStand frequency string to a valid 
+/// frequency `ValueUnit`.
+let mapFreq (fr: DR.Frequency) =
+    let s = fr.Frequency |> string
+    let s = s + " X[Count]"
 
-        fr.Time
-        |> parseTimeString
-        |> (fun s' -> 
-            match s' |> String.split " " with
-            | [v;u] -> s + "/" + v + " " + u
-            | [u]   -> 
-                if u |> String.isNullOrWhiteSpace then s
-                else 
-                    s + "/1" + " " + u
-            | _ -> ""
-        )
-        |> ValueUnit.fromString
+    fr.Time
+    |> parseTimeString
+    |> (fun s' -> 
+        match s' |> String.split " " with
+        | [v;u] -> s + "/" + v + " " + u
+        | [u]   -> 
+            if u |> String.isNullOrWhiteSpace then s
+            else 
+                s + "/1" + " " + u
+        | _ -> ""
+    )
+    |> ValueUnit.fromString
 
 
-    /// Map GSTand doserule doses to 
-    /// - normal   min max dose
-    /// - absolute min max dose
-    /// - normal   min max dose per kg
-    /// - absolute min max dose per kg
-    /// - normal   min max dose per m2
-    /// - absolute min max dose per m2
-    /// by calculating 
-    /// - substance shape concentration * dose shape quantity * frequency
-    /// for each dose
-    let mapDoses qty unit (gstdsr : GST.DoseRule) =
-        let fr = mapFreq gstdsr.Freq
+/// Map GSTand doserule doses to 
+/// - normal   min max dose
+/// - absolute min max dose
+/// - normal   min max dose per kg
+/// - absolute min max dose per kg
+/// - normal   min max dose per m2
+/// - absolute min max dose per m2
+/// by calculating 
+/// - substance shape concentration * dose shape quantity * frequency
+/// for each dose
+let mapDoses qty unit (gstdsr : DR.DoseRule) =
 
-        let setMin = Optic.set MinMax.Optics.inclMinLens
-        let setMax = Optic.set MinMax.Optics.exclMaxLens
+    let fr = mapFreq gstdsr.Freq
 
-        let toVu perKg perM2 v =
-            let u = 
-                if not perKg then unit
-                else
-                    unit |> ValueUnit.per ValueUnit.Units.Weight.kiloGram
+    let setMin = Optic.set MinMax.Optics.inclMinLens
+    let setMax = Optic.set MinMax.Optics.exclMaxLens
 
-            let u = 
-                if not perM2 then u
-                else
-                    u |> ValueUnit.per ValueUnit.Units.BSA.M2
+    let toVu perKg perM2 v =
+        let u = 
+            if not perKg then unit
+            else
+                unit |> ValueUnit.per ValueUnit.Units.Weight.kiloGram
 
-            match u |> ValueUnit.fromFloat (v * qty) with
-            | Some vu -> vu * fr |> Some
-            | None -> None
+        let u = 
+            if not perM2 then u
+            else
+                u |> ValueUnit.per ValueUnit.Units.BSA.M2
+
+        match u |> ValueUnit.fromFloat (v * qty) with
+        | Some vu -> vu * fr |> Some
+        | None -> None
     
-        let minmax perKg perM2 (mm : GST.MinMax) =
-            MinMax.empty
-            |> setMin (mm.Min |> Option.bind (toVu perKg perM2))
-            |> setMax (mm.Max |> Option.bind (toVu perKg perM2))
+    let minmax perKg perM2 (mm : DR.MinMax) =
+        MinMax.empty
+        |> setMin (mm.Min |> Option.bind (toVu perKg perM2))
+        |> setMax (mm.Max |> Option.bind (toVu perKg perM2))
 
-        gstdsr.Norm   |> minmax false false,
-        gstdsr.Abs    |> minmax false false,
-        gstdsr.NormKg |> minmax true false,
-        gstdsr.AbsKg  |> minmax true false,
-        gstdsr.NormM2 |> minmax false true,
-        gstdsr.AbsM2  |> minmax false true
+    (fr, gstdsr.Freq.Time |> parseTimeString),
+    gstdsr.Norm   |> minmax false false,
+    gstdsr.Abs    |> minmax false false,
+    gstdsr.NormKg |> minmax true false,
+    gstdsr.AbsKg  |> minmax true false,
+    gstdsr.NormM2 |> minmax false true,
+    gstdsr.AbsM2  |> minmax false true
 
 
-    /// Map a list of ` GenPresProduct` to it's 
-    /// corresponding doserules per GenPresProduct.
-    let map (gpps : GenPresProduct.GenPresProduct []) =
 
-        let getNames (gpps : GenPresProduct.GenPresProduct []) =
-            gpps
-            |> Array.map (fun gpp ->
-                gpp.Name
+let getSubstanceDoses (drs : DR.DoseRule seq) =
+
+    drs 
+    |> Seq.collect (fun dr ->
+        dr.GenericProduct
+        |> Seq.collect (fun gp ->
+            gp.Substances
+            |> Seq.collect (fun s ->
+                match s.Unit |> ValueUnit.unitFromString Mapping.GStandMap with
+                | None -> []
+                | Some u ->
+                      
+                    [ mapDoses s.Quantity u dr ]
             )
-            |> Array.distinct
+        )
+    )
+    |> Seq.groupBy (fun ((_, time), _, _, _, _, _, _) -> time)
+    |> Seq.map (fun (k, v) -> 
+        k , 
+        v 
+        |> Seq.fold (fun acc ((fr, _), norm, abs, normKg, absKg, normM2, absM2) -> 
+            let frs, norm_, abs_, normKg_, absKg_, normM2_, absM2_ = acc
+            let frs =
+                if frs |> List.exists ((=) fr) then frs else frs @ [ fr ]
 
-        // Get the doserules for a genpresproduct
-        // ToDo Temp hack ignore route and shape
-        let getDrs name =
-            RuleFinder.createFilter None None None None name "" ""
-            |> RuleFinder.find
+            let norm = [ norm; norm_ ] |> MinMax.foldMaximize
+            let abs = [ abs; abs_ ] |> MinMax.foldMaximize
+            let normKg = [ normKg; normKg_ ] |> MinMax.foldMaximize
+            let absKg = [ absKg; absKg_ ] |> MinMax.foldMaximize
+            let normM2 = [ normM2; normM2_ ] |> MinMax.foldMaximize
+            let absM2 = [ absM2; absM2_ ] |> MinMax.foldMaximize
 
-        // Turn a list of doserules to a text string
-        let getText drs =
-            drs
-            |> Array.map (fun dr -> dr |> GST.toString2)
-            |> Array.distinct
-            |> String.concat "\n" 
-//            |> GSTandText
-
-        // Get the ATC codes for a GenPresProduct
-        let atcs (gpp : GenPresProduct.GenPresProduct) =
-            gpp.GenericProducts
-            |> Array.map(fun gp -> gp.ATC)
-            |> Array.distinct
-
-        // Get the list of routes for a GenPresProduct
-        let rts (gpp: GenPresProduct.GenPresProduct) = 
-            gpp.GenericProducts
-            |> Array.collect (fun gp -> gp.Route)
-            |> Array.distinct
-
-        // Get the list of ATC groups for a GenPresProduct
-        let tgs (gpp: GenPresProduct.GenPresProduct) =
-            ATCGroup.get ()
-            |> Array.filter (fun g -> 
-                atcs gpp |> Array.exists (fun a -> a |> String.equalsCapInsens g.ATC5) &&
-                g.Shape = gpp.Shape
-            )
-
-        // Add a `DoseRule` `Substance` to a doserule with the corresponding substance
-        // doses
-        //let addSubstances period (gstdsrs : GST.DoseRule []) (dr : DR.DoseRule) =
-        //    // Get the time period for the dose rule
-        //    let period = period |> mapTime
-
-        //    // Get for each substance the name, unit and 
-        //    // concentration quantities to calculate the 
-        //    // dose by dose = dose in shape units * subst conc * freq
-        //    let substs = 
-        //        gstdsrs
-        //        |> Array.collect (fun r ->
-        //            r.GenericProduct
-        //            |> Array.collect (fun gp -> 
-        //                gp.Substances 
-        //                |> Array.map (fun s -> 
-        //                    let u = s.Unit
-        //                    s.Name, u
-        //                )
-        //            )                
-        //        )
-        //        |> Array.distinct
-        //        |> Array.map (fun (n, u) ->
-        //            let qts =
-        //                gstdsrs
-        //                |> Array.collect (fun r -> 
-        //                    r.GenericProduct
-        //                    |> Array.collect (fun gp ->
-        //                        gp.Substances
-        //                        |> Array.filter (fun s -> s.Name = n)
-        //                        |> Array.map (fun s -> r, s.Quantity)
-        //                    )
-        //                )
-        //            n, u, qts
-        //        )
-            
-        //    // Add the calculated substance doses to the dose rule
-        //    substs
-        //    |> Array.fold (fun state (n, u, qts) ->
-        //        // Get the list of available frequencies
-        //        let frqs =
-        //            qts
-        //            |> Array.map (fun (r, _) ->
-        //                r.Freq.Frequency
-        //                |> BigRational.fromFloat
-        //            )
-        //            |> Array.distinct
-        //            |> Array.filter Option.isSome
-        //            |> Array.map Option.get
-        //            |> Array.sort
-        //            |> Array.toList
-
-        //        match u |> ValueUnit.createFromGStand 1. with
-        //        | Some vu ->
-        //            let _, u = vu |> ValueUnit.get
-        //            // Get all the doses
-        //            let doses =
-        //                qts
-        //                |> Array.map(fun (r, v) ->
-        //                    mapDoses v u r
-        //                )
-        //            // Get the smallest min and largest max normal dose
-        //            let norm = 
-        //                doses
-        //                |> Array.map(fun (norm, _, _, _, _, _) -> norm)
-        //                |> Array.toList
-        //                |> MinMax.foldMaximize
-                       
-        //            // Get the smallest min and largest max absolute dose
-        //            let abs = 
-        //                doses
-        //                |> Array.map(fun (_, abs, _, _, _, _) -> abs)
-        //                |> Array.toList
-        //                |> MinMax.foldMaximize
-
-        //            // Get the smallest min and largest max normal dose per kg
-        //            let normKg = 
-        //                doses
-        //                |> Array.map(fun (_, _, normKg, _, _, _) -> normKg)
-        //                |> Array.toList
-        //                |> MinMax.foldMaximize
-
-        //            // Get the smallest min and largest max absolute dose per kg
-        //            let absKg = 
-        //                doses
-        //                |> Array.map(fun (_, _, _, absKg, _, _) -> absKg)
-        //                |> Array.toList
-        //                |> MinMax.foldMaximize
-
-        //            // Get the smallest min and largest max normal dose per m2
-        //            let normM2 = 
-        //                doses
-        //                |> Array.map(fun (_, _, _, _, normM2, _) -> normM2)
-        //                |> Array.toList
-        //                |> MinMax.foldMaximize
-
-        //            // Get the smallest min and largest max absolute dose per m2
-        //            let absM2 = 
-        //                doses
-        //                |> Array.map(fun (_, _, _, _, _, absM2) -> absM2)
-        //                |> Array.toList
-        //                |> MinMax.foldMaximize
-
-        //            // Create the dose value
-        //            let dose =
-        //                Dose.emptyDoseValue
-        //                |> Dose.setNormDose norm
-        //                |> Dose.setAbsDose abs
-        //                |> Dose.setNormDosePerKg normKg
-        //                |> Dose.setAbsDosePerKg absKg
-        //                |> Dose.setNormDosePerM2 normM2
-        //                |> Dose.setAbsDosePerM2 absM2
-        //            // Add the substance to the dose rule
-        //            state
-        //            |> addSubstance (
-        //                Substance.init n u
-        //                |> Substance.setDose (Dose.empty |> Dose.add frqs period dose)
-        //            )
-        //        | None -> 
-        //            // Only frequences apply so only add those
-        //            state
-        //            |> addSubstance (
-        //                Substance.init n ValueUnit.NoUnit
-        //                |> Substance.setDose (Dose.empty |> Dose.add frqs period Dose.emptyDoseValue)
-        //            )
-        //    ) dr
-
-        [
-            for name in gpps |> getNames do
-                // Get all the dose rules
-                //let drs = name |> getDrs
-
-        ]
+            frs, norm, abs, normKg, absKg, normM2, absM2
+        ) ([], MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty)
+    )
 
 
-        // Map GStand DoseRule to DoseRule
-        //[
-        //    for gpp in gpps do
-        //        // Group per route
-        //        for r in gpp |> rts do
-        //            // Get the doserules for the GenPresProduct
-        //            let drs = getDrs gpp r
-        //            // Get ATC's
-        //            for atc in gpp |> atcs do
-        //                // Get ATC Group's 
-        //                for g in gpp |> tgs do
-        //                    let pats =
-        //                        drs
-        //                        |> Array.groupBy (fun dr ->
-        //                            dr.Gender, dr.Age, dr.Weight, dr.BSA
-        //                        )
-        //                    // Group per patient
-        //                    for pat in pats do
-        //                        let inds =
-        //                            let _, rs = pat
-        //                            rs
-        //                            |> Array.groupBy (fun r ->
-        //                                r.Indication
-        //                            )
-        //                        // Group per indication
-        //                        for ind in inds do
-                                
-        //                            let times = 
-        //                                ind
-        //                                |> snd
-        //                                |> Array.groupBy (fun dr ->
-        //                                    dr.Freq.Time
-        //                                )
-        //                            // Group per frequency time period
-        //                            for time in times do
-        //                                let ind = ind |> fst
-        //                                let tm, drs = time
-        //                                let (gen, age, wght, bsa) , _ = pat
+let getPatients (drs : DR.DoseRule seq) =
+    let map = mapMinMax<Patient> 
 
-        //                                yield 
-        //                                    DR.create gpp.Name atc g.TherapeuticMainGroup g.TherapeuticSubGroup "" "" []
-        //                                    |> DR.addIndications [ ind ]
-        //                                    |> DR.Optics.addRoute [ ind ] r
-        //                                        //|> setShapeName gpp.Shape
-        //                                        //|> setRouteName r
-        //                                        //|> setIndication ind
-                                         
-        //                                        //|> (fun dr ->
-        //                                        //    if gen = "man" then dr |> setPatientMaleGender true
-        //                                        //    elif gen = "vrouw" then dr |> setPatientFemaleGender true
-        //                                        //    else dr
-        //                                        //)
+    let ageInMo = Option.bind ValueUnit.ageInMo
 
-        //                                        //|> mapMinMax setPatientMinAge setPatientMaxAge age
-        //                                        //|> mapMinMax setPatientMinWeight setPatientMaxWeight wght
-        //                                        //|> mapMinMax setPatientMinBSA setPatientMaxBSA bsa
-        //                                        //|> addSubstances tm drs
-        //                                        //|> (fun dr ->
-        //                                        //{ dr with Text = drs |> getText }
-        //                                        //)
-                                      
+    let wghtKg = Option.bind ValueUnit.weightInKg
 
-        //]
+    let mapAge = 
+        map (ageInMo >> Patient.Optics.setInclMinAge) 
+            (ageInMo >> Patient.Optics.setExclMaxAge) 
+
+    let mapWght =
+        map (wghtKg >> Patient.Optics.setInclMinWeight) 
+            (wghtKg >> Patient.Optics.setInclMaxWeight) 
         
-
-
-module DoseRuleTests =
-
-    open DoseRule.Operators
-        
-    module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
-    module DoseRule = DoseRule.Optics
-    
-
-    let toString () =
-
-        DoseRule.create "paracetamol" "N02BE01" "Zenuwstelsel" "Analgetica" "Overige analgetica en antipyretica" "Aceetanilidederivaten" []
-        
-        |> DoseRule.addIndications 
-            ["Milde pijn en koorts"]
-
-        |> DoseRule.addRoute 
-            ["Milde pijn en koorts"] 
-            "Oraal"
-
-        |> DoseRule.addShape 
-            ["Milde pijn en koorts"] 
-            "Oraal" 
-             ["Drank"]
-
-        |> DoseRule.addPatient
-            ["Milde pijn en koorts"] 
-            "Oraal" 
-            ["Drank"]
-            Patient.empty            
-
-        |> DoseRule.setPatientInclMinAge 
-            ["Milde pijn en koorts"] 
-            "Oraal" 
-            ["Drank"]
-            (3.  |> ValueUnit.ageInMo) 
-            Patient.empty
-
-        |>> DoseRule.setPatientExclMaxAge 
-            ["Milde pijn en koorts"] 
-            "Oraal"
-            ["Drank"]
-            (18.  |> ValueUnit.ageInYr) 
-        |>>> (fun pat dr ->
-            dr
-            |> DoseRule.addSubstance 
-                ["Milde pijn en koorts"] 
-                "Oraal"
-                ["Drank"]
-                pat
-                "paracetamol"
-        )
-        |>>> (fun pat dr ->
-            dr 
-            |> DoseRule.setFreqsFrequencySubstanceDosage  
-                ["Milde pijn en koorts"] 
-                "Oraal" 
-                ["Drank"]
-                pat
-                "paracetamol" 
-                [1..4]    
-        )
-        |>>> (fun pat dr ->
-            dr 
-            |> DoseRule.setTimeUnitFrequencySubstanceDosage  
-                ["Milde pijn en koorts"] 
-                "Oraal" 
-                ["Drank"]
-                pat
-                "paracetamol" 
-                ValueUnit.Units.Time.day 
-        )
-        |>>> (fun pat dr ->
-            dr 
-            |> DoseRule.setMinIntervalFrequencySubstanceDosage  
-                ["Milde pijn en koorts"] 
-                "Oraal" 
-                ["Drank"]
-                pat
-                "paracetamol" 
-                (4.  |> ValueUnit.timeHour)
-        )
-        |>>> (fun pat dr ->
-            dr 
-            |> DoseRule.setInclMaxAbsSingleSubstanceDosage  
-                ["Milde pijn en koorts"] 
-                "Oraal" 
-                ["Drank"]
-                pat
-                "paracetamol" 
-                (ValueUnit.substanceInGStandUnit 500. "milligram")
-        )        |>>> (fun pat dr ->
-            dr 
-            |> DoseRule.setNormWeightUnitSingleSubstanceDosage  
-                ["Milde pijn en koorts"] 
-                "Oraal" 
-                ["Drank"]
-                pat
-                "paracetamol" 
-                ValueUnit.Units.Weight.kiloGram
-        )
-        |>>> (fun pat dr ->
-            dr 
-            |> DoseRule.setInclMinNormWeightSingleSubstanceDosage  
-                ["Milde pijn en koorts"] 
-                "Oraal" 
-                ["Drank"]
-                pat
-                "paracetamol" 
-                (ValueUnit.substanceInGStandUnit 10. "milligram")
-        )
-        |>>> (fun pat dr ->
-            dr 
-            |> DoseRule.setInclMaxNormWeightSingleSubstanceDosage  
-                ["Milde pijn en koorts"] 
-                "Oraal" 
-                ["Drank"]
-                pat
-                "paracetamol" 
-                (ValueUnit.substanceInGStandUnit 15. "milligram")
-        )
+    drs
+    |> Seq.map (fun dr ->
+        Patient.empty
+        |> mapAge dr.Age
+        |> mapWght dr.Weight 
+    )
 
 
 
-        //|> fst
-        //|> DoseRule.addRoute ["Milde pijn en koorts"] "Rectaal"
-        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInMo 3.) (Patient.empty) 
-        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 1.) 
-        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
-        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
-        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 120. "milligram")
 
-        //|> fst
-        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 1.) (Patient.empty) 
-        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 4.) 
-        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
-        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
-        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 240. "milligrammilligram")
-
-        //|> fst
-        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 4.) (Patient.empty) 
-        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 6.) 
-        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
-        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.timeHour 6.)
-        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 240. "milligram")
-
-        //|> fst
-        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 6.) (Patient.empty) 
-        //|>> DoseRule.setPatientExclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 12.) 
-        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..3]
-        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (6. |> ValueUnit.timeHour)
-        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 500. "milligram")
-    
-        //|> fst
-        //|> DoseRule.addPatient ["Milde pijn en koorts"] "Rectaal" (Patient.empty)
-        //|> DoseRule.setPatientInclMinAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 12.) (Patient.empty) 
-        //|>> DoseRule.setPatientInclMaxAge ["Milde pijn en koorts"] "Rectaal" (ValueUnit.ageInYr 18.) 
-        //|>> DoseRule.addSubstance ["Milde pijn en koorts"] "Rectaal" "paracetamol"
-        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" [1..4]
-        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" ValueUnit.Units.Time.day
-        //|>> DoseRule.setMinIntervalFrequencySubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol" (6. |> ValueUnit.timeHour)
-        //|>> DoseRule.setInclMinNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 500. "milligram")
-        //|>> DoseRule.setInclMaxNormSingleSubstanceDosage ["Milde pijn en koorts"] "Rectaal" "paracetamol" (ValueUnit.substanceInGStandUnit 1000. "milligram")
-        //|>> DoseRule.setTimeUnitSubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol"  ValueUnit.Units.Time.day
-        //|>> DoseRule.setInclMaxAbsTotalSubstanceDosage  ["Milde pijn en koorts"] "Rectaal" "paracetamol"  (ValueUnit.substanceInGStandUnit 3000. "milligram")
-
-        //|> fst
-        //|> DoseRule.addIndications ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"]
-        //|> DoseRule.addRoute ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal"
-        //|> DoseRule.addPatient ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (Patient.empty)
-        //|> DoseRule.setPatientInclMinGestAge ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (ValueUnit.ageInWk 28.) (Patient.empty) 
-        //|>> DoseRule.setPatientInclMaxGestAge ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" (ValueUnit.ageInWk 33.) 
-        //|>> DoseRule.addSubstance ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol"
-        //|>> DoseRule.setFreqsFrequencySubstanceDosage  ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" [3]
-        //|>> DoseRule.setTimeUnitFrequencySubstanceDosage  ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" ValueUnit.Units.Time.day
-        //|>> DoseRule.setInclMaxNormWeightTotalSubstanceDosage ["Pijn, acuut/post-operatief (kortdurend gebruik maximaal 2-3 dagen)"] "Oraal" "paracetamol" (ValueUnit.substanceInGStandUnit 30. "milligram")
-
-        |> fst
-        |> DoseRule.toString
-        |> printfn "%s"
-
-
-module GStandTests =
-
-    let map n =
-          GenPresProduct.filter n "" ""
-          |> GStand.map
-          |> List.distinct
-          |> List.iter (DoseRule.toString >> (printfn "%s"))
-
-
-GenPresProduct.filter "paracetamol" "" ""
-|> Seq.collect (fun gpp ->
+// Get the ATC codes for a GenPresProduct
+let getATCs (gpp : GenPresProduct) =
     gpp.GenericProducts
-    |> Seq.map (fun gp -> gpp, gp.ATC)
-)
-|> Seq.groupBy (fun (gpp, atc) ->
-    gpp.Name, atc
-)
-|> Seq.map (fun x ->
-    let n, atc = x |> fst
-    let gpps_rts_drs = 
-        x 
-        |> snd
-        |> Seq.map fst
-        |> Seq.collect (fun gpp ->
-            gpp.Route
-            |> Seq.map (fun rt -> (gpp, rt))
-        )
-        |> Seq.map (fun gpp_rt ->
-            let gpp, rt = gpp_rt
-            let drs =
-                RuleFinder.createFilter None None None None gpp.Name gpp.Shape rt
-                |> RuleFinder.find
-            (gpp, rt, drs)
-        )
+    |> Array.map(fun gp -> gp.ATC)
+    |> Array.distinct
 
-    n, atc, gpps_rts_drs
-)
+// Get the list of routes for a GenPresProduct
+let getRoutes (gpp: GenPresProduct) = 
+    gpp.GenericProducts
+    |> Array.collect (fun gp -> gp.Route)
+    |> Array.distinct
+
+// Get the list of ATC groups for a GenPresProduct
+let getATCGroups (gpp: GenPresProduct) =
+    ATC.get ()
+    |> Array.filter (fun g -> 
+        gpp
+        |> getATCs
+        |> Array.exists (fun a -> 
+            a |> String.equalsCapInsens g.ATC5) && g.Shape = gpp.Shape
+        )
+    |> Array.distinct
+
+
+// Get the doserules for a genpresproduct
+// ToDo Temp hack ignore route and shape
+let getDoseRules (gpp : GenPresProduct) =
+    gpp.Route
+    |> Seq.collect (fun r ->
+        RF.createFilter None None None None gpp.Name gpp.Shape r
+        |> RF.find
+        |> Seq.map (fun dr -> dr.Indication, (r, dr))
+    )
+    |> Seq.groupBy fst
+
+
+   
+let createDoseRules n =
+    GPP.filter n "" ""
+    |> Seq.collect (fun gpp ->
+        gpp 
+        |> getATCGroups
+        |> Seq.map (fun atc -> 
+            (atc.Generic, atc.ATC5, atc.TherapeuticMainGroup, atc.TherapeuticSubGroup, atc.PharmacologicalGroup, atc.Substance) ,
+            gpp
+        )
+    )
+    |> Seq.groupBy fst
+
+
+
+RF.createFilter None None None None "paracetamol" "" ""
+|> RF.find
+|> getPatients
+|> Seq.distinct
+|> Seq.iter (Patient.toString >> (printfn "%s"))
+
+
+
+RF.createFilter None None None None "paracetamol" "" "rectaal"
+|> RF.find
+|> getSubstanceDoses
+|> Seq.distinct
+|> Seq.map (fun (time, (frs, norm, abs, normKg, absKg, normM2, absM2)) ->
+    sprintf "frequency: %s, norm: %s, abs: %s, normKg: %s, absKg: %s, normM2: %s, absM2: %s\n"
+        (frs |> List.map (ValueUnit.toStringPrec 2) |> String.concat ",")
+        (norm |> MinMax.toString)
+        (abs |> MinMax.toString)
+        (normKg |> MinMax.toString)
+        (absKg |> MinMax.toString)
+        (normM2 |> MinMax.toString)
+        (absM2 |> MinMax.toString)
+) 
+
+
+|> Seq.iter (printfn "%s")
+
+
+RF.createFilter None None None None "paracetamol" "" "rectaal"
+|> RF.find
+|> getSubstanceDoses
+|> Seq.length
