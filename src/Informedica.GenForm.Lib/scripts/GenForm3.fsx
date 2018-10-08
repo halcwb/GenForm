@@ -1526,7 +1526,7 @@ module Dosage =
 
 
 
-    let toString ({ StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs }) =
+    let toString ({ Name = n; StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs }) =
         let vuToStr = ValueUnit.toStringPrec 2
         
         let (>+) sl sr = 
@@ -1537,18 +1537,16 @@ module Dosage =
             else 
                 (if sl |> String.isNullOrWhiteSpace then sl else sl + "\n") + l + "\n" + s + u + "\n"
             
-        let rt, ru = rate
-        let tt, tu = total
+        let rt, _ = rate
+        let tt, _ = total
 
-        let ru = ru |> ValueUnit.unitToString
-        let tu = tu |> ValueUnit.unitToString
         let fu = freqs.TimeUnit |> ValueUnit.unitToString
 
-        ""
+        n
         >+ ("Start dosering: ", start |> DoseRange.toString, "")
         >+ ("Keer dosering: ", single |> DoseRange.toString, "")
-        >+ ("Continue dosering: ", rt |> DoseRange.toString, ru)
-        >+ ("Totaal dosering: ",   tt |> DoseRange.toString, tu)
+        >+ ("Continue dosering: ", rt |> DoseRange.toString, "")
+        >+ ("Totaal dosering: ",   tt |> DoseRange.toString, "")
         |> (fun s -> 
             if freqs.Frequencies |> List.isEmpty || 
                fu |> String.isNullOrWhiteSpace then s
@@ -3825,7 +3823,7 @@ let mapFreq (fr: DR.Frequency) =
 /// by calculating 
 /// - substance shape concentration * dose shape quantity * frequency
 /// for each dose
-let mapDoses qty unit (gstdsr : DR.DoseRule) =
+let mapDoses n qty unit (gstdsr : DR.DoseRule) =
 
     let fr = mapFreq gstdsr.Freq
 
@@ -3852,7 +3850,7 @@ let mapDoses qty unit (gstdsr : DR.DoseRule) =
         |> setMin (mm.Min |> Option.bind (toVu perKg perM2))
         |> setMax (mm.Max |> Option.bind (toVu perKg perM2))
 
-    (fr, gstdsr.Freq.Time |> parseTimeString),
+    (n , gstdsr.Freq.Time |> parseTimeString, fr),
     gstdsr.Norm   |> minmax false false,
     gstdsr.Abs    |> minmax false false,
     gstdsr.NormKg |> minmax true false,
@@ -3863,7 +3861,6 @@ let mapDoses qty unit (gstdsr : DR.DoseRule) =
 
 
 let getSubstanceDoses (drs : DR.DoseRule seq) =
-
     drs 
     |> Seq.collect (fun dr ->
         dr.GenericProduct
@@ -3874,15 +3871,15 @@ let getSubstanceDoses (drs : DR.DoseRule seq) =
                 | None -> []
                 | Some u ->
                       
-                    [ mapDoses s.Quantity u dr ]
+                    [ mapDoses s.Name s.Quantity u dr ]
             )
         )
     )
-    |> Seq.groupBy (fun ((_, time), _, _, _, _, _, _) -> time)
+    |> Seq.groupBy (fun ((n, time, _), _, _, _, _, _, _) -> (n, time))
     |> Seq.map (fun (k, v) -> 
         k , 
         v 
-        |> Seq.fold (fun acc ((fr, _), norm, abs, normKg, absKg, normM2, absM2) -> 
+        |> Seq.fold (fun acc ((_, _, fr), norm, abs, normKg, absKg, normM2, absM2) -> 
             let frs, norm_, abs_, normKg_, absKg_, normM2_, absM2_ = acc
             let frs =
                 if frs |> List.exists ((=) fr) then frs else frs @ [ fr ]
@@ -3897,6 +3894,35 @@ let getSubstanceDoses (drs : DR.DoseRule seq) =
             frs, norm, abs, normKg, absKg, normM2, absM2
         ) ([], MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty)
     )
+    |> Seq.map (fun (k, (frs, norm, abs, normKg, absKg, normM2, absM2)) ->
+        k ,
+        frs ,
+        DoseRange.create 
+            norm 
+            (normKg, ValueUnit.Units.Weight.kiloGram) 
+            (normM2, ValueUnit.Units.BSA.M2)
+            abs 
+            (absKg, ValueUnit.Units.Weight.kiloGram) 
+            (absM2, ValueUnit.Units.BSA.M2)
+    )
+    |> Seq.map (fun ((n, time), frs, dr)  ->
+        let tu = 
+            match frs with
+            | fr::_ -> fr |> ValueUnit.get |> snd
+            | _ -> ValueUnit.NoUnit
+
+        Dosage.empty
+        |> (Optic.set  Dosage.Name_ n)  
+        |> (fun ds ->
+            match time with
+            | _ when time |> String.isNullOrWhiteSpace -> 
+                ds 
+                |> (Optic.set Dosage.SingleDosage_ dr) 
+            | _  ->
+                ds
+                |> (Optic.set Dosage.TotalDosage_ (dr, tu))
+        )
+    ) 
 
 
 let getPatients (drs : DR.DoseRule seq) =
@@ -3983,20 +4009,10 @@ RF.createFilter None None None None "paracetamol" "" ""
 
 
 
-RF.createFilter None None None None "paracetamol" "" "rectaal"
+RF.createFilter None None None None "paracetamol" "" ""
 |> RF.find
 |> getSubstanceDoses
-|> Seq.distinct
-|> Seq.map (fun (time, (frs, norm, abs, normKg, absKg, normM2, absM2)) ->
-    sprintf "frequency: %s, norm: %s, abs: %s, normKg: %s, absKg: %s, normM2: %s, absM2: %s\n"
-        (frs |> List.map (ValueUnit.toStringPrec 2) |> String.concat ",")
-        (norm |> MinMax.toString)
-        (abs |> MinMax.toString)
-        (normKg |> MinMax.toString)
-        (absKg |> MinMax.toString)
-        (normM2 |> MinMax.toString)
-        (absM2 |> MinMax.toString)
-) 
+|> Seq.map Dosage.toString
 
 
 |> Seq.iter (printfn "%s")
