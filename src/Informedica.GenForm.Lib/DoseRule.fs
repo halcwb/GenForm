@@ -239,7 +239,7 @@ module DoseRule =
             >+ (nb |> mmtoStr nbu)
             |> (fun s -> 
                 if s |> String.isNullOrWhiteSpace then s
-                else "Normaal dosering: " + s
+                else " " + s
             )
             |> (fun sn ->
                 let sa =
@@ -248,8 +248,8 @@ module DoseRule =
                     >+ (ab |> mmtoStr abu)
                 if sa |> String.isNullOrWhiteSpace then sn
                 else 
-                    let sn = if sn |> String.isNullOrWhiteSpace then sn else sn + "\n"
-                    sn + "Maximale dosering: " + sa
+                    let sn = if sn |> String.isNullOrWhiteSpace then sn else sn + " "
+                    sn + "maximaal " + sa
             )
         
 
@@ -284,9 +284,16 @@ module DoseRule =
                 TimeUnit : TimeUnit
                 MinimalInterval : ValueUnit Option
             }
-        and Frequencies = int list
+        and Frequencies = ValueUnit.Value list
         and TimeUnit = Unit
         and RateUnit = Unit
+        
+        let createFrequency frs tu mi =
+            {
+                Frequencies = frs
+                TimeUnit = tu
+                MinimalInterval = mi
+            }
 
 
         let create nm start single rate total freqs =
@@ -839,32 +846,36 @@ module DoseRule =
 
                 if s |> String.isNullOrWhiteSpace then sl
                 else 
-                    (if sl |> String.isNullOrWhiteSpace then sl else sl + "\n") + l + "\n" + s + u + "\n"
+                    (if sl |> String.isNullOrWhiteSpace then sl else sl + ", ") + l + " " + s + u + " "
                 
             let rt, _ = rate
             let tt, _ = total
 
-            let fu = freqs.TimeUnit |> ValueUnit.unitToString
+            let fu = 
+                freqs.TimeUnit 
+                |> ValueUnit.unitToString
+                |> String.replace "x/" ""
 
-            n
-            >+ ("Start dosering: ", start |> DoseRange.toString, "")
-            >+ ("Keer dosering: ", single |> DoseRange.toString, "")
-            >+ ("Continue dosering: ", rt |> DoseRange.toString, "")
-            >+ ("Totaal dosering: ",   tt |> DoseRange.toString, "")
+            ""
+            >+ ("oplaad: ", start |> DoseRange.toString, "")
+            >+ ("per keer: ", single |> DoseRange.toString, "")
+            >+ ("", rt |> DoseRange.toString, "")
+            >+ ("",   tt |> DoseRange.toString, "")
             |> (fun s -> 
                 if freqs.Frequencies |> List.isEmpty || 
                    fu |> String.isNullOrWhiteSpace then s
                 else
-                    sprintf "%s\nToegestane frequenties: %s keer per %s" s (freqs.Frequencies |> List.toString) fu
+                    sprintf "%s in %s keer per %s" s (freqs.Frequencies |> List.toString) fu
                     |> (fun s ->
                         match freqs.MinimalInterval with
                         | Some mi ->
-                            s + "\n" + (sprintf "Minimaal interval: %s" (mi |> vuToStr))
+                            s + " " + (sprintf "minimaal interval: %s" (mi |> vuToStr))
                         | None -> s
 
                     )
             )
             |> String.removeTrailingEOL
+            |> (fun s -> n + " " + (s |> String.trim))
 
 
 

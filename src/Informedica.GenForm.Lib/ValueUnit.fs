@@ -13,6 +13,9 @@ module ValueUnit =
     open ValueUnit
 
 
+    let getValue vu = let v, _ = vu |> ValueUnit.get in v
+
+
     let unitToString u =
         u
         |> Units.toString Units.Dutch Units.Short

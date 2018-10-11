@@ -5,8 +5,13 @@
 open System
 
 let pwd = Environment.GetEnvironmentVariable("HOME")
-Environment.CurrentDirectory <- pwd + "/Development/GenForm/" 
-//__SOURCE_DIRECTORY__ + "/../../../"
+Environment.CurrentDirectory <- 
+    if pwd |> String.IsNullOrWhiteSpace then 
+        __SOURCE_DIRECTORY__ + "/../../../"
+
+    else 
+        pwd + "/Development/GenForm/" //__SOURCE_DIRECTORY__ + "/../../../"
+
 
 open Informedica.GenUtils.Lib
 open Informedica.GenUtils.Lib.BCL
@@ -50,6 +55,13 @@ DoseRule.get ()
 // Get all possible dose units
 DoseRule.get()
 |> Array.map (fun dr -> dr.Unit)
+|> Array.distinct
+|> Array.iter (printfn "%s")
+
+
+// Get all possible patient gender
+DoseRule.get()
+|> Array.map (fun dr -> dr.Gender)
 |> Array.distinct
 |> Array.iter (printfn "%s")
 

@@ -68,6 +68,18 @@ module MinMaxTests =
         |> MinMax.setMin (ValueUnit.createFromGStand 1. "milligram" |> Option.get |> MinMax.Inclusive)
         |> MinMax.setMax (ValueUnit.createFromGStand 10. "milligram" |> Option.get |> MinMax.Inclusive)
         |> MinMax.toString
+        
+        
+    let a1, a2 =
+        0.1 |> ValueUnit.ageInMo |> Option.bind (MinMax.Inclusive >> Some) |> Option.get ,
+        0.1 |> ValueUnit.ageInYr |> Option.bind (MinMax.Exclusive >> Some) |> Option.get
+        
+        
+    let ageToString () =
+        MinMax.empty
+        |> MinMax.setMin a1
+        |> MinMax.setMax a2
+        |> MinMax.ageToString
 
 
     let valueComp () =
@@ -189,13 +201,19 @@ module PatientTests =
 
     module Patient = Patient.Optics
 
+    type Patient = Patient.Patient
     
     let toString () =
         Patient.empty
         |> Patient.setInclMinGestAge (28.  |> ValueUnit.ageInWk)
         |> Patient.setExclMaxGestAge (33.  |> ValueUnit.ageInWk)
+        |> Patient.setExclMinAge (1. |> ValueUnit.ageInMo)
+        |> Patient.setInclMaxAge (120. |> ValueUnit.ageInWk)
         |> Patient.setInclMinWeight (0.15  |> ValueUnit.weightInKg)
         |> Patient.setInclMaxWeight (4.00  |> ValueUnit.weightInKg)
+        |> Patient.setInclMinBSA (0.15  |> ValueUnit.bsaInM2)
+        |> Patient.setInclMaxBSA (1.00  |> ValueUnit.bsaInM2)
+        |> (fun p -> p |> (Optic.set Patient.Gender_) Patient.Male)
         |> Patient.toString
 
 
@@ -210,7 +228,7 @@ module GStandTests =
     module RF = Informedica.GenProduct.Lib.RuleFinder 
 
     let tests () =
-        createDoseRules "paracetamol"
+        createDoseRules "trimethoprim/sulfamethoxazol"
         |> Seq.iter (fun dr ->
             dr 
             |> DoseRule.toString

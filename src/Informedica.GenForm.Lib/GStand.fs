@@ -8,6 +8,8 @@ module GStand =
 
     open Aether
     open Aether.Optics
+    open DoseRule
+    open DoseRule.Dosage
 
     module GPP = Informedica.GenProduct.Lib.GenPresProduct
     module ATC = Informedica.GenProduct.Lib.ATCGroup
@@ -143,22 +145,7 @@ module GStand =
 
 
     let getSubstanceDoses (drs : DR.DoseRule seq) =
-        drs 
-        |> Seq.collect (fun dr ->
-            dr.GenericProduct
-            |> Seq.collect (fun gp ->
-                gp.Substances
-                |> Seq.collect (fun s ->
-                    match s.Unit |> ValueUnit.unitFromString Mapping.GStandMap with
-                    | None -> []
-                    | Some u ->
-                      
-                        [ mapDoses s.Name s.Quantity u dr ]
-                )
-            )
-        )
-        |> Seq.groupBy fst
-        |> Seq.map (fun (k, v) -> 
+        Seq.map ((fun (k, v) -> 
             k , 
             v 
             |> Seq.fold (fun acc (_, (ind, fr, norm, abs, normKg, absKg, normM2, absM2)) -> 
@@ -178,9 +165,7 @@ module GStand =
                 let absM2 = [ absM2; absM2_ ] |> MinMax.foldMaximize
 
                 inds, frs, norm, abs, normKg, absKg, normM2, absM2
-            ) ([], [], MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty)
-        )
-        |> Seq.map (fun (k, (inds, frs, norm, abs, normKg, absKg, normM2, absM2)) ->
+            ) ([], [], MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty)) >> ((fun (k, (inds, frs, norm, abs, normKg, absKg, normM2, absM2)) ->
             k ,
             inds ,
             frs ,
@@ -190,9 +175,7 @@ module GStand =
                 (normM2, ValueUnit.Units.BSA.M2)
                 abs 
                 (absKg, ValueUnit.Units.Weight.kiloGram) 
-                (absM2, ValueUnit.Units.BSA.M2)
-        )
-        |> Seq.map (fun ((n, time), inds, frs, dr)  ->
+                (absM2, ValueUnit.Units.BSA.M2)) >> (fun ((n, time), inds, frs, dr)  ->
             let tu = 
                 match frs with
                 | fr::_ -> fr |> ValueUnit.get |> snd
@@ -207,10 +190,31 @@ module GStand =
                     ds 
                     |> (Optic.set Dosage.SingleDosage_ dr) 
                 | _  ->
+                    let frs =
+                        let fr = 
+                            frs 
+                            |> List.map ValueUnit.getValue
+                            |> List.sort
+                        Dosage.createFrequency fr tu None
+                        
                     ds
                     |> (Optic.set Dosage.TotalDosage_ (dr, tu))
+                    |> (Optic.set Dosage.Frequencies_ frs)
+            )))) (drs 
+        |> Seq.collect (fun dr ->
+            dr.GenericProduct
+            |> Seq.collect (fun gp ->
+                gp.Substances
+                |> Seq.collect (fun s ->
+                    match s.Unit |> ValueUnit.unitFromString Mapping.GStandMap with
+                    | None -> []
+                    | Some u ->
+                      
+                        [ mapDoses s.Name s.Quantity u dr ]
+                )
             )
-        ) 
+        )
+        |> Seq.groupBy fst) 
 
 
     let getPatients (drs : DR.DoseRule seq) =
@@ -227,19 +231,26 @@ module GStand =
         let mapWght =
             map (wghtKg >> Patient.Optics.setInclMinWeight) 
                 (wghtKg >> Patient.Optics.setInclMaxWeight) 
+
+
+        let mapGender s =
+            match s with
+            | _ when s = "man" -> Patient.Male
+            | _ when s = "vrouw" -> Patient.Female
+            | _ -> Patient.Undetermined
+            |> (Optic.set Patient.Gender_)
+
         
-        drs
+        Seq.map ((fun (k, v) -> k |> snd, v |> Seq.map snd) >> (fun (pat, drs) ->
+            (pat, drs |> getSubstanceDoses))) (drs
         |> Seq.map (fun dr ->
             (dr.Indication ,
              Patient.empty
              |> mapAge dr.Age
-             |> mapWght dr.Weight) , dr
+             |> mapWght dr.Weight
+             |> mapGender dr.Gender) , dr
         )
-        |> Seq.groupBy fst
-        |> Seq.map (fun (k, v) -> k |> snd, v |> Seq.map snd)
-        |> Seq.map (fun (pat, drs) ->
-            (pat, drs |> getSubstanceDoses)
-        )
+        |> Seq.groupBy fst)
 
 
 
@@ -282,28 +293,15 @@ module GStand =
 
    
     let createDoseRules n =
-        GPP.filter n "" ""
-        |> Seq.collect (fun gpp ->
-            gpp 
-            |> getATCGroups
-            |> Seq.map (fun atc -> 
-                (atc.Generic, atc.ATC5, atc.TherapeuticMainGroup, atc.TherapeuticSubGroup, atc.PharmacologicalGroup, atc.Substance) ,
-                gpp
-            )
-        )
-        |> Seq.groupBy fst
-        |> Seq.sortBy fst
-        |> Seq.map (fun (k, v) ->
+        Seq.map ((fun (k, v) ->
             let gen, atc, tg, tsg, pg, sg = k
         
             DoseRule.create gen atc tg tsg pg sg [] ,
             v
-            |> Seq.map snd
-        )
-        |> Seq.map (fun (dr, gpps) ->
+            |> Seq.map snd) >> ((fun (dr, gpps) ->
             dr ,
             gpps
-            |> Seq.collect (fun gpp ->
+            |> Seq.collect (fun (gpp : GenPresProduct) ->
                 gpp.Route
                 |> Seq.collect (fun r ->
                     RF.createFilter None None None None gpp.Name gpp.Shape r
@@ -338,9 +336,7 @@ module GStand =
                         |> Seq.map (fun (k, v) -> k, v |> Seq.map snd )
                     )
                 )
-            )
-        )
-        |> Seq.map (fun (dr, inds) ->
+            )) >> (fun (dr, inds) ->
             inds
             |> Seq.fold (fun acc ind ->
                 let ind, rts = ind
@@ -375,5 +371,14 @@ module GStand =
                         ) dr
                     ) dr
                 ) dr
-            ) dr
+            ) dr))) (GPP.filter n "" ""
+        |> Seq.collect (fun gpp ->
+            gpp 
+            |> getATCGroups
+            |> Seq.map (fun atc -> 
+                (atc.Generic, atc.ATC5, atc.TherapeuticMainGroup, atc.TherapeuticSubGroup, atc.PharmacologicalGroup, atc.Substance) ,
+                gpp
+            )
         )
+        |> Seq.groupBy fst
+        |> Seq.sortBy fst)

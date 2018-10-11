@@ -190,11 +190,11 @@ module Patient =
             let l, s = sr
             
             if s |> String.isNullOrWhiteSpace then sl
-            else sl + " " + l + s
+            else sl + ", " + l + s
         
         "Patient: "
-        >+ ("Zwangerschapsduur: ", ga |> MinMax.toString)
-        >+ ("Leeftijd: ", age |> MinMax.toString)
+        >+ ("Zwangerschapsduur: ", ga |> MinMax.gestAgeToString)
+        >+ ("Leeftijd: ", age |> MinMax.ageToString)
         >+ ("Gewicht: ", wght |> MinMax.toString)
         >+ ("BSA: ", bsa |> MinMax.toString)
         >+ ("Geslacht: ", gen |> genderToString)

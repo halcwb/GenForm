@@ -4,6 +4,7 @@
 
 module MinMax =
 
+    open MathNet.Numerics
     open Informedica.GenForm.Lib.Utils
 
     open Aether
@@ -11,6 +12,7 @@ module MinMax =
     
 
     module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
+     
 
     type ValueUnit = ValueUnit.ValueUnit
 
@@ -19,7 +21,7 @@ module MinMax =
     let (>?) = ValueUnit.gt
     let (<=?) = ValueUnit.ste
     let (>=?) = ValueUnit.gte
-
+    let (>>=) l r = ValueUnit.convertTo r l
 
     /// Range with min and/or max
     type MinMax =
@@ -42,7 +44,13 @@ module MinMax =
     let exclusive v = v |> Exclusive
     
 
-    let inline applyValue f1 f2 f3 f4 v1 v2 =
+    let inline applyValue1 f1 f2 v1 =
+            match v1 with
+            | Inclusive vu1 -> vu1 |> f1 |> Inclusive
+            | Exclusive vu1 -> vu1 |> f2 |> Exclusive
+    
+
+    let inline applyValue2 f1 f2 f3 f4 v1 v2 =
             match v1, v2 with
             | Inclusive vu1, Inclusive vu2 -> vu1 |> f1 <| vu2
             | Inclusive vu1, Exclusive vu2 -> vu1 |> f2 <| vu2
@@ -50,16 +58,16 @@ module MinMax =
             | Exclusive vu1, Exclusive vu2 -> vu1 |> f4 <| vu2
 
 
-    let valueLT = applyValue (>?) (>=?) (>?) (>?) 
+    let valueLT = applyValue2 (>?) (>=?) (>?) (>?) 
 
 
-    let valueST = applyValue (<?) (<?) (<=?) (<?) 
+    let valueST = applyValue2 (<?) (<?) (<=?) (<?) 
 
 
-    let valueLTE = applyValue (>=?) (>=?) (>=?) (>=?)
+    let valueLTE = applyValue2 (>=?) (>=?) (>=?) (>=?)
 
 
-    let valueSTE = applyValue (<=?) (<=?) (<=?) (<=?) 
+    let valueSTE = applyValue2 (<=?) (<=?) (<=?) (<=?) 
 
 
     let isValid ({ Min = min; Max = max }) =
@@ -67,7 +75,7 @@ module MinMax =
         | None, None -> true
         | Some _, None | None, Some _ -> true
         | Some v1, Some v2 ->
-            applyValue (<=?) (<?) (<?) (<?) v1 v2
+            applyValue2 (<=?) (<?) (<?) (<?) v1 v2
 
 
     let setMin min mm =
@@ -282,16 +290,16 @@ module MinMax =
         let minToString min =
             match min with 
             | Inclusive vu ->
-                vu |> vuToStr |> sprintf ">= %s"
+                vu |> vuToStr |> sprintf "%s"
             | Exclusive vu ->
-                vu |> vuToStr |> sprintf "> %s"
+                vu |> vuToStr |> sprintf "%s"
 
         let maxToString min =
             match min with 
             | Inclusive vu ->
-                vu |> vuToStr |> sprintf "<= %s"
+                vu |> vuToStr |> sprintf "%s"
             | Exclusive vu ->
-                vu |> vuToStr |> sprintf "< %s"
+                vu |> vuToStr |> sprintf "%s"
 
         match min, max with
         | None, None -> ""
@@ -299,6 +307,35 @@ module MinMax =
             sprintf "%s - %s" (min_ |> minToString) (max_ |> maxToString)
         | Some min_, None -> 
             (min_ |> minToString) 
+            |> sprintf "vanaf %s"
         | None, Some max_ -> 
             (max_ |> maxToString)
+            |> sprintf "tot %s"
 
+
+    let ageToString { Min = min; Max = max } =
+        let oneWk = 1N |> ValueUnit.create ValueUnit.Units.Time.week
+        let oneMo = 1N |> ValueUnit.create ValueUnit.Units.Time.month
+        let oneYr = 1N |> ValueUnit.create ValueUnit.Units.Time.year
+
+        let convert = 
+            let c vu =
+                match vu with 
+                | _ when vu <? oneWk -> vu >>= ValueUnit.Units.Time.day
+                | _ when vu <? oneMo -> vu >>= ValueUnit.Units.Time.week
+                | _ when vu <? oneYr -> vu >>= ValueUnit.Units.Time.month
+                | _ -> vu >>= ValueUnit.Units.Time.year
+            Option.bind (applyValue1 c c >> Some)
+            
+        { Min = min |> convert; Max = max |> convert } |> toString
+        
+        
+
+
+    let gestAgeToString { Min = min; Max = max } =
+
+        let convert = 
+            let c vu = vu >>= ValueUnit.Units.Time.week
+            Option.bind (applyValue1 c c >> Some)
+            
+        { Min = min |> convert; Max = max |> convert } |> toString        
