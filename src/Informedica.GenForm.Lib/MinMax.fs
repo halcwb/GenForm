@@ -1,129 +1,304 @@
 ﻿namespace Informedica.GenForm.Lib
 
 
+
 module MinMax =
 
-    open Informedica.GenUtils.Lib
+    open Informedica.GenForm.Lib.Utils
 
-
-    type MinMax<'a> = 
-        | None
-        | Min of 'a
-        | Max of 'a
-        | MinAndMax of ('a * 'a)
-
-
-    let none = None
-
-
-    let createMin = Min
-
-
-    let createMax = Max
-
-
-    let isValid ste min max = ste min max
-
-
-    let createMinAndMaxDef ste def min max = 
-        if isValid ste min max then (min, max) |> MinAndMax
-        else def
-
-
-    let createMinAndMax ste min max = createMinAndMaxDef ste none min max
-
-
-    let setMinCond ste cond min minmax =
-        match minmax with
-        | MinAndMax (m, max) ->
-            if cond min m then createMinAndMaxDef ste minmax min max else minmax
-        | Max max -> createMinAndMaxDef ste minmax min max
-        | None    -> createMin min
-        | Min m   -> if cond min m then createMin min else minmax
-
-
-    let setMaxCond ste cond max minmax =
-        match minmax with
-        | MinAndMax (min, m) ->
-            if cond max m then createMinAndMaxDef ste minmax min max else minmax    
-        | Min min -> createMinAndMaxDef ste minmax min max
-        | None    -> createMax max
-        | Max m   -> if cond max m then createMax max else minmax
-
-
-    let setMin ste min minmax = setMinCond ste (fun _ _ -> true) min minmax
-
-
-    let setMax ste max minmax = setMaxCond ste (fun _ _ -> true) max minmax
-
-
-    let setSmallerMin ste st min minmax = setMinCond ste st min minmax
-
-
-    let setLargerMax ste lt max minmax = setMaxCond ste lt max minmax
-
-
-    let setLargerMin ste lt min minmax = setMinCond ste lt min minmax
-
-
-    let setSmallerMax ste st max minmax = setMaxCond ste st max minmax
+    open Aether
+    open Aether.Operators
     
 
-    let apply fnone fmin fmax fmm minmax =
-        match minmax with
-        | None      -> None |> fnone
-        | Min min   -> min  |> fmin
-        | Max max   -> max  |> fmax
-        | MinAndMax (min, max) ->  (min, max) |> fmm
+    module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
+
+    type ValueUnit = ValueUnit.ValueUnit
+
+
+    let (<?) = ValueUnit.st
+    let (>?) = ValueUnit.gt
+    let (<=?) = ValueUnit.ste
+    let (>=?) = ValueUnit.gte
+
+
+    /// Range with min and/or max
+    type MinMax =
+        {
+            Min : Value option
+            Max : Value option
+        }
+    and Value = Inclusive of ValueUnit | Exclusive of ValueUnit
+
+
+    let create min max = { Min = min; Max = max }
     
 
-    let getMin minmax = 
-        let get (min, _) = min |> Some
-        minmax |> apply Option.none Some Option.none get
+    let empty = create None None
+
+
+    let inclusive v = v |> Inclusive
+
+
+    let exclusive v = v |> Exclusive
     
 
-    let getMax minmax = 
-        let get (_,max) = max |> Some
-        minmax |> apply Option.none Option.none Some get
+    let inline applyValue f1 f2 f3 f4 v1 v2 =
+            match v1, v2 with
+            | Inclusive vu1, Inclusive vu2 -> vu1 |> f1 <| vu2
+            | Inclusive vu1, Exclusive vu2 -> vu1 |> f2 <| vu2
+            | Exclusive vu1, Inclusive vu2 -> vu1 |> f3 <| vu2
+            | Exclusive vu1, Exclusive vu2 -> vu1 |> f4 <| vu2
 
 
-    let getMinAndMax minmax = minmax |> apply Option.none Option.none Option.none Some
+    let valueLT = applyValue (>?) (>=?) (>?) (>?) 
 
 
-    let foldCond ste cond mms =
+    let valueST = applyValue (<?) (<?) (<=?) (<?) 
+
+
+    let valueLTE = applyValue (>=?) (>=?) (>=?) (>=?)
+
+
+    let valueSTE = applyValue (<=?) (<=?) (<=?) (<=?) 
+
+
+    let isValid ({ Min = min; Max = max }) =
+        match min, max with
+        | None, None -> true
+        | Some _, None | None, Some _ -> true
+        | Some v1, Some v2 ->
+            applyValue (<=?) (<?) (<?) (<?) v1 v2
+
+
+    let setMin min mm =
+        let mm_ = { mm with Min = min }
+        if mm_ |> isValid then mm_ else mm
+
+
+    let setMax max mm =
+        let mm_ = { mm with Max = max }
+        if mm_ |> isValid then mm_ else mm
+
+
+    let setMinCond cond min (mm : MinMax) =
+        match mm.Min, mm.Max with
+        | Some m, Some max ->
+            if cond min m |> not then mm
+            else
+                mm
+                |> setMin (Some min)
+                |> setMax (Some max)
+        | None, Some max -> 
+            mm
+            |> setMin (Some min)
+            |> setMax (Some max)
+        | None, None    -> 
+            mm
+            |> setMin (Some min)
+        | Some m, None   -> 
+            if cond min m |> not then mm
+            else 
+                mm
+                |> setMin (Some min)
+
+
+    let setMaxCond cond max (mm : MinMax) =
+        match mm.Min, mm.Max with
+        | Some min, Some m ->
+            if cond max m |> not then mm
+            else
+                mm
+                |> setMin (Some min)
+                |> setMax (Some max)
+        | Some min, None -> 
+            mm
+            |> setMin (Some min)
+            |> setMax (Some max)
+        | None, None  -> 
+            mm
+            |> setMax (Some max)
+        | None, Some m -> 
+            if cond max m |> not then mm
+            else 
+                mm
+                |> setMax (Some max)
+        
+
+    let foldCond cond (mms : MinMax list) =
         let condMax m1 m2 = cond m2 m1
         mms |> List.fold (fun acc mm ->
-            match mm with
-            | None    -> acc
-            | Min min -> setMinCond ste cond min acc
-            | Max max -> setMaxCond ste condMax max acc
-            | MinAndMax (min, max) ->
+            match mm.Min, mm.Max with
+            | None, None         -> acc
+            | Some min, None     -> setMinCond cond min acc
+            | None, Some max     -> setMaxCond condMax max acc
+            | Some min, Some max ->
                 acc
-                |> setMinCond ste cond min
-                |> setMaxCond ste condMax max
-        ) none
+                |> setMinCond cond min
+                |> setMaxCond condMax max
+        ) empty
      
 
-    let foldMinimize ste gt = foldCond ste gt
+    let foldMinimize = foldCond valueLT
      
 
-    let foldMaximize ste st = foldCond ste st
+    let foldMaximize = foldCond valueST
 
 
-    let inRange (gte: 'b -> 'b -> bool) (ste : 'b -> 'b -> bool) n minmax =
-        match minmax with
-        | None    -> true
-        | Min min -> gte n min
-        | Max max -> ste n max
-        | MinAndMax (min, max) -> gte n min && ste n max
+    let inRange v (mm : MinMax) =
+        match mm.Min, mm.Max with
+        | None, None -> true
+        | Some v_, None -> valueLTE v v_
+        | None, Some v_ -> valueSTE v v_
+        | Some v1, Some v2 ->
+            (valueLTE v v1) && (valueSTE v v2)
 
 
-    let toString toStr minmax = 
-        match minmax with
-        | None -> ""
-        | Min min -> "vanaf " + (min |> toStr)
-        | Max max ->
-            "tot " + (max |> toStr)
-        | MinAndMax (min, max) -> (min |> toStr) + " - " + (max |> toStr)
 
+    type Value with
+    
+        static member Inclusive_ =
+            (fun v ->
+                match v with
+                | Inclusive v_ -> v_ |> Some 
+                | Exclusive _  -> None
+            ), 
+            (fun x v ->
+                match v with 
+                | Inclusive _ -> x |> Inclusive
+                | Exclusive _ -> v
+            )
+    
+    
+        static member Exclusive_ =
+            (fun v ->
+                match v with
+                | Inclusive _  -> None
+                | Exclusive v_ -> v_ |> Some
+            ), 
+            (fun x v ->
+                match v with 
+                | Inclusive _ -> v
+                | Exclusive _ -> x |> Exclusive
+            )
+
+    
+    type MinMax with
+    
+        static member Min_ :
+            (MinMax -> Value Option) * (Value -> MinMax -> MinMax) =
+            (fun mm -> mm.Min), 
+            (fun v mm -> mm |> setMin (Some v))
+    
+        static member Max_ :
+            (MinMax -> Value Option) * (Value -> MinMax -> MinMax) =
+            (fun mm -> mm.Max), 
+            (fun v mm -> mm |> setMax (Some v))
+
+
+    
+    module Optics =
+    
+    
+        let getMin = Optic.get MinMax.Min_
+    
+    
+        let setMin = Optic.set MinMax.Min_
+    
+ 
+        let inclMinLens = 
+            (fun mm -> 
+                match mm |> getMin with 
+                | Some min -> 
+                    match min with 
+                    | Inclusive v -> Some v 
+                    | _ -> None 
+                | None -> None),
+            (fun vu mm -> 
+                match vu with
+                | Some vu_ -> mm |> setMin (vu_ |> inclusive)
+                | None -> mm
+            )
+    
+    
+        let exclMinLens = 
+            (fun mm -> 
+                match mm |> getMin with 
+                | Some min -> 
+                    match min with 
+                    | Exclusive v -> Some v 
+                    | _ -> None 
+                | None -> None),
+            (fun vu mm -> 
+                match vu with
+                | Some vu_ -> mm |> setMin (vu_ |> exclusive)
+                | None -> mm
+            )
+    
+    
+        let getMax = Optic.get MinMax.Max_
+    
+    
+        let setMax = Optic.set MinMax.Max_
+    
+    
+        let inclMaxLens = 
+            (fun mm -> 
+                match mm |> getMax with 
+                | Some max -> 
+                    match max with 
+                    | Inclusive v -> Some v 
+                    | _ -> None 
+                | None -> None),
+            (fun vu mm -> 
+                match vu with
+                | Some vu_ -> mm |> setMax (vu_ |> inclusive)
+                | None -> mm
+            )
+    
+    
+        let exclMaxLens = 
+            (fun mm -> 
+                match mm |> getMax with 
+                | Some max -> 
+                    match max with 
+                    | Exclusive v -> Some v 
+                    | _ -> None 
+                | None -> None),
+            (fun vu mm -> 
+                match vu with
+                | Some vu_ -> mm |> setMax (vu_ |> exclusive)
+                | None -> mm
+            )
+        
+
+    let valueToString = function
+        | Inclusive vu -> sprintf "incl %s" (vu |> ValueUnit.toStringPrec 2)
+        | Exclusive vu -> sprintf "excl %s" (vu |> ValueUnit.toStringPrec 2)
+
+
+    let toString { Min = min; Max = max } =
+        let vuToStr = ValueUnit.toStringPrec 2
+
+        let minToString min =
+            match min with 
+            | Inclusive vu ->
+                vu |> vuToStr |> sprintf ">= %s"
+            | Exclusive vu ->
+                vu |> vuToStr |> sprintf "> %s"
+
+        let maxToString min =
+            match min with 
+            | Inclusive vu ->
+                vu |> vuToStr |> sprintf "<= %s"
+            | Exclusive vu ->
+                vu |> vuToStr |> sprintf "< %s"
+
+        match min, max with
+        | None, None -> ""
+        | Some min_, Some max_ -> 
+            sprintf "%s - %s" (min_ |> minToString) (max_ |> maxToString)
+        | Some min_, None -> 
+            (min_ |> minToString) 
+        | None, Some max_ -> 
+            (max_ |> maxToString)
 

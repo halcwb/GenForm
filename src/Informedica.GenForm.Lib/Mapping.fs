@@ -1,5 +1,7 @@
 ﻿namespace Informedica.GenForm.Lib
 
+
+
 module Mapping =
 
     open System
@@ -11,10 +13,13 @@ module Mapping =
     [<Literal>]
     let unitPath = "/formulary/UnitMapping.csv"
 
+
     [<Literal>]
     let freqPath = "/formulary/FrequencyMapping.csv"
 
+
     type Mapping = FormMap | GStandMap | PedMap  | GenFormMap
+
 
     let map path m1 m2 s =
         let i1, i2 =
@@ -42,6 +47,8 @@ module Mapping =
 
 
     let mapUnit = map (Environment.CurrentDirectory + "/" + FilePath.data + unitPath)
+    
 
     let mapFreq = map (Environment.CurrentDirectory + "/" + FilePath.data + freqPath)
+
 

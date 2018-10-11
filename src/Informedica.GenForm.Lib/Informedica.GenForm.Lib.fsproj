@@ -7,13 +7,15 @@
     <None Include="Scripts\Scripts.fsx" />
     <None Include="Scripts\GenForm3.fsx" />
     <Compile Include="Utils\String.fs" />
+    <Compile Include="Utils\List.fs" />
     <Compile Include="Mapping.fs" />
-    <Compile Include="MinMax.fs" />
     <Compile Include="ValueUnit.fs" />
+    <Compile Include="MinMax.fs" />
     <Compile Include="Route.fs" />
     <Compile Include="Product.fs" />
     <Compile Include="Patient.fs" />
     <Compile Include="DoseRule.fs" />
+    <Compile Include="GStand.fs" />
     <Compile Include="Dto.fs" />
   </ItemGroup>
   <ItemGroup>

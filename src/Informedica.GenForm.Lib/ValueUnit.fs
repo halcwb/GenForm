@@ -1,7 +1,10 @@
 ﻿namespace Informedica.GenForm.Lib
 
+
+
 module ValueUnit =
 
+    open Informedica.GenForm.Lib.Utils
 
     open Informedica.GenUtils.Lib
     open Informedica.GenUtils.Lib.BCL
@@ -10,14 +13,16 @@ module ValueUnit =
     open ValueUnit
 
 
-    let unitToString = Units.toString Units.Dutch Units.Short
+    let unitToString u =
+        u
+        |> Units.toString Units.Dutch Units.Short
+        |> String.remBr
 
 
     let unitFromString m u = 
             u
             |> Mapping.mapUnit m Mapping.GenFormMap
             |> Units.fromString
-
 
     let createUnit m v u =
         let s = 
@@ -61,13 +66,31 @@ module ValueUnit =
         |> Mapping.mapUnit Mapping.GenFormMap Mapping.GStandMap
 
 
-    let ageInMo = Option.bind (fun n -> fromFloat n Units.Time.month)
+    let timeMinute = (fun n -> fromFloat n Units.Time.minute)
 
 
-    let weightInKg = Option.bind (fun n -> fromFloat n Units.Weight.kiloGram)
+    let timeHour =  (fun n -> fromFloat n Units.Time.hour)
 
 
-    let bsaInM2 = Option.bind (fun n -> fromFloat n Units.BSA.M2)
+    let timeDay =  (fun n -> fromFloat n Units.Time.day)
+
+
+    let timeWeek =  (fun n -> fromFloat n Units.Time.week)
+
+
+    let ageInWk =  (fun n -> fromFloat n Units.Time.week)
+
+
+    let ageInMo =  (fun n -> fromFloat n Units.Time.month)
+
+
+    let ageInYr =  (fun n -> fromFloat n Units.Time.year)
+
+
+    let weightInKg =  (fun n -> fromFloat n Units.Weight.kiloGram)
+
+
+    let bsaInM2 =  (fun n -> fromFloat n Units.BSA.M2)
 
 
     let gestAgeInDaysAndWeeks gest =
@@ -79,9 +102,6 @@ module ValueUnit =
                 |> Option.bind (fun vu2 -> vu1 + vu2 |> Some)
             )
         )
-
-    let remBr s = 
-        (String.regex "\[[^\]]*]").Replace(s, "")
 
 
     let toStringPrec prec vu = 
@@ -96,6 +116,5 @@ module ValueUnit =
         let us = 
             u 
             |> unitToString
-            |> remBr
 
         vs + " " + us
