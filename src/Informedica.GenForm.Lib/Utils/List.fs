@@ -31,3 +31,30 @@ module List =
 
     let prepend l1 l2 = List.append l2 l1
 
+
+    let headTail xs =
+        match xs with
+        | [] -> (None, None)
+        | h::tail ->
+            match tail |> List.rev with
+            | []   -> (Some h, None)
+            | t::_ -> (Some h, Some t)
+
+
+    let inline isConsecutive zero diff xs =
+        match xs with
+        | []  | [_] -> false
+        | _ ->
+            xs
+            |> List.sort
+            |> List.fold (fun acc x ->
+                let isC, prev = acc
+
+                if prev = zero then (true, x)
+                else
+                    (x - prev = diff && isC, x)
+            
+            ) (true, zero)
+            |> fst
+
+        

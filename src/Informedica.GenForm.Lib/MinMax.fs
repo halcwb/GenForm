@@ -32,16 +32,16 @@ module MinMax =
     and Value = Inclusive of ValueUnit | Exclusive of ValueUnit
 
 
-    let create min max = { Min = min; Max = max }
-    
-
-    let empty = create None None
-
-
     let inclusive v = v |> Inclusive
 
 
     let exclusive v = v |> Exclusive
+
+
+    let create min max = { Min = min; Max = max }
+    
+
+    let empty = create None None
     
 
     let inline applyValue1 f1 f2 v1 =
@@ -285,7 +285,25 @@ module MinMax =
 
 
     let toString { Min = min; Max = max } =
-        let vuToStr = ValueUnit.toStringPrec 2
+        let vuToStr vu = 
+            let milliGram = ValueUnit.Units.Mass.milliGram
+            let gram = ValueUnit.Units.Mass.gram
+            let day = ValueUnit.Units.Time.day
+
+            let per = ValueUnit.per
+            let convertTo = ValueUnit.convertTo
+
+            let milliGramPerDay = milliGram |> per day
+            let gramPerDay = gram |> per day
+
+            vu
+            |> (fun vu ->
+                match vu |> ValueUnit.get with
+                | (v, u) when v >= 1000N && u = milliGram -> vu |> convertTo gram
+                | (v, u) when v >= 1000N && u = milliGramPerDay -> vu |> convertTo gramPerDay
+                | _ -> vu
+            )
+            |> ValueUnit.toStringPrec 2
 
         let minToString min =
             match min with 

@@ -188,11 +188,14 @@ module Patient =
     let toString ({ GestAge = ga; Age = age; Weight = wght; BSA = bsa; Gender = gen }) =
         let (>+) sl sr = 
             let l, s = sr
+
+            let s = s |> String.trim
+            let sl = sl |> String.trim
             
             if s |> String.isNullOrWhiteSpace then sl
-            else sl + ", " + l + s
+            else sl + (if sl = "Patient:" then " " else  ", ") + l + s
         
-        "Patient: "
+        "Patient:"
         >+ ("Zwangerschapsduur: ", ga |> MinMax.gestAgeToString)
         >+ ("Leeftijd: ", age |> MinMax.ageToString)
         >+ ("Gewicht: ", wght |> MinMax.toString)

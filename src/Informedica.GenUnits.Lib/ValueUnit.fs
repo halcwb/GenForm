@@ -794,70 +794,104 @@ module ValueUnit =
         module Count =
 
             let toCount = Count
-            let times  = 1N |> Times |> toCount
+            
+            let nTimes n = n |> Times |> toCount
+
+            let times = 1N |> nTimes
         
 
         module Mass =
 
             let toMass = Mass
 
-            let kiloGram = 1N |> KiloGram |> toMass
-            let gram = 1N |> Gram |> toMass
-            let milliGram = 1N |> MilliGram |> toMass
-            let microGram = 1N |> MicroGram |> toMass
-            let nanoGram = 1N |> NanoGram |> toMass
+            let nKiloGram n = n |> KiloGram |> toMass
+            let nGram n = n |> Gram |> toMass
+            let nMilliGram n = n |> MilliGram |> toMass
+            let nMicroGram n = n |> MicroGram |> toMass
+            let nNanoGram n = n |> NanoGram |> toMass
+
+            let kiloGram = 1N |> nKiloGram
+            let gram = 1N |> nGram
+            let milliGram = 1N |> nMilliGram
+            let microGram = 1N |> nMicroGram
+            let nanoGram = 1N |> nNanoGram
 
     
         module Weight =
 
             let toWeight = Weight
 
-            let kiloGram = 1N |> WeightKiloGram |> toWeight
-            let gram = 1N |> WeightGram |> toWeight
+            let nKiloGram n = n |> WeightKiloGram |> toWeight
+            let nGram n = n |> WeightGram |> toWeight
+
+            let kiloGram = 1N |> nKiloGram
+            let gram = 1N |> nGram
 
 
         module Volume =
 
             let toVolume = Volume
 
-            let liter =  1N |>Liter |> toVolume
-            let deciLiter =  1N |>DeciLiter |> toVolume
-            let milliLiter =  1N |>MilliLiter |> toVolume
-            let microLiter =  1N |>MicroLiter |> toVolume
+            let nLiter n =  n |> Liter |> toVolume
+            let nDeciLiter n =  n |> DeciLiter |> toVolume
+            let nMilliLiter n =  n |> MilliLiter |> toVolume
+            let nMicroLiter n =  n |> MicroLiter |> toVolume
+
+            let liter =  1N |> nLiter
+            let deciLiter =  1N |> nDeciLiter
+            let milliLiter =  1N |> nMilliLiter
+            let microLiter =  1N |> nMicroLiter
 
 
         module Time =
 
             let toTime = Time
 
-            let year = 1N |>Year |> toTime
-            let month = 1N |>Month |> toTime
-            let week = 1N |>Week |> toTime
-            let day = 1N |>Day |> toTime
-            let hour = 1N |>Hour |> toTime
-            let minute = 1N |>Minute |> toTime
-            let second = 1N |>Second |> toTime
+            let nYear n = n |>  Year |>  toTime
+            let nMonth n = n |>  Month |>  toTime
+            let nWeek n = n |>  Week |>  toTime
+            let nDay n = n |>  Day |>  toTime
+            let nHour n = n |>  Hour |>  toTime
+            let nMinute n = n |>  Minute |>  toTime
+            let nSecond n = n |>  Second |>  toTime
+
+            let year = 1N |> nYear
+            let month = 1N |> nMonth
+            let week = 1N |> nWeek
+            let day = 1N |> nDay
+            let hour = 1N |> nHour
+            let minute = 1N |> nMinute
+            let second = 1N |> nSecond
 
 
         module Molar =
 
             let toMolar  = Molar
 
-            let mol = 1N |>  Mol |> toMolar
-            let milliMol = 1N |> MilliMol |> toMolar
+            let nMol n = n |>  Mol |> toMolar
+            let nMilliMol n = n |> MilliMol |> toMolar
+
+            let mol = 1N |> nMol
+            let milliMol = 1N |> nMilliMol
 
 
         module InterNatUnit =
             
             let toInterNatUnit = InterNatUnit
 
-            let MIU = 1N |> MIU |> toInterNatUnit
-            let IU = 1N |> IU |> toInterNatUnit
+            let nMIU n = n |> MIU |> toInterNatUnit
+            let nIU n = n |> IU |> toInterNatUnit
+
+            let MIU = 1N |> nMIU
+            let IU = 1N |> nIU
 
         
         module Height =
             
             let toHeight = Height
+
+            let nMeter n = n |>  HeightMeter |> toHeight
+            let nCentiMeter n = n |> HeightCentiMeter |> toHeight
 
             let meter = 1N |>  HeightMeter |> toHeight
             let centiMeter = 1N |> HeightCentiMeter |> toHeight
@@ -867,7 +901,9 @@ module ValueUnit =
             
             let toBSA = BSA
 
-            let M2 = 1N |> M2 |> toBSA
+            let nM2 n = n |> M2 |> toBSA
+
+            let M2 = 1N |> nM2
 
 
         let units =

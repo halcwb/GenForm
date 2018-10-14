@@ -3,6 +3,7 @@
 module DoseRule =
 
     open System
+    open MathNet.Numerics
 
     open Informedica.GenUtils.Lib
     open Informedica.GenUtils.Lib.BCL
@@ -210,42 +211,42 @@ module DoseRule =
 
         let toString ({ Norm = norm; NormWeight = normwght; NormBSA = normbsa; Abs = abs; AbsWeight = abswght; AbsBSA = absbsa}) =
             let (>+) sl sr = 
+                let sl = sl |> String.trim
+                let sr = sr |> String.trim
+
                 if sl |> String.isNullOrWhiteSpace then sr
                 else
                     let sr = if sr |> String.isNullOrWhiteSpace then sr else " of " + sr
                     sl + sr
-            
-            let nw, nwu = normwght
-            let nb, nbu = normbsa
-            let aw, nau = abswght
-            let ab, abu = absbsa
 
-            let nwu = nwu |> ValueUnit.unitToString
-            let nbu = nbu |> ValueUnit.unitToString
-            let nau = nau |> ValueUnit.unitToString
-            let abu = abu |> ValueUnit.unitToString
+            let norm = if norm = abs then MinMax.empty else norm
             
-            let mmtoStr u mm = 
-                mm 
-                |> MinMax.toString 
-                |> (fun s -> 
-                    if s |> String.isNullOrWhiteSpace || u |> String.isNullOrWhiteSpace then s 
-                    else s + "/" + u
-                )
+            let nw, _ = normwght
+            let nb, _ = normbsa
+            let aw, _ = abswght
+            let ab, _ = absbsa
+
+            let nw = if nw = aw then MinMax.empty else nw
+            let nb = if nb = ab then MinMax.empty else nb
                 
             norm 
             |> MinMax.toString
-            >+ (nw |> mmtoStr nwu)
-            >+ (nb |> mmtoStr nbu)
+            >+ (nw |> MinMax.toString)
+            >+ (nb |> MinMax.toString)
             |> (fun s -> 
+                let s = s |> String.trim
+
                 if s |> String.isNullOrWhiteSpace then s
                 else " " + s
             )
             |> (fun sn ->
+                let sn = sn |> String.trim
+
                 let sa =
                     abs |> MinMax.toString
-                    >+ (aw |> mmtoStr nau)
-                    >+ (ab |> mmtoStr abu)
+                    >+ (aw |> MinMax.toString)
+                    >+ (ab |> MinMax.toString)
+
                 if sa |> String.isNullOrWhiteSpace then sn
                 else 
                     let sn = if sn |> String.isNullOrWhiteSpace then sn else sn + " "
@@ -839,6 +840,14 @@ module DoseRule =
 
         let toString ({ Name = n; StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs }) =
             let vuToStr = ValueUnit.toStringPrec 2
+
+            let freqsToStr xs =
+                if xs |> List.isConsecutive 0N 1N |> not then xs |> List.toString
+                else
+                    match xs |> List.headTail with
+                    | Some h, Some t -> sprintf "%s - %s" (h.ToString ()) (t.ToString ())
+                    | _ -> xs |> List.toString
+
             
             let (>+) sl sr = 
                 let l, s, u = sr
@@ -857,15 +866,16 @@ module DoseRule =
                 |> String.replace "x/" ""
 
             ""
-            >+ ("oplaad: ", start |> DoseRange.toString, "")
-            >+ ("per keer: ", single |> DoseRange.toString, "")
+            >+ ("oplaad:", start |> DoseRange.toString, "")
+            >+ ("per keer:", single |> DoseRange.toString, "")
             >+ ("", rt |> DoseRange.toString, "")
-            >+ ("",   tt |> DoseRange.toString, "")
+            >+ ("", tt |> DoseRange.toString, "")
             |> (fun s -> 
+                let  s = s |> String.trim
                 if freqs.Frequencies |> List.isEmpty || 
                    fu |> String.isNullOrWhiteSpace then s
                 else
-                    sprintf "%s in %s keer per %s" s (freqs.Frequencies |> List.toString) fu
+                    sprintf "%s in %s keer per %s" s (freqs.Frequencies |> freqsToStr) fu
                     |> (fun s ->
                         match freqs.MinimalInterval with
                         | Some mi ->
@@ -875,7 +885,7 @@ module DoseRule =
                     )
             )
             |> String.removeTrailingEOL
-            |> (fun s -> n + " " + (s |> String.trim))
+            |> (fun s -> (n |> String.toLower) + " " + (s |> String.trim))
 
 
 
@@ -1072,12 +1082,12 @@ module DoseRule =
         static member TradeProducts_ :
             (ShapeDosage -> TradeProduct list) * (TradeProduct list -> ShapeDosage -> ShapeDosage) =
             (fun sd -> sd.TradeProducts) ,
-            (fun tps sd -> { sd with TradeProducts = tps })
+            (fun tps sd -> { sd with TradeProducts = tps |> List.distinct })
 
         static member GenericProducts_ :
             (ShapeDosage -> GenericProduct list) * (GenericProduct list -> ShapeDosage -> ShapeDosage) =
             (fun sd -> sd.GenericProducts) ,
-            (fun tps sd -> { sd with GenericProducts = tps })
+            (fun tps sd -> { sd with GenericProducts = tps |> List.distinct })
             
         static member PatientDosages_ :
             (ShapeDosage -> PatientDosage list) * (PatientDosage list -> ShapeDosage -> ShapeDosage) =
@@ -1200,7 +1210,33 @@ module DoseRule =
 
         let shapeDosagePrism n1 n2 n3 =
             shapeDosagesPrism n1 n2 >?> List.pos_ n3 
+
+    
+        let inline private shapeDosageProductsGetter prism inds rt shp dr = 
+            match dr |> indxShape inds rt shp with
+            | Some (ni, nr, ns) ->
+                dr |> Optic.get ((shapeDosagePrism ni nr ns) >?> prism)
+            | None -> None
+    
+    
+        let inline private shapeDosageProductsSetter prism inds rt shp ps dr = 
+            match dr |> indxShape inds rt shp with 
+            | Some (ni, nr, ns) ->
+                dr |> Optic.set ((shapeDosagePrism ni nr ns) >?> prism) ps
+            | None -> dr
         
+
+        let getGenericProducts = shapeDosageProductsGetter ShapeDosage.GenericProducts_
+
+
+        let setGenericProducts = shapeDosageProductsSetter ShapeDosage.GenericProducts_
+        
+
+        let getTradeProducts = shapeDosageProductsGetter ShapeDosage.TradeProducts_
+
+
+        let setTradeProducts = shapeDosageProductsSetter ShapeDosage.TradeProducts_
+
     
         let patientDosagesPrism n1 n2 n3 =
             shapeDosagePrism n1 n2 n3 >?> ShapeDosage.PatientDosages_
@@ -2753,6 +2789,8 @@ Doseringen:
 
     let mdShapeText = """
       Vorm: {shape}
+      Producten: 
+      {products}
 """
 
     let mdPatientText = """
@@ -2784,6 +2822,10 @@ Doseringen:
 
                     rd.ShapeDosages
                     |> List.fold (fun acc sd ->
+                        let shapeStr =
+                            mdShapeText 
+                            |> String.replace "{shape}" (sd.Shape |> String.concat ",")
+                            |> String.replace "{products}" (sd.GenericProducts |> String.concat "\n      ")
 
                         sd.PatientDosages
                         |> List.fold (fun acc pd ->
@@ -2801,7 +2843,7 @@ Doseringen:
 
                             ) (acc + s)
 
-                        ) (acc + (mdShapeText |> String.replace "{shape}" (sd.Shape |> String.concat ",")))
+                        ) (acc + shapeStr)
                                                 
                     ) (acc + (mdRouteText |> String.replace "{route}" rd.Route))
 

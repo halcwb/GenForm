@@ -4,6 +4,8 @@
 
 module ValueUnit =
 
+    open MathNet.Numerics
+
     open Informedica.GenForm.Lib.Utils
 
     open Informedica.GenUtils.Lib
@@ -96,6 +98,19 @@ module ValueUnit =
     let bsaInM2 =  (fun n -> fromFloat n Units.BSA.M2)
 
 
+    let freqUnitPerNday n = 
+        1N 
+        |> Units.Count.nTimes
+        |> per (Units.Time.nDay n)
+
+
+    let freqUnitPerNHour n = 
+        1N 
+        |> Units.Count.nTimes
+        |> per (Units.Time.nHour n)
+
+
+
     let gestAgeInDaysAndWeeks gest =
         gest 
         |> Option.bind (fun (w, d) ->
@@ -121,3 +136,22 @@ module ValueUnit =
             |> unitToString
 
         vs + " " + us
+
+    
+    module Units =
+        
+        module RateUnits =
+
+            let mgKgDay = Units.Mass.milliGram   |> per Units.Weight.kiloGram |> per Units.Time.day
+
+            let mgKgHour = Units.Mass.milliGram  |> per Units.Weight.kiloGram |> per Units.Time.hour
+
+            let mcgKgHour = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.hour
+
+            let mcgKgMin = Units.Mass.microGram  |> per Units.Weight.kiloGram |> per Units.Time.minute
+
+        module TotalUnits =
+            
+            let mgKgDay = Units.Mass.milliGram  |> per Units.Weight.kiloGram |> per Units.Time.day
+            
+            let mcgKgDay = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.day

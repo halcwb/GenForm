@@ -226,14 +226,57 @@ module GStandTests =
     module Dosage = DoseRule.Dosage
     
     module RF = Informedica.GenProduct.Lib.RuleFinder 
+    module DR = Informedica.GenProduct.Lib.DoseRule
+
+    let createDoseRules = GStand.createDoseRules None None None None
+
+
+    let mapFrequency () =
+        DR.get ()
+        |> Seq.map (fun dr -> dr.Freq)
+        |> Seq.distinct
+        |> Seq.sortBy (fun fr -> fr.Time, fr.Frequency)
+        |> Seq.map (fun fr -> fr, fr |> GStand.mapFreq)
+        |> Seq.iter (fun (fr, vu) ->
+            printfn "%A %s = %s" fr.Frequency fr.Time (vu |> ValueUnit.toStringPrec 0)
+        )
 
     let tests () =
-        createDoseRules "trimethoprim/sulfamethoxazol"
+        createDoseRules "trimethoprim/sulfamethoxazol" "" ""
+        |> Seq.iter (fun dr -> 
+            dr 
+            |> DoseRule.toString
+            |> printfn "%s\n"
+        )
+
+        createDoseRules "paracetamol" "" ""
         |> Seq.iter (fun dr ->
             dr 
             |> DoseRule.toString
             |> printfn "%s\n"
         )
+         
+        createDoseRules "gentamicine" "" "iv"
+        |> Seq.iter (fun dr ->
+            dr 
+            |> DoseRule.toString
+            |> printfn "%s\n"
+        )
+
+        createDoseRules "fentanyl" "" "iv"
+        |> Seq.iter (fun dr ->
+            dr 
+            |> DoseRule.toString
+            |> printfn "%s\n"
+        )
+
+        createDoseRules "dopamine" "" "iv"
+        |> Seq.iter (fun dr ->
+            dr 
+            |> DoseRule.toString
+            |> printfn "%s\n"
+        )
+
 
 
         RF.createFilter None None None None "paracetamol" "" ""
@@ -248,7 +291,7 @@ module GStandTests =
         RF.createFilter None None None None "gentamicine" "" ""
         |> RF.find
         |> getPatients
-        |> Seq.iter (fun (pat, sds) -> 
+        |> Seq.iter (fun (pat, sds, _) -> 
             printfn "%s" (pat |> Patient.toString)
             sds
             |> Seq.iter (fun (inds, sd) -> 
@@ -256,3 +299,4 @@ module GStandTests =
             printfn "%s" (sd |> Dosage.toString)
             )
         )
+
