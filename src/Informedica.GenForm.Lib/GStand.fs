@@ -323,16 +323,29 @@ module GStand =
         )
         |> Seq.groupBy fst
 
+    
+    let getTradeNames (gpp : GenPresProduct) =
+        gpp.GenericProducts
+        |> Seq.collect (fun gp -> gp.PrescriptionProducts)
+        |> Seq.collect (fun pp -> pp.TradeProducts)
+        |> Seq.map (fun tp -> 
+            match tp.Name |> String.split " " with
+            | h::_ -> h |> String.trim
+            | _ -> ""
+        )
+        |> Seq.filter (fun n -> n |> String.isNullOrWhiteSpace |> not)
+        |> Seq.toList
 
    
     let createDoseRules age wght bsa gpk gen shp rte =
         Seq.map ((fun (k, v) ->
             let gen, atc, tg, tsg, pg, sg = k
-        
-            DoseRule.create gen atc tg tsg pg sg [] ,
+
+            DoseRule.create gen [] atc tg tsg pg sg [] ,
             v
             |> Seq.map snd) >> ((fun (dr, gpps) ->
-            dr ,
+            dr
+            |> DoseRule.Optics.setSynonyms (gpps |> Seq.collect getTradeNames |> Seq.toList) ,
             gpps
             |> Seq.collect (fun (gpp : GenPresProduct) ->
                 gpp.Route

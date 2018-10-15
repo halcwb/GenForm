@@ -899,6 +899,8 @@ module DoseRule =
         {   
             // Generic the doserule applies to
             Generic : string
+            // List of synonyms for the generic
+            Synonyms : string list
             // The ATC code
             ATC : string
             // ATCTherapyGroup the doserule applies to
@@ -949,10 +951,17 @@ module DoseRule =
     and TradeProduct = string
     and GenericProduct = string
 
+    
+    let apply f (dr : DoseRule) = f dr
 
-    let create gen atc thg sub ggp gsg idl =
+
+    let get = apply id
+
+
+    let create gen syn atc thg sub ggp gsg idl =
         {   
             Generic = gen
+            Synonyms = syn
             ATC = atc
             ATCTherapyGroup = thg
             ATCTherapySubGroup = sub
@@ -1128,6 +1137,12 @@ module DoseRule =
             (fun dr -> dr.Generic),
             (fun s dr -> { dr with Generic = s })
 
+        static member Synonyms_ :
+            (DoseRule -> string list) * (string list -> DoseRule -> DoseRule) =
+            (fun dr -> dr.Synonyms) ,
+            (fun sns dr -> { dr with Synonyms = sns |> List.distinct })
+        
+
         static member IndicationDosages_ :
             (DoseRule -> IndicationDosage list) * (IndicationDosage list -> DoseRule -> DoseRule) =
             (fun dr -> dr.IndicationsDosages) ,
@@ -1139,6 +1154,18 @@ module DoseRule =
         module Patient = Patient.Optics
         module Dosage = Dosage.Optics
     
+
+        let getGeneric = Optic.get DoseRule.Generic_
+
+
+        let setGeneric = Optic.set DoseRule.Generic_
+
+
+        let getSynonyms = Optic.get DoseRule.Synonyms_
+
+
+        let setSynonyms = Optic.set DoseRule.Synonyms_
+
     
         let indDosDosagesLens n =
             DoseRule.IndicationDosages_ >-> List.pos_ n >?> IndicationDosage.RouteDosages_
@@ -2760,10 +2787,10 @@ module DoseRule =
  
         let (|>>>) (x1, x2) f = f x2 x1, x2 
 
-
  
     let mdText = """
 Stofnaam: {generic}
+{synonym}
 
 ATC code: {atc}
 
@@ -2805,6 +2832,7 @@ Doseringen:
     let toString (dr : DoseRule) =
         mdText
         |> String.replace "{generic}" dr.Generic
+        |> String.replace "{synonym}" (dr.Synonyms |> String.concat ",")
         |> String.replace "{atc}" dr.ATC
         |> String.replace "{thergroup}" dr.ATCTherapyGroup
         |> String.replace "{thersub}" dr.ATCTherapySubGroup
