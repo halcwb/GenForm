@@ -662,11 +662,14 @@ module ValueUnit =
 
 
     let convertTo u vu =
-        vu
-        |> toBase
-        |> create u
-        |> toUnit
-        |> create u
+        let _, u_ = vu |> get
+        if u = u_ then vu
+        else 
+            vu
+            |> toBase
+            |> create u
+            |> toUnit
+            |> create u
 
 
     

@@ -141,7 +141,7 @@ module ValueUnit =
 
 
     let isTimeUnit u =
-        (u |> ValueUnit.Group.unitToGroup) <> ValueUnit.Group.TimeGroup
+        (u |> ValueUnit.Group.unitToGroup) = ValueUnit.Group.TimeGroup
         
 
     module Units =

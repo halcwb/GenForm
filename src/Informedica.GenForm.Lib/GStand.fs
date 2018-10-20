@@ -254,7 +254,10 @@ module GStand =
             |> (Optic.set  Dosage.Name_ n)  
             |> (fun ds ->
                 match tu with
-                | _ when tu = ValueUnit.NoUnit || (tu |> ValueUnit.isTimeUnit |> not) -> 
+                | _ when tu = ValueUnit.NoUnit || (tu |> ValueUnit.isCountUnit) -> 
+                    printfn "mapping %s to single unit with timeunit %s" 
+                        (dr |> DoseRange.toString)
+                        (tu |> ValueUnit.unitToString)
                     ds 
                     |> (Optic.set Dosage.SingleDosage_ dr) 
 

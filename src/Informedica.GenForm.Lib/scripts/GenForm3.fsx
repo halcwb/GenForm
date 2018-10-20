@@ -343,6 +343,35 @@ module GStandTests =
         |> Seq.distinct
         |> Seq.iter (printfn "%A")
 
+        DR.get true
+        |> Seq.filter (fun dr ->
+            dr.GenericProduct 
+            |> Seq.map (fun gp -> gp.Name)
+            |> Seq.exists (String.startsWithCapsInsens "fentanyl") &&
+            dr.Freq.Time |> String.startsWithCapsInsens "eenmalig"
+        )
+        //|> Seq.collect (fun dr -> 
+        //    dr.GenericProduct
+        //    |> Seq.map (fun gp -> gp.Name, dr.Routes)
+        //)
+        |> Seq.map (DR.toString ",")
+        |> Seq.distinct
+        |> Seq.iter (printfn "%A")
+
+        DR.get true
+        |> Seq.filter (fun dr ->
+            dr.GenericProduct 
+            |> Seq.map (fun gp -> gp.Name)
+            |> Seq.exists (String.startsWithCapsInsens "fentanyl") 
+        )
+        //|> Seq.collect (fun dr -> 
+        //    dr.GenericProduct
+        //    |> Seq.map (fun gp -> gp.Name, dr.Routes)
+        //)
+        |> Seq.map (fun dr -> dr.Freq.Time)
+        |> Seq.distinct
+        |> Seq.iter (printfn "%A")
+
 
         GPP.get true
         |> Seq.filter (fun gpp -> gpp.Name |> String.equalsCapInsens "salbutamol")
@@ -386,3 +415,10 @@ module GStandTests =
         )
         |> Seq.sort
         |> Seq.iter (printfn "|%s|")
+    
+    //open MathNet.Numerics
+
+    //module VU = Informedica.GenUnits.Lib.ValueUnit
+
+    //1N |> VU.create VU.Units.Time.month |> VU.convertTo VU.Units.Time.month   
+    
