@@ -222,17 +222,19 @@ module PatientTests =
 module GStandTests =
 
     open GStand
+    open Informedica.GenUtils.Lib.BCL
 
     module Dosage = DoseRule.Dosage
     
     module RF = Informedica.GenProduct.Lib.RuleFinder 
     module DR = Informedica.GenProduct.Lib.DoseRule
+    module GPP = Informedica.GenProduct.Lib.GenPresProduct
 
-    let createDoseRules = GStand.createDoseRules None None None None
+    let createDoseRules = GStand.createDoseRules true None None None None
 
 
     let mapFrequency () =
-        DR.get ()
+        DR.get true
         |> Seq.map (fun dr -> dr.Freq)
         |> Seq.distinct
         |> Seq.sortBy (fun fr -> fr.Time, fr.Frequency)
@@ -256,31 +258,37 @@ module GStandTests =
             |> printfn "%s\n"
         )
          
-        createDoseRules "gentamicine" "" "iv"
+        createDoseRules "gentamicine" "" "intraveneus"
         |> Seq.iter (fun dr ->
             dr 
             |> DoseRule.toString
             |> printfn "%s\n"
         )
 
-        createDoseRules "fentanyl" "" "iv"
+        createDoseRules "fentanyl" "" ""
         |> Seq.iter (fun dr ->
             dr 
             |> DoseRule.toString
             |> printfn "%s\n"
         )
 
-        createDoseRules "dopamine" "" "iv"
+        createDoseRules "dopamine" "" "intraveneus"
         |> Seq.iter (fun dr ->
             dr 
             |> DoseRule.toString
             |> printfn "%s\n"
         )
 
+        createDoseRules "salbutamol" "" "intraveneus"
+        |> Seq.iter (fun dr ->
+            dr 
+            |> DoseRule.toString
+            |> printfn "%s\n"
+        )
 
 
         RF.createFilter None None None None "paracetamol" "" ""
-        |> RF.find
+        |> RF.find true
         |> getSubstanceDoses
         |> Seq.iter (fun (inds, sd) -> 
             printfn "Indication %s" (inds |> String.concat ", ")
@@ -289,7 +297,7 @@ module GStandTests =
  
 
         RF.createFilter None None None None "gentamicine" "" ""
-        |> RF.find
+        |> RF.find true
         |> getPatients
         |> Seq.iter (fun (pat, sds, _) -> 
             printfn "%s" (pat |> Patient.toString)
@@ -299,5 +307,82 @@ module GStandTests =
             printfn "%s" (sd |> Dosage.toString)
             )
         )
+ 
 
 
+        GStand.createDoseRules true (Some 2.) (Some 4.) None None "paracetamol" "" "rectaal"
+        |> Seq.iter (fun dr ->
+            dr 
+            |> DoseRule.toString
+            |> printfn "%s\n"
+        )
+
+        DR.get true
+        |> Seq.filter (fun dr -> 
+            dr.Freq.Frequency = 1. && 
+            dr.Freq.Time = "per uur" &&
+            dr.Routes = [|"intraveneus"|]
+        )
+        |> Seq.collect (fun dr -> dr.GenericProduct |> Seq.map (fun gp -> gp.Name))
+        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.iter (printfn "%s")
+//        |> Seq.length
+
+        DR.get true
+        |> Seq.filter (fun dr ->
+            dr.GenericProduct 
+            |> Seq.map (fun gp -> gp.Name)
+            |> Seq.exists (String.startsWithCapsInsens "salbutamol")
+        )
+        //|> Seq.collect (fun dr -> 
+        //    dr.GenericProduct
+        //    |> Seq.map (fun gp -> gp.Name, dr.Routes)
+        //)
+        |> Seq.map (DR.toString ",")
+        |> Seq.distinct
+        |> Seq.iter (printfn "%A")
+
+
+        GPP.get true
+        |> Seq.filter (fun gpp -> gpp.Name |> String.equalsCapInsens "salbutamol")
+        |> Seq.iter (fun gpp -> 
+            gpp 
+            |> Informedica.GenProduct.Lib.GenPresProduct.toString
+            |> (printfn "%s")
+        )
+
+        DR.get true
+        |> Seq.collect (fun r -> r.Routes)
+        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.iter (printfn "%s")
+
+        GPP.get true
+        |> Seq.filter (fun gpp -> 
+            gpp.Route |> Seq.exists (fun r -> r |> String.equalsCapInsens "parenteraal")
+        )
+        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.iter (GPP.toString >> printfn "%s")
+
+        printfn "DoseRule Routes"
+        DR.routes ()
+        |> Seq.filter (fun r ->
+            
+            GPP.getRoutes ()
+            |> Seq.exists (fun r' -> r = r') 
+            |> not
+        )
+        |> Seq.sort
+        |> Seq.iter (printfn "|%s|")
+        printfn ""        
+        printfn "GenPresProduct Routes"
+        GPP.getRoutes ()
+        |> Seq.filter (fun r ->
+            DR.routes ()
+            |> Seq.exists (fun r' -> r = r')
+            |> not
+        )
+        |> Seq.sort
+        |> Seq.iter (printfn "|%s|")

@@ -78,23 +78,23 @@ module GenericProduct =
             )
             |> Array.distinct
             |> Array.map (fun tdw ->
-                Names.getThes tdw Names.Route Names.TwentyFive
+                Names.getThes tdw Names.Route Names.Fifty
             )
             |> Array.filter String.notEmpty
 
         if rt |> Array.isEmpty |> not then rt
         else 
-            [| Names.getThes p.GPKTWG Names.Route Names.TwentyFive |]
+            [| Names.getThes p.GPKTWG Names.Route Names.Fifty |]
 
                         
     let private _get gpks = 
         Zindex.BST711T.records ()
         |> Array.filter (fun gp -> 
             gp.MUTKOD <> 1 &&
-            gp.GPKTVR <> 980 &&
+            gp.GPKTVR <> 980 && // filter shape <> "NIET VAN TOEPASSING"
             (gpks |> List.isEmpty ||
              gpks
-             |> List.exists ((=) gp.GPKODE))) // filter shape <> "NIET VAN TOEPASSING"
+             |> List.exists ((=) gp.GPKODE)))
         |> Array.map (fun gp -> 
             let nm = Names.getName gp.GPNMNR Names.Full
             let lb = Names.getName gp.GPNMNR Names.Label

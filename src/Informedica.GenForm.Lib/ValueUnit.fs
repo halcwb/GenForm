@@ -110,6 +110,8 @@ module ValueUnit =
         |> per (Units.Time.nHour n)
 
 
+    let freqPerOneHour = freqUnitPerNHour 1N
+
 
     let gestAgeInDaysAndWeeks gest =
         gest 
@@ -137,21 +139,27 @@ module ValueUnit =
 
         vs + " " + us
 
-    
-    module Units =
+
+    let isTimeUnit u =
+        (u |> ValueUnit.Group.unitToGroup) <> ValueUnit.Group.TimeGroup
         
-        module RateUnits =
 
-            let mgKgDay = Units.Mass.milliGram   |> per Units.Weight.kiloGram |> per Units.Time.day
+    module Units =
 
-            let mgKgHour = Units.Mass.milliGram  |> per Units.Weight.kiloGram |> per Units.Time.hour
+        let perOneHour = freqPerOneHour
 
-            let mcgKgHour = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.hour
+        let perFourHour = freqUnitPerNHour 4N
 
-            let mcgKgMin = Units.Mass.microGram  |> per Units.Weight.kiloGram |> per Units.Time.minute
+        let perOneDay = freqUnitPerNday 1N
+        
+        let mgKgDay = Units.Mass.milliGram   |> per Units.Weight.kiloGram |> per Units.Time.day
 
-        module TotalUnits =
+        let mgKgHour = Units.Mass.milliGram  |> per Units.Weight.kiloGram |> per Units.Time.hour
+
+        let mgKg4Hour = Units.Mass.milliGram |> per Units.Weight.kiloGram |> per (Units.Time.nHour 4N)
+
+        let mcgKgHour = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.hour
+
+        let mcgKgMin = Units.Mass.microGram  |> per Units.Weight.kiloGram |> per Units.Time.minute
             
-            let mgKgDay = Units.Mass.milliGram  |> per Units.Weight.kiloGram |> per Units.Time.day
-            
-            let mcgKgDay = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.day
+        let mcgKgDay = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.day

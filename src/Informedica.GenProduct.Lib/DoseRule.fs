@@ -274,8 +274,8 @@ module DoseRule =
         }
 
 
-    let _getGenericProducts () =
-        GenPresProduct.getAssortment()
+    let _getGenericProducts all =
+        GenPresProduct.get all
         |> Array.collect (fun gpp -> 
             gpp.GenericProducts
             |> Array.map (fun gp -> gp.Id)
@@ -306,7 +306,7 @@ module DoseRule =
             }
         )
 
-    let getGenericProducts : unit -> GenericProduct[] = 
+    let getGenericProducts : bool -> GenericProduct[] = 
         Memoization.memoize _getGenericProducts
 
 
@@ -395,7 +395,7 @@ module DoseRule =
         |> createFrequency cat.GPDFAA
 
 
-    let parse gpks =
+    let parse all gpks =
 
         query {
             // get all dose records
@@ -463,7 +463,7 @@ module DoseRule =
         |> Array.map ((fun (bas, r) ->
             let (gpk, _, _) = bas
             let gpks = 
-                getGenericProducts ()
+                getGenericProducts all
                 |> Array.filter (fun gp -> 
                         gp.Id = gpk
                     )
@@ -508,19 +508,19 @@ module DoseRule =
         ))
 
 
-    let _get () =
+    let _get all =
         if FilePath.ruleCache |> File.exists then
             FilePath.ruleCache
             |> Json.getCache<DoseRule[]>
         else 
             printfn "No cache creating DoseRule"
-            let rules = GenPresProduct.getGPKS () |> parse
+            let rules = GenPresProduct.getGPKS all |> parse all
             rules |> Json.cache FilePath.ruleCache 
             rules
 
-    let get : unit -> DoseRule [] = Memoization.memoize _get
+    let get : bool -> DoseRule [] = Memoization.memoize _get
 
-    let load () = get () |> ignore
+    let load all = get all |> ignore
 
     let toString2 (dr : DoseRule) =
         let addString lbl s = 

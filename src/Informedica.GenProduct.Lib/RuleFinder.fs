@@ -184,7 +184,7 @@ module RuleFinder =
 
     let createGPKRouteFilter gpk rte = createFilter None None None gpk "" "" rte
 
-    let find { Patient = pat; Product = prod } =
+    let find all { Patient = pat; Product = prod } =
         let r = 
             match prod with
             | GPKRoute (_, route)   -> route
@@ -194,13 +194,13 @@ module RuleFinder =
         match prod with
         | GPKRoute (gpk, _) -> [| gpk |]
         | GenericShapeRoute gsr ->
-            GenPresProduct.filter gsr.Generic gsr.Shape gsr.Route
+            GenPresProduct.filter all gsr.Generic gsr.Shape gsr.Route
             |> Array.collect (fun gpp -> 
                 gpp.GenericProducts 
                 |> Array.map (fun gp -> gp.Id)
             )
         |> Array.collect (fun gpk ->
-            DoseRule.get()
+            DoseRule.get all
             |> Array.filter (fun dr -> 
                 (dr.CareGroup = DoseRule.Constants.intensive || dr.CareGroup = DoseRule.Constants.all)
                 && dr.GenericProduct |> Array.exists (fun gp -> gp.Id = gpk)

@@ -199,7 +199,7 @@ module Dto =
 
     let frequencyMapping = mapping (Environment.CurrentDirectory + "/" + FilePath.data + "/formulary/FrequencyMapping.csv")
 
-    let toDto (dto : Dto) (gpp : GenPresProduct.GenPresProduct) (rs : string []) (ds : RuleFinder.FreqDose []) =
+    let toDto all (dto : Dto) (gpp : GenPresProduct.GenPresProduct) (rs : string []) (ds : RuleFinder.FreqDose []) =
 
         let doses = 
             ds
@@ -443,7 +443,7 @@ module Dto =
 
             let groups = 
                 atc 
-                |> ATCGroup.findByATC5 
+                |> ATCGroup.findByATC5 all
             
 
             { dto' with
@@ -490,7 +490,7 @@ module Dto =
             }
         )
 
-    let findRules (dto : Dto) =
+    let findRules all (dto : Dto) =
         let age = 
             let dt = DateTime(dto.BirthYear, dto.BirthMonth, dto.BirthDay)
             ((DateTime.Now - dt).Days |> float) / 30.
@@ -508,7 +508,7 @@ module Dto =
         let gpk = if dto.GPK = "" then None else dto.GPK |> Int32.parse |> Some
         
         RuleFinder.createFilter age wght bsa gpk "" "" dto.Route
-        |> RuleFinder.find
+        |> RuleFinder.find all
         |> RuleFinder.convertToResult
         |> (fun rs -> 
             match rs with
@@ -519,13 +519,13 @@ module Dto =
                     d.Freq.Time
                 )
                 |> Array.map (fun (_, ds) ->
-                    toDto dto r.Product r.DoseRules ds
+                    toDto all dto r.Product r.DoseRules ds
                 )
         )
     
 
     let loadGenForm () =
         Substance.load ()
-        GenPresProduct.load ()
-        DoseRule.load ()
-        ATCGroup.load ()
+        GenPresProduct.load false
+        DoseRule.load false
+        ATCGroup.load false

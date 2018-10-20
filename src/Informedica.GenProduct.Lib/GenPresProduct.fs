@@ -100,12 +100,17 @@ module GenPresProduct =
         if FilePath.productCache |> File.exists then
             FilePath.productCache
             |> Json.getCache 
-            |> Array.filter (fun gpp -> 
-                gpp.GenericProducts
-                |> Array.exists (fun gp -> 
-                    prs 
-                    |> Array.exists (fun pr -> pr.GPK |> Option.get = gp.Id)
-                )
+            |> (fun gpps ->
+                if prs |> Array.isEmpty then gpps
+                else
+                    gpps
+                    |> Array.filter (fun gpp -> 
+                        gpp.GenericProducts
+                        |> Array.exists (fun gp -> 
+                            prs 
+                            |> Array.exists (fun pr -> pr.GPK |> Option.get = gp.Id)
+                        )
+                    )
             )
         else
             printfn "No cache creating GenPresProduct"
@@ -114,17 +119,24 @@ module GenPresProduct =
             gsps
 
 
-    let private get = Memoization.memoize _get
+    let private memGet = Memoization.memoize _get
 
 
-    let getAssortment () = 
+    let private getAssortment () = 
         ProductRange.data ()
         |> Array.filter (fun pr -> pr.GPK |> Option.isSome)
-        |> get
+        |> memGet
+
+    
+    let private getAll () =
+        Array.empty |> memGet
 
 
-    let getGPKS () =
-        getAssortment ()
+    let get all = if all then getAll () else getAssortment ()
+
+
+    let getGPKS all =
+        get all
         |> Array.collect (fun gpp ->
             gpp.GenericProducts
             |> Array.map (fun gp -> gp.Id)
@@ -136,8 +148,8 @@ module GenPresProduct =
         gpp.Name + " " + gpp.Shape + " " + (gpp.Route |> String.concat "/")
 
 
-    let filter n s r =
-        getAssortment ()
+    let filter all n s r =
+        if all then getAll () else getAssortment ()
         |> Array.filter (fun gpp ->
             gpp.Name  |> String.equalsCapInsens n && 
             (s = "" || gpp.Shape |> String.equalsCapInsens s) && 
@@ -153,7 +165,9 @@ module GenPresProduct =
         )
        
 
-    let load () = getAssortment () |> ignore
+    let load all = 
+        if all then getAll () else getAssortment () 
+        |> ignore
 
             
     let getRoutes =
