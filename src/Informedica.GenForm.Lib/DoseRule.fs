@@ -278,6 +278,8 @@ module DoseRule =
                 TotalDosage : DoseRange * TimeUnit
                 /// Allowed frequencies
                 Frequencies : Frequency
+                /// List of original doserules 
+                Rules : Rule list
             }
         and Frequency = 
             {
@@ -288,6 +290,7 @@ module DoseRule =
         and Frequencies = ValueUnit.Value list
         and TimeUnit = Unit
         and RateUnit = Unit
+        and Rule = GStandRule of string | PedFormRule of string
         
         let createFrequency frs tu mi =
             {
@@ -297,7 +300,7 @@ module DoseRule =
             }
 
 
-        let create nm start single rate total freqs =
+        let create nm start single rate total freqs rls =
             {
                 Name = nm
                 StartDosage = start
@@ -305,12 +308,21 @@ module DoseRule =
                 RateDosage = rate
                 TotalDosage = total
                 Frequencies = freqs
+                Rules = rls
             }
 
         let emptyFrequencies = { Frequencies = []; TimeUnit = ValueUnit.NoUnit; MinimalInterval = None }
 
 
-        let empty = create "" DoseRange.empty DoseRange.empty (DoseRange.empty, ValueUnit.NoUnit) (DoseRange.empty, ValueUnit.NoUnit) emptyFrequencies
+        let empty = 
+            create 
+                "" 
+                DoseRange.empty 
+                DoseRange.empty 
+                (DoseRange.empty, ValueUnit.NoUnit) 
+                (DoseRange.empty, ValueUnit.NoUnit) 
+                emptyFrequencies
+                []
 
 
         type Frequency with
@@ -362,6 +374,11 @@ module DoseRule =
                 (Dosage -> Frequency) * (Frequency -> Dosage -> Dosage) =
                 (fun d -> d.Frequencies) ,
                 (fun frqs d -> { d with Frequencies = frqs })        
+
+            static member Rules_ :
+                (Dosage -> Rule list) * (Rule list -> Dosage -> Dosage) =
+                (fun d -> d.Rules) ,
+                (fun rs d -> { d with Rules = rs })
 
         
         module Optics =
@@ -838,7 +855,7 @@ module DoseRule =
 
 
 
-        let toString ({ Name = n; StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs }) =
+        let toString rules ({ Name = n; StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs; Rules = rs }) =
             let vuToStr = ValueUnit.toStringPrec 2
 
             let freqsToStr xs =
@@ -886,7 +903,14 @@ module DoseRule =
             )
             |> String.removeTrailingEOL
             |> (fun s -> (n |> String.toLower) + " " + (s |> String.trim))
-
+            |> (fun s ->
+                if not rules then s
+                else
+                    s + "\n" + 
+                    (rs
+                     |> List.map (fun r -> match r with | GStandRule r | PedFormRule r -> r)
+                     |> String.concat "\n")
+            )
 
 
     type Dosage = Dosage.Dosage
@@ -2829,7 +2853,7 @@ Doseringen:
 """
 
 
-    let toString (dr : DoseRule) =
+    let toString printRules (dr : DoseRule) =
         mdText
         |> String.replace "{generic}" dr.Generic
         |> String.replace "{synonym}" (dr.Synonyms |> String.concat ",")
@@ -2862,12 +2886,12 @@ Doseringen:
                                 (mdPatientText
                                  |> String.replace "{patient}" (pd.Patient |> Patient.toString)) +
                                 ("{dosage}" 
-                                 |> String.replace "{dosage}" (pd.ShapeDosage |> Dosage.toString))
+                                 |> String.replace "{dosage}" (pd.ShapeDosage |> Dosage.toString printRules))
                             
                             pd.SubstanceDosages
                             |> List.fold (fun acc sd ->
 
-                                acc + (mdDosageText |> String.replace "{dosage}" (sd |> Dosage.toString))
+                                acc + (mdDosageText |> String.replace "{dosage}" (sd |> Dosage.toString printRules))
 
                             ) (acc + s)
 

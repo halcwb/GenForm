@@ -193,7 +193,7 @@ module DosageTests =
         |> setAbsMaxStartDose (ValueUnit.createFromGStand 1. "gram")
         |> setNormMinSingleDose (ValueUnit.createFromGStand 10. "milligram")
         |> setAbsMaxSingleDose (ValueUnit.createFromGStand 1. "gram")
-        |> Dosage.toString 
+        |> Dosage.toString true
 
 
 
@@ -230,7 +230,11 @@ module GStandTests =
     module DR = Informedica.GenProduct.Lib.DoseRule
     module GPP = Informedica.GenProduct.Lib.GenPresProduct
 
+
     let createDoseRules = GStand.createDoseRules true None None None None
+
+
+    let toStr = DoseRule.toString true
 
 
     let mapFrequency () =
@@ -247,42 +251,42 @@ module GStandTests =
         createDoseRules "trimethoprim/sulfamethoxazol" "" ""
         |> Seq.iter (fun dr -> 
             dr 
-            |> DoseRule.toString
+            |> toStr
             |> printfn "%s\n"
         )
 
         createDoseRules "paracetamol" "" ""
         |> Seq.iter (fun dr ->
             dr 
-            |> DoseRule.toString
+            |> toStr
             |> printfn "%s\n"
         )
          
         createDoseRules "gentamicine" "" "intraveneus"
         |> Seq.iter (fun dr ->
             dr 
-            |> DoseRule.toString
+            |> toStr
             |> printfn "%s\n"
         )
 
         createDoseRules "fentanyl" "" ""
         |> Seq.iter (fun dr ->
             dr 
-            |> DoseRule.toString
+            |> toStr
             |> printfn "%s\n"
         )
 
         createDoseRules "dopamine" "" "intraveneus"
         |> Seq.iter (fun dr ->
             dr 
-            |> DoseRule.toString
+            |> toStr
             |> printfn "%s\n"
         )
 
         createDoseRules "salbutamol" "" "intraveneus"
         |> Seq.iter (fun dr ->
             dr 
-            |> DoseRule.toString
+            |> toStr
             |> printfn "%s\n"
         )
 
@@ -292,7 +296,7 @@ module GStandTests =
         |> getSubstanceDoses
         |> Seq.iter (fun (inds, sd) -> 
             printfn "Indication %s" (inds |> String.concat ", ")
-            printfn "%s" (sd |> Dosage.toString)
+            printfn "%s" (sd |> Dosage.toString true)
         )
  
 
@@ -304,7 +308,7 @@ module GStandTests =
             sds
             |> Seq.iter (fun (inds, sd) -> 
             printfn "Indication %s" (inds |> String.concat ", ")
-            printfn "%s" (sd |> Dosage.toString)
+            printfn "%s" (sd |> Dosage.toString true)
             )
         )
  
@@ -313,7 +317,7 @@ module GStandTests =
         GStand.createDoseRules true (Some 2.) (Some 4.) None None "paracetamol" "" "rectaal"
         |> Seq.iter (fun dr ->
             dr 
-            |> DoseRule.toString
+            |> toStr
             |> printfn "%s\n"
         )
 

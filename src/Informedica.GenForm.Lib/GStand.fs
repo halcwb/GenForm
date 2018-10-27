@@ -34,6 +34,13 @@ module GStand =
     type Dosage = DoseRule.Dosage.Dosage
 
 
+    let groupByFst xs = 
+        xs
+        |> Seq.groupBy fst
+        |> Seq.sortBy fst
+        |> Seq.map (fun (k, v) -> k, v |> Seq.map snd)
+
+
     type DoseMapping =
         | Norm
         | Abs
@@ -44,6 +51,7 @@ module GStand =
 
 
     type UnitMapping = | NoRate | Rate 
+
 
     let unitMapping =
         [
@@ -172,7 +180,7 @@ module GStand =
         //    (fr |> ValueUnit.toStringPrec 1)
         //    (gstdsr.NormKg |> minmax n NormKg |> MinMax.toString)
 
-        (n, gstdsr.Freq.Time |> parseTimeString) ,
+        (n, gstdsr.Freq.Time |> parseTimeString, gstdsr.Freq.Frequency = 1.) ,
         
         (gstdsr.Routes |> Array.toList,
          gstdsr.Indication,
@@ -182,7 +190,8 @@ module GStand =
          gstdsr.NormKg |> minmax n NormKg,
          gstdsr.AbsKg  |> minmax n AbsKg,
          gstdsr.NormM2 |> minmax n NormM2,
-         gstdsr.AbsM2  |> minmax n AbsM2)
+         gstdsr.AbsM2  |> minmax n AbsM2,
+         gstdsr)
 
           
 
@@ -195,11 +204,25 @@ module GStand =
             | _ -> [ mm; mm_ ]
             |> MinMax.foldMaximize
 
-        Seq.map ((fun (k, v) -> 
+        drs 
+        |> Seq.collect (fun dr ->
+            dr.GenericProduct
+            |> Seq.collect (fun gp ->
+                gp.Substances
+                |> Seq.collect (fun s ->
+                    match s.Unit |> ValueUnit.unitFromString Mapping.GStandMap with
+                    | None -> []
+                    | Some u ->
+                        [ mapDoses s.Name s.Quantity u dr ]
+                )
+            )
+        )
+        |> Seq.groupBy fst // group by substance name frequency time and whether frequency = 1
+        |> Seq.map ((fun (k, v) -> 
             k , 
             v 
-            |> Seq.fold (fun acc (_, (rts, ind, fr, norm, abs, normKg, absKg, normM2, absM2)) -> 
-                let _, inds, frs, norm_, abs_, normKg_, absKg_, normM2_, absM2_ = acc
+            |> Seq.fold (fun acc (_, (rts, ind, fr, norm, abs, normKg, absKg, normM2, absM2, gstdsr)) -> 
+                let _, inds, frs, gstdsrs, norm_, abs_, normKg_, absKg_, normM2_, absM2_ = acc
 
                 let frs =
                     let tu = fr |> ValueUnit.get |> snd
@@ -223,6 +246,8 @@ module GStand =
                 let inds =
                     if inds |> List.exists ((=) ind) then inds else inds @ [ ind ]
 
+                let gstdsrs = gstdsr::gstdsrs
+
                 let norm = fold norm norm_ 
                 let abs = fold abs abs_ 
                 let normKg = fold normKg normKg_ 
@@ -230,19 +255,22 @@ module GStand =
                 let normM2 = fold normM2 normM2_ 
                 let absM2 = fold absM2 absM2_ 
 
-                rts, inds, frs, norm, abs, normKg, absKg, normM2, absM2
-            ) ([], [], [], MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty)) >> ((fun (k, (rts, inds, frs, norm, abs, normKg, absKg, normM2, absM2)) ->
+                rts, inds, frs, gstdsrs, norm, abs, normKg, absKg, normM2, absM2
+            ) ([], [], [], [], MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty)) 
+        >> ((fun (k, (rts, inds, frs, gstdsrs, norm, abs, normKg, absKg, normM2, absM2)) ->
             k ,
             rts,
             inds ,
             frs ,
+            gstdsrs ,
             DoseRule.DoseRange.create 
                 norm 
                 (normKg, ValueUnit.Units.Weight.kiloGram) 
                 (normM2, ValueUnit.Units.BSA.M2)
                 abs 
                 (absKg, ValueUnit.Units.Weight.kiloGram) 
-                (absM2, ValueUnit.Units.BSA.M2)) >> (fun ((n, _), rts, inds, frs, dr)  ->
+                (absM2, ValueUnit.Units.BSA.M2)) 
+        >> (fun ((n, _, _), rts, inds, frs, gstdsrs, dr)  ->
             
             let tu = 
                 match frs with
@@ -251,13 +279,11 @@ module GStand =
 
             inds ,
             DoseRule.Dosage.empty
-            |> (Optic.set  Dosage.Name_ n)  
+            |> (Optic.set Dosage.Name_ n)  
+            |> (Optic.set Dosage.Rules_ (gstdsrs |> List.map (DR.toString2 >> Dosage.GStandRule)))
             |> (fun ds ->
                 match tu with
                 | _ when tu = ValueUnit.NoUnit || (tu |> ValueUnit.isCountUnit) -> 
-                    printfn "mapping %s to single unit with timeunit %s" 
-                        (dr |> DoseRange.toString)
-                        (tu |> ValueUnit.unitToString)
                     ds 
                     |> (Optic.set Dosage.SingleDosage_ dr) 
 
@@ -283,20 +309,7 @@ module GStand =
                     ds
                     |> (Optic.set Dosage.TotalDosage_ (dr, tu))
                     |> (Optic.set Dosage.Frequencies_ frs)
-            )))) (drs 
-        |> Seq.collect (fun dr ->
-            dr.GenericProduct
-            |> Seq.collect (fun gp ->
-                gp.Substances
-                |> Seq.collect (fun s ->
-                    match s.Unit |> ValueUnit.unitFromString Mapping.GStandMap with
-                    | None -> []
-                    | Some u ->
-                        [ mapDoses s.Name s.Quantity u dr ]
-                )
-            )
-        )
-        |> Seq.groupBy fst) 
+            )))) 
 
 
     let getPatients (drs : DR.DoseRule seq) =
@@ -321,8 +334,7 @@ module GStand =
             | _ -> Patient.Undetermined
             |> (Optic.set Patient.Gender_)
         
-        Seq.map ((fun (k, v) -> k |> snd, v |> Seq.map snd) >> (fun (pat, drs) ->
-            (pat, drs |> getSubstanceDoses, drs))) (drs
+        drs
         |> Seq.map (fun dr ->
             (dr.Indication ,
              Patient.empty
@@ -330,7 +342,11 @@ module GStand =
              |> mapWght dr.Weight
              |> mapGender dr.Gender) , dr
         )
-        |> Seq.groupBy fst)
+        |> Seq.groupBy fst
+        |> Seq.map ((fun (k, v) -> k |> snd, v |> Seq.map snd) 
+        >> (fun (pat, drs) ->
+            (pat, drs |> getSubstanceDoses, drs))
+        ) 
 
 
     // Get the ATC codes for a GenPresProduct
@@ -385,12 +401,27 @@ module GStand =
 
    
     let createDoseRules all age wght bsa gpk gen shp rte =
-        Seq.map ((fun (k, v) ->
+        
+        GPP.filter all gen shp rte
+        |> Seq.collect (fun gpp ->
+            gpp 
+            |> getATCGroups all
+            |> Seq.map (fun atc -> 
+                (atc.Generic, 
+                    atc.ATC5, 
+                    atc.TherapeuticMainGroup, 
+                    atc.TherapeuticSubGroup, 
+                    atc.PharmacologicalGroup, 
+                    atc.Substance) ,
+                gpp
+            )
+        )
+        |> groupByFst
+        |> Seq.map ((fun (k, v) ->
             let gen, atc, tg, tsg, pg, sg = k
-
+            // create empty dose rule
             DoseRule.create gen [] atc tg tsg pg sg [] ,
-            v
-            |> Seq.map snd) >> ((fun (dr, gpps) ->
+            v) >> ((fun (dr, gpps) ->
             dr
             |> DoseRule.Optics.setSynonyms (gpps |> Seq.collect getTradeNames |> Seq.toList) ,
             gpps
@@ -406,33 +437,29 @@ module GStand =
                         let tps = dsrs |> Seq.collect (fun dr -> dr.TradeProduct |> Seq.map (fun tp -> tp.Name))
 
                         sds
-                        |> Seq.map (fun (ind, sds) -> ind, r, gpp.Shape, gps, tps, pat, sds)
+                        |> Seq.map (fun (ind, sds) -> ind, (r, (gpp.Shape, gps, tps, pat, sds)))
                     )
                 )
             )
-            |> Seq.groupBy (fun (inds, _, _, _, _, _, _)  -> inds)
-            |> Seq.sortBy fst
+            |> groupByFst // group by indications
             |> Seq.map (fun (k, v) -> 
                 k, 
                 v
-                |> Seq.map (fun (_, r, shp, gps, tps, pat, sds) -> r, shp, gps, tps, pat, sds)
-                |> Seq.groupBy (fun (r, _, _, _, _, _)  -> r)
-                |> Seq.sortBy fst
+                |> groupByFst // group by route
                 |> Seq.map (fun (k, v) -> 
                     k, 
                     v
-                    |> Seq.map (fun (_, shp, gps, tps, pat, sds) -> shp, gps, tps, pat, sds)
-                    |> Seq.groupBy (fun (shp, gps, tps, _, _)  -> (shp, gps, tps))
+                    |> Seq.map (fun (shp, gps, tps, pat, sds) -> shp, gps, tps, pat, sds)
+                    |> Seq.groupBy (fun (shp, gps, tps, _, _)  -> (shp, gps, tps)) // group by shape and products
                     |> Seq.sortBy (fst >> (fun (shp, _, _) -> shp))
                     |> Seq.map (fun (k, v) -> 
                         k, 
                         v
                         |> Seq.map (fun (_, _, _, pat, sds) -> pat, sds)
-                        |> Seq.groupBy fst
-                        |> Seq.sortBy fst
-                        |> Seq.map (fun (k, v) -> k, v |> Seq.map snd )
+                        |> groupByFst // group by patient
                     )
                 )
+            // add indications, route, shape, patient and dosages
             )) >> (fun (dr, inds) ->
             inds
             |> Seq.fold (fun acc ind ->
@@ -470,19 +497,4 @@ module GStand =
                         ) dr
                     ) dr
                 ) dr
-            ) dr))) (GPP.filter all gen shp rte
-        |> Seq.collect (fun gpp ->
-            gpp 
-            |> getATCGroups all
-            |> Seq.map (fun atc -> 
-                (atc.Generic, 
-                 atc.ATC5, 
-                 atc.TherapeuticMainGroup, 
-                 atc.TherapeuticSubGroup, 
-                 atc.PharmacologicalGroup, 
-                 atc.Substance) ,
-                gpp
-            )
-        )
-        |> Seq.groupBy fst
-        |> Seq.sortBy fst)
+            ) dr))) 
