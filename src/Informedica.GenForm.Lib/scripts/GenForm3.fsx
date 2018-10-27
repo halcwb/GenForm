@@ -403,6 +403,8 @@ module GStandTests =
 
     GStand.createDoseRules false (Some 1.1) (Some 5.) None None "gentamicine" "" "intraveneus"
     |> printDoseRules
+
+    
     
     //open MathNet.Numerics
 

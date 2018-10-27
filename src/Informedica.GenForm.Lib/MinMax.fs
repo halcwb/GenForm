@@ -161,6 +161,13 @@ module MinMax =
             (valueLTE v v1) && (valueSTE v v2)
 
 
+    let calcValue op v1 v2 =
+        match v1, v2 with
+        | Inclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Inclusive
+        | Exclusive v1, Exclusive v2 -> v1 |> op <| v2 |> Exclusive
+        | Inclusive v1, Exclusive v2 -> v1 |> op <| v2 |> Exclusive
+        | Exclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Exclusive  
+
 
     type Value with
     
@@ -188,6 +195,10 @@ module MinMax =
                 | Inclusive _ -> v
                 | Exclusive _ -> x |> Exclusive
             )
+
+        static member (*) (v1, v2) = calcValue (*) v1 v2
+
+        static member (/) (v1, v2) = calcValue (/) v1 v2
 
     
     type MinMax with

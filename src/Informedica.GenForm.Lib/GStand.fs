@@ -73,7 +73,33 @@ module GStand =
         |> setMin minmax.Min
         |> setMax minmax.Max
 
- 
+
+    // Get the min max weight if there is one min weight or max weight
+    let calcWeightMinMax (drs : DR.DoseRule seq) =
+
+        match drs |> Seq.toList with
+        | [] -> DR.minmax
+        | [ h ] -> h.Weight
+        | h::tail ->
+            if tail |> List.forall (fun mm -> mm.Weight = h.Weight) then h.Weight
+            else DR.minmax
+        |> mapMinMax ((Option.bind ValueUnit.weightInKg) >> (Optic.set MinMax.Optics.inclMinLens))
+                     ((Option.bind ValueUnit.weightInKg) >> (Optic.set MinMax.Optics.exclMaxLens))
+
+
+    // Get the min max bsa if there is one min bsa or max bsa
+    let calcBSAMinMax (drs : DR.DoseRule seq) =
+
+        match drs |> Seq.toList with
+        | [] -> DR.minmax
+        | [h] -> h.BSA
+        | h::tail ->
+            if tail |> List.forall (fun mm -> mm.BSA = h.Weight) then h.BSA
+            else DR.minmax
+        |> mapMinMax ((Option.bind ValueUnit.bsaInM2) >> (Optic.set MinMax.Optics.inclMinLens))
+                     ((Option.bind ValueUnit.bsaInM2) >> (Optic.set MinMax.Optics.exclMaxLens))
+        
+
     /// Make sure that a GSTand time string 
     /// is a valid unit time string
     let parseTimeString s =
@@ -258,18 +284,44 @@ module GStand =
                 rts, inds, frs, gstdsrs, norm, abs, normKg, absKg, normM2, absM2
             ) ([], [], [], [], MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty, MinMax.empty)) 
         >> ((fun (k, (rts, inds, frs, gstdsrs, norm, abs, normKg, absKg, normM2, absM2)) ->
+            let w = MinMax.empty |> calcWeightMinMax gstdsrs
+            let b = MinMax.empty |> calcBSAMinMax gstdsrs
+            
+            // if weight or bsa is known the adjusted or unadjusted doses can be calculated
+            let calcNoneAndAdjusted (c : MinMax) (un : MinMax) (adj : MinMax) =
+                let calc op x1 x2 y =
+                    match y with
+                    | Some _ -> y
+                    | None -> 
+                        match x1, x2 with
+                        | Some x1_, Some x2_ ->
+                            // printfn "calculating %A %A = %A" x1_ x2_ (x1_ |> op <| x2_)  
+                            (x1_ |> op <| x2_) |> Some
+                        | _ -> y
+
+                // Norm.min = PerKg.min * Wght.min
+                // Norm.max = PerKg.max * Wght.max
+                { un with 
+                    Min = un.Min |> calc (*) adj.Min c.Min
+                    Max = un.Max |> calc (*) adj.Max c.Max } ,
+                // PerKg.min = Norm.min / Wght.max
+                // PerKg.max = norm.max / Wght.min
+                { adj with
+                    Min = adj.Min |> calc (/) un.Min c.Max
+                    Max = adj.Max |> calc (/) un.Max c.Min }
+
             k ,
             rts,
             inds ,
             frs ,
             gstdsrs ,
             DoseRule.DoseRange.create 
-                norm 
-                (normKg, ValueUnit.Units.Weight.kiloGram) 
-                (normM2, ValueUnit.Units.BSA.M2)
-                abs 
-                (absKg, ValueUnit.Units.Weight.kiloGram) 
-                (absM2, ValueUnit.Units.BSA.M2)) 
+                (calcNoneAndAdjusted w norm normKg |> fst)
+                (calcNoneAndAdjusted w norm normKg |> snd, ValueUnit.Units.Weight.kiloGram) 
+                (calcNoneAndAdjusted b norm normM2 |> snd, ValueUnit.Units.BSA.M2)
+                (calcNoneAndAdjusted w abs  absKg |> fst) 
+                (calcNoneAndAdjusted w abs  absKg |> snd, ValueUnit.Units.Weight.kiloGram) 
+                (calcNoneAndAdjusted b abs  absM2 |> snd, ValueUnit.Units.BSA.M2)) 
         >> (fun ((n, _, _), rts, inds, frs, gstdsrs, dr)  ->
             
             let tu = 

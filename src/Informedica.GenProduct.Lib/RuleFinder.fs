@@ -125,11 +125,11 @@ module RuleFinder =
             |> Array.map createRoute
             |> Array.exists ((=) r)
 
-    type Age = float Option
+    type AgeInMo = float Option
 
-    type Weight = float Option
+    type WeightInKg = float Option
     
-    type BSA = float Option
+    type BSAInM2 = float Option
 
     let inRange n { DoseRule.Min = min; DoseRule.Max = max } =
         if n |> Option.isNone then true
@@ -143,9 +143,9 @@ module RuleFinder =
 
     type PatientFilter =
         {
-            Age: Age
-            Weight: Weight
-            BSA: BSA
+            Age: AgeInMo
+            Weight: WeightInKg
+            BSA: BSAInM2
         }
 
     type ProductFilter =
@@ -268,6 +268,27 @@ module RuleFinder =
      
 
     let convertToResult (drs : DoseRule.DoseRule  []) =
+
+        // Get the min max weight if there is one min weight or max weight
+        let wghtMinMax (drs : DoseRule.DoseRule []) =
+
+            match drs |> Array.toList with
+            | [] -> DoseRule.minmax
+            | [h] -> h.Weight
+            | h::tail ->
+                if tail |> List.forall (fun mm -> mm.Weight = h.Weight) then h.Weight
+                else DoseRule.minmax
+
+        // Get the min max weight if there is one min weight or max weight
+        let bsaMinMax (drs : DoseRule.DoseRule []) =
+
+            match drs |> Array.toList with
+            | [] -> DoseRule.minmax
+            | [h] -> h.BSA
+            | h::tail ->
+                if tail |> List.forall (fun mm -> mm.BSA = h.Weight) then h.BSA
+                else DoseRule.minmax
+
         // Alle dose rules should apply to the same 
         // GenPresProduct
         let gpp =
@@ -309,9 +330,10 @@ module RuleFinder =
                 |> Array.toList
                 |> GenericProduct.get
 
+
             // Calculate the normal min max dose
-            let norm drs' = 
-                drs'
+            let calcDose get drs = 
+                drs
                 |> Array.collect (fun dr -> 
                     dr
                     |> gpks
@@ -319,80 +341,61 @@ module RuleFinder =
                         let n = 
                             (gp.Substances
                             |> Array.head).SubstanceQuantity
-                        dr.Norm |> multMinMax dr.Freq.Frequency n)
+                        dr |> get |> multMinMax dr.Freq.Frequency n)
                     )
                 |> DoseRule.foldMinMax
+
+
+            // Calculate the normal min max dose
+            let norm = calcDose DoseRule.Optics.getNorm
 
             // Calculate the absolute min max dose
-            let abs drs' = 
-                drs'
-                |> Array.collect (fun dr -> 
-                    dr
-                    |> gpks
-                    |> Array.map (fun gp ->
-                        let n = 
-                            (gp.Substances
-                            |> Array.head).SubstanceQuantity
-                        dr.Abs |> multMinMax dr.Freq.Frequency n
-                    )
-                )
-                |> DoseRule.foldMinMax
+            let abs = calcDose DoseRule.Optics.getAbs
 
             // Calculate the normal min max dose per kg
-            let normKg drs' = 
-                drs'
-                |> Array.collect (fun dr -> 
-                    dr
-                    |> gpks
-                    |> Array.map (fun gp ->
-                        let n = 
-                            (gp.Substances
-                            |> Array.head).SubstanceQuantity
-                        dr.NormKg |> multMinMax dr.Freq.Frequency n)
-                    )
-                |> DoseRule.foldMinMax
+            let normKg = calcDose DoseRule.Optics.getNormKg 
 
             // Calculate the absolute min max dose per kg
-            let absKg drs' = 
-                drs'
-                |> Array.collect (fun dr -> 
-                    dr
-                    |> gpks
-                    |> Array.map (fun gp ->
-                        let n = 
-                            (gp.Substances
-                            |> Array.head).SubstanceQuantity
-                        dr.AbsKg |> multMinMax dr.Freq.Frequency n)
-                    )
-                |> DoseRule.foldMinMax
+            let absKg = calcDose DoseRule.Optics.getAbsKg 
 
             // Calculate the normal min max dose per m2
-            let normM2 drs' = 
-                drs'
-                |> Array.collect (fun dr -> 
-                    dr
-                    |> gpks
-                    |> Array.map (fun gp ->
-                        let n = 
-                            (gp.Substances
-                            |> Array.head).SubstanceQuantity
-                        dr.NormM2 |> multMinMax dr.Freq.Frequency n)
-                    )
-                |> DoseRule.foldMinMax
+            let normM2 = calcDose DoseRule.Optics.getNormM2 
 
             // Calculate the absolute min max dose per m2
-            let absM2 drs' = 
-                drs'
-                |> Array.collect (fun dr -> 
-                    dr
-                    |> gpks
-                    |> Array.map (fun gp ->
-                        let n = 
-                            (gp.Substances
-                            |> Array.head).SubstanceQuantity
-                        dr.AbsM2 |> multMinMax dr.Freq.Frequency n)
-                    )
-                |> DoseRule.foldMinMax
+            let absM2 = calcDose DoseRule.Optics.getAbsM2 
+
+            let calcNoneAndAdjusted 
+                (calcAdj   : DoseRule.DoseRule [] -> DoseRule.MinMax) 
+                (calcNorm  : DoseRule.DoseRule [] -> DoseRule.MinMax)
+                (calcPerKg : DoseRule.DoseRule [] -> DoseRule.MinMax) drs =
+
+                let wght  = drs |> calcAdj
+                let norm  = drs |> calcNorm
+                let perKg = drs |> calcPerKg
+
+                let calc op x1 x2 y =
+                    match y with
+                    | Some _ -> y
+                    | None -> 
+                        match x1, x2 with
+                        | Some x1_, Some x2_ -> (x1_ |> op <| x2_) |> Some
+                        | _ -> y
+
+                // Norm.min = PerKg.min * Wght.min
+                // Norm.max = PerKg.max * Wght.max
+                { norm with 
+                    Min = norm.Min |> calc (*) perKg.Min wght.Min
+                    Max = norm.Max |> calc (*) perKg.Max wght.Max } ,
+                // PerKg.min = Norm.min / Wght.max
+                // PerKg.max = norm.max / Wght.min
+                { perKg with
+                    Min = perKg.Min |> calc (/) norm.Min wght.Max
+                    Max = perKg.Max |> calc (/) norm.Max wght.Min }
+
+            let calcNormPerKg = calcNoneAndAdjusted wghtMinMax norm normKg
+            let calcAbsPerKg  = calcNoneAndAdjusted wghtMinMax abs  absKg
+            let calcNormPerM2 = calcNoneAndAdjusted bsaMinMax  norm normM2
+            let calcAbsPerM2  = calcNoneAndAdjusted bsaMinMax  abs  absM2
 
             let un drs' =
                 drs'
@@ -419,7 +422,15 @@ module RuleFinder =
                     let drs' =
                         drs
                         |> Array.filter (fun dr -> dr.Freq = fr)
-                    createFreqDose fr (drs' |> norm) (drs' |> abs) (drs' |> normKg) (drs' |> absKg) (drs' |> normM2) (drs' |> absM2) (drs' |> un)
+                    createFreqDose 
+                        fr 
+                        ([| drs' |> calcNormPerKg |> fst; drs' |> calcNormPerM2 |> fst |] |> DoseRule.foldMinMax ) 
+                        ([| drs' |> calcAbsPerKg  |> fst; drs' |> calcAbsPerM2  |> fst |] |> DoseRule.foldMinMax ) 
+                        (drs' |> calcNormPerKg |> snd) 
+                        (drs' |> calcAbsPerKg  |> snd) 
+                        (drs' |> calcNormPerM2 |> snd) 
+                        (drs' |> calcAbsPerM2  |> snd) 
+                        (drs' |> un)
                 )
 
             createResult gpp' (drs |> Array.map (DoseRule.toString ", ")) freqs 

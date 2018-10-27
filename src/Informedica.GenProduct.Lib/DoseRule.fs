@@ -4,8 +4,12 @@ module DoseRule =
 
     open System
     open System.Text
+
+    open Aether
+
     open Informedica.GenUtils.Lib.BCL
     open Informedica.GenUtils.Lib
+
 
     module Constants =
             
@@ -587,3 +591,98 @@ module DoseRule =
         |> Array.sortBy (fun f -> (f.Time, f.Frequency))
 
     let frequencies = Memoization.memoize frequencies_
+
+
+    type DoseRule with
+        
+        static member Weight_ :
+            (DoseRule -> MinMax) * (MinMax -> DoseRule -> DoseRule) =
+            (fun dr -> dr.Weight) ,
+            (fun mm dr -> { dr with Weight = mm })
+        
+        static member BSA_ :
+            (DoseRule -> MinMax) * (MinMax -> DoseRule -> DoseRule) =
+            (fun dr -> dr.BSA) ,
+            (fun mm dr -> { dr with BSA = mm })
+        
+        static member Norm_ :
+            (DoseRule -> MinMax) * (MinMax -> DoseRule -> DoseRule) =
+            (fun dr -> dr.Norm) ,
+            (fun mm dr -> { dr with Norm = mm })
+        
+        static member Abs_ :
+            (DoseRule -> MinMax) * (MinMax -> DoseRule -> DoseRule) =
+            (fun dr -> dr.Abs) ,
+            (fun mm dr -> { dr with Abs = mm })
+        
+        static member NormKg_ :
+            (DoseRule -> MinMax) * (MinMax -> DoseRule -> DoseRule) =
+            (fun dr -> dr.NormKg) ,
+            (fun mm dr -> { dr with NormKg = mm })
+        
+        static member AbsKg_ :
+            (DoseRule -> MinMax) * (MinMax -> DoseRule -> DoseRule) =
+            (fun dr -> dr.AbsKg) ,
+            (fun mm dr -> { dr with AbsKg = mm })
+        
+        static member NormM2_ :
+            (DoseRule -> MinMax) * (MinMax -> DoseRule -> DoseRule) =
+            (fun dr -> dr.NormM2) ,
+            (fun mm dr -> { dr with NormM2 = mm })
+        
+        static member AbsM2_ :
+            (DoseRule -> MinMax) * (MinMax -> DoseRule -> DoseRule) =
+            (fun dr -> dr.AbsM2) ,
+            (fun mm dr -> { dr with AbsM2 = mm })
+
+
+
+    module Optics =
+
+
+        let getWeight = Optic.get DoseRule.Weight_
+
+
+        let setWeight = Optic.set DoseRule.Weight_
+
+
+        let getBSA = Optic.get DoseRule.BSA_
+
+
+        let setBSA = Optic.set DoseRule.BSA_
+
+
+        let getNorm = Optic.get DoseRule.Norm_
+
+
+        let setNorm = Optic.set DoseRule.Norm_
+
+
+        let getAbs = Optic.get DoseRule.Abs_
+
+
+        let setAbs = Optic.set DoseRule.Abs_
+
+
+        let getNormKg = Optic.get DoseRule.NormKg_
+
+
+        let setNormKg = Optic.set DoseRule.NormKg_
+
+
+        let getAbsKg = Optic.get DoseRule.AbsKg_
+
+
+        let setAbsKg = Optic.set DoseRule.AbsKg_
+
+
+        let getNormM2 = Optic.get DoseRule.NormM2_
+
+
+        let setNormM2 = Optic.set DoseRule.NormM2_
+
+
+        let getAbsM2 = Optic.get DoseRule.AbsM2_
+
+
+        let setAbsM2 = Optic.set DoseRule.AbsM2_

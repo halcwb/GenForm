@@ -170,6 +170,7 @@ module Dto =
 
     type Mapping = FormMap | GStandMap | PedMap  | StandMap
 
+
     let mapping path m1 m2 s =
         let i1, i2 =
             match m1, m2 with
@@ -197,8 +198,10 @@ module Dto =
 
     let unitMapping = mapping (Environment.CurrentDirectory + "/" + FilePath.data + "/formulary/UnitMapping.csv")
 
+    
     let frequencyMapping = mapping (Environment.CurrentDirectory + "/" + FilePath.data + "/formulary/FrequencyMapping.csv")
 
+    
     let toDto (dto : Dto) (gpp : GenPresProduct.GenPresProduct) (rs : string []) (ds : RuleFinder.FreqDose []) =
 
         let doses = 
