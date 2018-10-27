@@ -199,7 +199,7 @@ module Dto =
 
     let frequencyMapping = mapping (Environment.CurrentDirectory + "/" + FilePath.data + "/formulary/FrequencyMapping.csv")
 
-    let toDto all (dto : Dto) (gpp : GenPresProduct.GenPresProduct) (rs : string []) (ds : RuleFinder.FreqDose []) =
+    let toDto (dto : Dto) (gpp : GenPresProduct.GenPresProduct) (rs : string []) (ds : RuleFinder.FreqDose []) =
 
         let doses = 
             ds
@@ -443,7 +443,7 @@ module Dto =
 
             let groups = 
                 atc 
-                |> ATCGroup.findByATC5 all
+                |> ATCGroup.findByATC5 ()
             
 
             { dto' with
@@ -519,7 +519,7 @@ module Dto =
                     d.Freq.Time
                 )
                 |> Array.map (fun (_, ds) ->
-                    toDto all dto r.Product r.DoseRules ds
+                    toDto dto r.Product r.DoseRules ds
                 )
         )
     
@@ -527,5 +527,5 @@ module Dto =
     let loadGenForm () =
         Substance.load ()
         GenPresProduct.load false
-        DoseRule.load false
-        ATCGroup.load false
+        DoseRule.load ()
+        ATCGroup.load ()

@@ -405,7 +405,7 @@ module GStand =
         GPP.filter all gen shp rte
         |> Seq.collect (fun gpp ->
             gpp 
-            |> getATCGroups all
+            |> getATCGroups ()
             |> Seq.map (fun atc -> 
                 (atc.Generic, 
                     atc.ATC5, 

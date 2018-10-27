@@ -51,7 +51,7 @@ module ATCGroup =
 
     let empty = create "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" 
 
-    let parse all_ gpks =
+    let parse gpks =
         query {
             for gpk in Zindex.BST711T.records () do
             join main in Zindex.BST801T.records () 
@@ -118,7 +118,7 @@ module ATCGroup =
                 if rt <> "" then rt
                 else
                     match
-                        DoseRule.getGenericProducts all_
+                        DoseRule.getGenericProducts ()
                         |> Array.tryFind (fun r -> r.Id = gpk.GPKODE) with
                     | Some p -> 
                         if p.Route |> Array.isEmpty || p.Route |> Array.length > 1 then ""
@@ -165,11 +165,11 @@ module ATCGroup =
             FilePath.groupCache
             |> Json.getCache
         else 
-            let grps = GenPresProduct.getGPKS all |> parse all
+            let grps = GenPresProduct.getGPKS true |> parse
             grps |> Json.cache FilePath.groupCache
             grps
 
-    let get : bool -> ATCGroup [] = Memoization.memoize _get
+    let get : unit -> ATCGroup [] = Memoization.memoize _get
 
     let findByATC5 all atc =
         get all
@@ -177,5 +177,5 @@ module ATCGroup =
             g.ATC5 |> String.equalsCapInsens atc
         )
 
-    let load all = get all |> ignore
+    let load () = get () |> ignore
 

@@ -200,7 +200,7 @@ module RuleFinder =
                 |> Array.map (fun gp -> gp.Id)
             )
         |> Array.collect (fun gpk ->
-            DoseRule.get all
+            DoseRule.get ()
             |> Array.filter (fun dr -> 
                 (dr.CareGroup = DoseRule.Constants.intensive || dr.CareGroup = DoseRule.Constants.all)
                 && dr.GenericProduct |> Array.exists (fun gp -> gp.Id = gpk)

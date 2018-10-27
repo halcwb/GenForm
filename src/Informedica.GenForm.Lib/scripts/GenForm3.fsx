@@ -231,14 +231,22 @@ module GStandTests =
     module GPP = Informedica.GenProduct.Lib.GenPresProduct
 
 
-    let createDoseRules = GStand.createDoseRules true None None None None
+    let createDoseRules = GStand.createDoseRules false None None None None
 
 
-    let toStr = DoseRule.toString true
+    let toStr = DoseRule.toString false
 
+
+    let printDoseRules rs = 
+        rs
+        |> Seq.iter (fun dr -> 
+            dr 
+            |> toStr
+            |> printfn "%s\n"
+        )
 
     let mapFrequency () =
-        DR.get true
+        DR.get ()
         |> Seq.map (fun dr -> dr.Freq)
         |> Seq.distinct
         |> Seq.sortBy (fun fr -> fr.Time, fr.Frequency)
@@ -249,46 +257,22 @@ module GStandTests =
 
     let tests () =
         createDoseRules "trimethoprim/sulfamethoxazol" "" ""
-        |> Seq.iter (fun dr -> 
-            dr 
-            |> toStr
-            |> printfn "%s\n"
-        )
+        |> printDoseRules
 
         createDoseRules "paracetamol" "" ""
-        |> Seq.iter (fun dr ->
-            dr 
-            |> toStr
-            |> printfn "%s\n"
-        )
+        |> printDoseRules
          
         createDoseRules "gentamicine" "" "intraveneus"
-        |> Seq.iter (fun dr ->
-            dr 
-            |> toStr
-            |> printfn "%s\n"
-        )
+        |> printDoseRules
 
         createDoseRules "fentanyl" "" ""
-        |> Seq.iter (fun dr ->
-            dr 
-            |> toStr
-            |> printfn "%s\n"
-        )
+        |> printDoseRules
 
         createDoseRules "dopamine" "" "intraveneus"
-        |> Seq.iter (fun dr ->
-            dr 
-            |> toStr
-            |> printfn "%s\n"
-        )
+        |> printDoseRules
 
         createDoseRules "salbutamol" "" "intraveneus"
-        |> Seq.iter (fun dr ->
-            dr 
-            |> toStr
-            |> printfn "%s\n"
-        )
+        |> printDoseRules
 
 
         RF.createFilter None None None None "paracetamol" "" ""
@@ -315,13 +299,9 @@ module GStandTests =
 
 
         GStand.createDoseRules true (Some 2.) (Some 4.) None None "paracetamol" "" "rectaal"
-        |> Seq.iter (fun dr ->
-            dr 
-            |> toStr
-            |> printfn "%s\n"
-        )
+        |> printDoseRules
 
-        DR.get true
+        DR.get ()
         |> Seq.filter (fun dr -> 
             dr.Freq.Frequency = 1. && 
             dr.Freq.Time = "per uur" &&
@@ -333,7 +313,7 @@ module GStandTests =
         |> Seq.iter (printfn "%s")
 //        |> Seq.length
 
-        DR.get true
+        DR.get ()
         |> Seq.filter (fun dr ->
             dr.GenericProduct 
             |> Seq.map (fun gp -> gp.Name)
@@ -347,7 +327,7 @@ module GStandTests =
         |> Seq.distinct
         |> Seq.iter (printfn "%A")
 
-        DR.get true
+        DR.get ()
         |> Seq.filter (fun dr ->
             dr.GenericProduct 
             |> Seq.map (fun gp -> gp.Name)
@@ -362,7 +342,7 @@ module GStandTests =
         |> Seq.distinct
         |> Seq.iter (printfn "%A")
 
-        DR.get true
+        DR.get ()
         |> Seq.filter (fun dr ->
             dr.GenericProduct 
             |> Seq.map (fun gp -> gp.Name)
@@ -385,7 +365,7 @@ module GStandTests =
             |> (printfn "%s")
         )
 
-        DR.get true
+        DR.get ()
         |> Seq.collect (fun r -> r.Routes)
         |> Seq.distinct
         |> Seq.sort
@@ -419,6 +399,10 @@ module GStandTests =
         )
         |> Seq.sort
         |> Seq.iter (printfn "|%s|")
+
+
+    GStand.createDoseRules false (Some 1.1) (Some 5.) None None "gentamicine" "" "intraveneus"
+    |> printDoseRules
     
     //open MathNet.Numerics
 

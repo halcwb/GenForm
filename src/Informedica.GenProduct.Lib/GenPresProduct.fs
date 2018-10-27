@@ -123,9 +123,17 @@ module GenPresProduct =
 
 
     let private getAssortment () = 
-        ProductRange.data ()
-        |> Array.filter (fun pr -> pr.GPK |> Option.isSome)
+        let gpks =
+            ProductRange.data ()
+            |> Array.filter (fun pr -> pr.GPK |> Option.isSome)
+            |> Array.map (fun pr -> pr.GPK |> Option.get)
+
+        Array.empty
         |> memGet
+        |> Array.filter (fun pr ->
+            gpks 
+            |> Array.exists (fun gpk -> pr.GenericProducts |> Array.exists (fun gp -> gp.Id = gpk))
+        )
 
     
     let private getAll () =
