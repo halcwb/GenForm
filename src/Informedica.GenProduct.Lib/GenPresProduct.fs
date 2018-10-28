@@ -165,6 +165,7 @@ module GenPresProduct =
 
         )
 
+
     let findByGPK gpk =
         getAssortment ()
         |> Array.filter (fun gpp ->

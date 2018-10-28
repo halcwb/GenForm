@@ -3,9 +3,10 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="Scripts\references.fsx" />
-    <None Include="Scripts\Scripts.fsx" />
-    <None Include="Scripts\GenForm3.fsx" />
+    <None Include="scripts\references.fsx" />
+    <None Include="scripts\Scripts.fsx" />
+    <None Include="scripts\GenForm3.fsx" />
+    <None Include="scripts\Dto.fsx" />
     <Compile Include="Utils\String.fs" />
     <Compile Include="Utils\List.fs" />
     <Compile Include="Mapping.fs" />

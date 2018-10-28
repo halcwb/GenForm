@@ -33,7 +33,6 @@ Environment.CurrentDirectory <-
 #load "./../Patient.fs" 
 #load "./../DoseRule.fs" 
 #load "./../GStand.fs" 
-#load "./../Dto.fs" 
 
 
 open Aether  

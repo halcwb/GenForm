@@ -402,8 +402,13 @@ module GStand =
 
 
     // Get the ATC codes for a GenPresProduct
-    let getATCs (gpp : GenPresProduct) =
+    let getATCs gpk (gpp : GenPresProduct) =
         gpp.GenericProducts
+        |> Array.filter (fun gp ->
+            match gpk with
+            | None -> true
+            | Some id -> gp.Id = id
+        )
         |> Array.map(fun gp -> gp.ATC)
         |> Array.distinct
 
@@ -416,11 +421,12 @@ module GStand =
 
 
     // Get the list of ATC groups for a GenPresProduct
-    let getATCGroups all (gpp: GenPresProduct) =
-        ATC.get all
+    let getATCGroups gpk (gpp: GenPresProduct) =
+        
+        ATC.get ()
         |> Array.filter (fun g -> 
             gpp
-            |> getATCs
+            |> getATCs gpk
             |> Array.exists (fun a -> 
                 a |> String.equalsCapInsens g.ATC5) && g.Shape = gpp.Shape
             )
@@ -455,9 +461,16 @@ module GStand =
     let createDoseRules all age wght bsa gpk gen shp rte =
         
         GPP.filter all gen shp rte
+        |> Seq.filter (fun gpp ->
+            match gpk with
+            | None -> true
+            | Some id ->
+                gpp.GenericProducts
+                |> Seq.exists (fun gp -> gp.Id = id)
+        )
         |> Seq.collect (fun gpp ->
             gpp 
-            |> getATCGroups ()
+            |> getATCGroups gpk
             |> Seq.map (fun atc -> 
                 (atc.Generic, 
                     atc.ATC5, 
