@@ -36,6 +36,9 @@ Environment.CurrentDirectory <-
 #load "./../GStand.fs" 
 
 
+open Informedica.GenProduct.Lib
+
+
 
 
 
@@ -60,6 +63,7 @@ module Dto =
     module RF = Informedica.GenProduct.Lib.RuleFinder 
     module DR = Informedica.GenProduct.Lib.DoseRule
     module GPP = Informedica.GenProduct.Lib.GenPresProduct
+    module GP = Informedica.GenProduct.Lib.GenericProduct
     module FP = Informedica.GenProduct.Lib.FilePath
     module ATC = Informedica.GenProduct.Lib.ATCGroup
 
@@ -91,6 +95,7 @@ module Dto =
             Route : string
             Indication : string
             Rules : Rule []
+            Text : string
         }
     and Rule =
         {
@@ -113,9 +118,28 @@ module Dto =
             MaxDosePerM2 : float
             MaxTotalPerM2 : float
             MaxPerDosePerM2 : float
-
-            Text : string
         }
+
+    let rule =
+        {
+            Frequency = ""
+            NormDose = 0.
+            MinDose = 0.
+            MaxDose = 0.
+            MaxTotal = 0.
+            MaxPerDose = 0.
+            NormDosePerKg = 0.
+            MinDosePerKg = 0.
+            MaxDosePerKg = 0.
+            MaxTotalPerKg = 0.
+            MaxPerDosePerKg = 0.
+            NormDosePerM2 = 0.
+            MinDosePerM2 = 0.
+            MaxDosePerM2 = 0.
+            MaxTotalPerM2 = 0.
+            MaxPerDosePerM2 = 0.
+        }
+
 
 
     let dto = 
@@ -144,6 +168,7 @@ module Dto =
             Route = ""
             Indication = ""
             Rules = [||]
+            Text = ""
         }
 
     type Mapping = FormMap | GStandMap | PedMap  | StandMap
@@ -187,36 +212,108 @@ module Dto =
 
     
     let toDto age weight bsa gpk route =
-        let gen, shp =
+
+        let getValue prism d =
+            d
+            |> (Optic.get prism)
+            |> (fun vu ->
+                match vu with
+                | Some vu ->
+                    vu 
+                    |> ValueUnit.getValue
+                    |> BigRational.ToDouble
+                | None -> 0.
+            )
+
+
+        let gen, shp, lbl, conc, unt =
             match gpk |> GPP.findByGPK |> Array.toList with
-            | [gpp] -> gpp.Name, gpp.Shape
-            | _ -> "", ""
+            | [gpp] -> 
+                let lbl, conc, unt = 
+                    match gpp.GenericProducts |> Seq.tryFind (fun gp -> gp.Id = gpk) with
+                    | Some gp -> 
+                        let conc, unt =
+                            match gp.Substances |> Seq.tryFind (fun s -> s.SubstanceName = gpp.Name) with
+                            | Some s -> s.SubstanceQuantity, s.SubstanceUnit
+                            | None -> 0., ""
+                        gp.Label, conc, unt
+                    | None -> "", 0., ""
+
+                gpp.Name, gpp.Shape, lbl, conc, unt
+            | _ -> "", "", "", 0., ""
 
         let rs = GStand.createDoseRules false age weight bsa (Some gpk) gen shp route
         
-        rs
-        |> Seq.iter (fun r -> r |> DoseRule.toString false |> printfn "%s")
-
         if rs |> Seq.length <> 1 then dto
         else
             let r = rs |> Seq.head
 
+            let rules =
+                let ids =
+                    r.IndicationsDosages 
+                    |> Seq.filter (fun d -> d.Indications |> List.exists (String.equalsCapInsens "Algemeen"))
+
+                if ids |> Seq.length <> 1 then []
+                else
+                    let id = ids |> Seq.head
+                    if id.RouteDosages |> Seq.length <> 1 then []
+                    else
+                        let rd = id.RouteDosages |> Seq.head
+                        if rd.ShapeDosages |> Seq.length <> 1 then []
+                        else
+                            let sd = rd.ShapeDosages |> Seq.head
+                            if sd.PatientDosages |> Seq.length <> 1 then []
+                            else
+                                let pd = sd.PatientDosages |> Seq.head
+                                pd.SubstanceDosages
+                                |> List.filter (fun sd ->
+                                    sd.Name |> String.equalsCapInsens gen
+                                )
+                                |> List.map (fun d ->
+                                    {
+                                        rule with
+                                            Frequency = 
+                                                d.Frequencies
+                                                |> DoseRule.Dosage.freqsToStr
+
+                                            MinDose = d |> getValue Dosage.Optics.inclMinNormTotalDosagePrism
+                                            MaxDose = d |> getValue Dosage.Optics.exclMaxNormTotalDosagePrism
+
+                                            MinDosePerKg = d |> getValue Dosage.Optics.inclMinNormWeightTotalDosagePrism
+                                            MaxDosePerKg = d |> getValue Dosage.Optics.exclMaxNormWeightTotalDosagePrism
+                                    }
+                                )
+            
             {
                 dto with
+                    GPK = gpk |> string
                     ATC = r.ATC
                     TherapyGroup = r.ATCTherapyGroup
                     TherapySubGroup = r.ATCTherapySubGroup
                     Generic = r.Generic
                     TradeProduct = ""
-                    Shape = ""
-                    Label = ""
-                    Concentration = 0.
-                    ConcentrationUnit = ""
+                    Shape = shp
+                    Label = lbl
+                    Concentration = conc
+                    ConcentrationUnit = unt
                     Multiple = 0.
                     MultipleUnit = ""
                     Route = route
+                    Rules = rules |> List.toArray
+                    Text = r |> DoseRule.toString false
             }
 
 
-Dto.toDto (Some 3.) (Some 5.) None 3689 ""
+GenPresProduct.filter false "paracetamol" "" ""
+|> Seq.collect (fun gpp ->
+    gpp.GenericProducts
+    |> Seq.collect (fun gp ->
+        gp.Route
+        |> Seq.map (fun r ->
+            Dto.toDto (Some 22.) (Some 12.) None gp.Id r
+        )
+    )
+)
+
+Dto.toDto (Some 0.) (Some 1.5) None 3689 "intraveneus"
 

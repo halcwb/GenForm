@@ -386,12 +386,30 @@ module DoseRule =
             module DoseRange = DoseRange.Optics
 
 
+            let getName = Optic.get Dosage.Name_
+
+
+            let setName = Optic.set Dosage.Name_
+
+
             let freqsFrequencyLens =
                 Dosage.Frequencies_ >-> Frequency.Frequencies_
+
+
+            let getFrequencyValues = Optic.get freqsFrequencyLens
+                
+
+            let setFrequencyValues = Optic.set freqsFrequencyLens
 
             
             let timeUnitFrequencyLens =
                 Dosage.Frequencies_ >-> Frequency.TimeUnit_
+
+
+            let getFrequencyTimeUnit = Optic.get timeUnitFrequencyLens
+
+
+            let setFrequencyTimeUnit = Optic.set timeUnitFrequencyLens
 
 
             let minIntervalValueFrequencyLens =
@@ -855,16 +873,26 @@ module DoseRule =
 
 
 
+        let freqsToStr (freqs : Frequency) =
+            let fu = 
+                freqs.TimeUnit 
+                |> ValueUnit.unitToString
+                |> String.replace "x/" ""
+
+
+            if freqs.Frequencies |> List.isConsecutive 0N 1N |> not then 
+                freqs.Frequencies |> List.toString
+            else
+                match freqs.Frequencies |> List.headTail with
+                | Some h, Some t -> sprintf "%s - %s" (h.ToString ()) (t.ToString ())
+                | _ -> freqs.Frequencies |> List.toString
+            |> (fun s ->
+                sprintf "%s keer per %s" s fu
+            )
+
+
         let toString rules ({ Name = n; StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs; Rules = rs }) =
             let vuToStr = ValueUnit.toStringPrec 2
-
-            let freqsToStr xs =
-                if xs |> List.isConsecutive 0N 1N |> not then xs |> List.toString
-                else
-                    match xs |> List.headTail with
-                    | Some h, Some t -> sprintf "%s - %s" (h.ToString ()) (t.ToString ())
-                    | _ -> xs |> List.toString
-
             
             let (>+) sl sr = 
                 let l, s, u = sr
@@ -872,7 +900,9 @@ module DoseRule =
 
                 if s |> String.isNullOrWhiteSpace then sl
                 else 
-                    (if sl |> String.isNullOrWhiteSpace then sl else sl + ", ") + l + " " + s + u + " "
+                    let sl = sl |> String.trim
+                    (if sl |> String.isNullOrWhiteSpace then sl else sl + ", ") + 
+                    (if l |> String.isNullOrWhiteSpace then "" else  l + " ") + s + u + " "
                 
             let rt, _ = rate
             let tt, _ = total
@@ -885,14 +915,14 @@ module DoseRule =
             ""
             >+ ("oplaad:", start |> DoseRange.toString, "")
             >+ ("per keer:", single |> DoseRange.toString, "")
-            >+ ("", rt |> DoseRange.toString, "")
-            >+ ("", tt |> DoseRange.toString, "")
+            >+ ("dosering", rt |> DoseRange.toString, "")
+            >+ ("dosering", tt |> DoseRange.toString, "")
             |> (fun s -> 
                 let  s = s |> String.trim
                 if freqs.Frequencies |> List.isEmpty || 
                    fu |> String.isNullOrWhiteSpace then s
                 else
-                    sprintf "%s in %s keer per %s" s (freqs.Frequencies |> freqsToStr) fu
+                    sprintf "%s in %s" s (freqs |> freqsToStr)
                     |> (fun s ->
                         match freqs.MinimalInterval with
                         | Some mi ->
@@ -2849,6 +2879,7 @@ Doseringen:
 """
 
     let mdDosageText = """
+          -------------------
           {dosage}
 """
 

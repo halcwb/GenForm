@@ -244,6 +244,7 @@ module GStandTests =
             |> printfn "%s\n"
         )
 
+
     let mapFrequency () =
         DR.get ()
         |> Seq.map (fun dr -> dr.Freq)
@@ -294,10 +295,9 @@ module GStandTests =
             printfn "%s" (sd |> Dosage.toString true)
             )
         )
- 
 
 
-        GStand.createDoseRules true (Some 2.) (Some 4.) None None "paracetamol" "" "rectaal"
+        GStand.createDoseRules true (Some 2.) (Some 4.) None None "paracetamol" "" "oraal"
         |> printDoseRules
 
         DR.get ()

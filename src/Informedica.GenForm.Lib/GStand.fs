@@ -32,6 +32,7 @@ module GStand =
     type SubstanceDosage = DoseRule.Dosage.Dosage
     type Patient = Patient.Patient
     type Dosage = DoseRule.Dosage.Dosage
+    
 
 
     let groupByFst xs = 
@@ -218,7 +219,6 @@ module GStand =
          gstdsr.NormM2 |> minmax n NormM2,
          gstdsr.AbsM2  |> minmax n AbsM2,
          gstdsr)
-
           
 
     let getSubstanceDoses (drs : DR.DoseRule seq) =
@@ -397,6 +397,9 @@ module GStand =
         |> Seq.groupBy fst
         |> Seq.map ((fun (k, v) -> k |> snd, v |> Seq.map snd) 
         >> (fun (pat, drs) ->
+            printfn "patient: %s" (pat |> Patient.toString)
+            printfn "doserules:\n%s" (drs |> Seq.map DR.toString2 |> String.concat "\n")
+
             (pat, drs |> getSubstanceDoses, drs))
         ) 
 
@@ -456,6 +459,108 @@ module GStand =
         )
         |> Seq.filter (fun n -> n |> String.isNullOrWhiteSpace |> not)
         |> Seq.toList
+
+
+    let mergeDosages d ds =
+        
+        let merge d1 d2 =
+            //printfn "merging d1: %s" (d1 |> Dosage.toString false)
+            //printfn "merging d2: %s" (d2 |> Dosage.toString false)
+
+            Dosage.empty
+            // merge name
+            |> (fun d ->
+                d
+                |> Dosage.Optics.setName (d1 |> Dosage.Optics.getName)
+            )
+            // merge start dose
+            |> (fun d ->
+                if d.StartDosage = DoseRule.DoseRange.empty then
+                    if d1.StartDosage = DoseRange.empty then d2.StartDosage else d1.StartDosage
+                    |> (fun x -> d |> (Optic.set Dosage.StartDosage_ x))
+                else d
+            )
+            // merge single dose
+            |> (fun d ->
+                if d.SingleDosage = DoseRule.DoseRange.empty then
+                    if d1.SingleDosage = DoseRange.empty then d2.SingleDosage else d1.SingleDosage
+                    |> (fun x -> d |> (Optic.set Dosage.SingleDosage_ x))
+                else d
+            )
+            // merge Rate dose
+            |> (fun d ->
+                if d.RateDosage |> fst = DoseRange.empty then
+                    if d1.RateDosage |> fst = DoseRange.empty then d2.RateDosage else d1.RateDosage
+                    |> (fun x -> d |> (Optic.set Dosage.RateDosage_ x))
+                else d
+            )
+            // merge frequencies when freq is 1 then check
+            // whether the freq is a start dose
+            |> (fun d -> 
+                // only merge frequencies for same total dose
+                // ToDo use ValueUnit eqs function
+                if d1 |> (Optic.get Dosage.TotalDosage_) = (d2 |> Optic.get Dosage.TotalDosage_) ||
+                   d1 |> (Optic.get Dosage.TotalDosage_) |> fst = DoseRange.empty || 
+                   d2 |> (Optic.get Dosage.TotalDosage_) |> fst = DoseRange.empty then
+                    d1 
+                    |> Dosage.Optics.getFrequencyValues
+                    |> List.append (d2 |> Dosage.Optics.getFrequencyValues)
+                    |> (fun vs -> 
+                        d
+                        |> Dosage.Optics.setFrequencyValues vs
+                    )
+                    // merge Total dose
+                    |> (fun d ->
+                        if d.TotalDosage |> fst = DoseRange.empty then
+                            if d1.TotalDosage |> fst = DoseRange.empty then d2.TotalDosage else d1.TotalDosage
+                            |> (fun x -> d |> (Optic.set Dosage.TotalDosage_ x))
+                        else d
+                    )
+
+                else
+                    if d1.Frequencies.Frequencies = [ 1N ] then
+                        d
+                        |> (Optic.set Dosage.StartDosage_ (d1.TotalDosage |> fst))
+                        |> (fun d ->
+                            d2
+                            |> Dosage.Optics.getFrequencyValues
+                            |> (fun vs ->
+                                d
+                                |> Dosage.Optics.setFrequencyValues vs
+                                |> (Optic.set Dosage.TotalDosage_ (d2 |> Optic.get Dosage.TotalDosage_))
+                            )
+                        )
+                    else if d2.Frequencies.Frequencies = [ 1N ] then
+                        d
+                        |> (Optic.set Dosage.StartDosage_ (d2.TotalDosage |> fst))
+                        |> (fun d ->
+                            d1
+                            |> Dosage.Optics.getFrequencyValues
+                            |> (fun vs ->
+                                d
+                                |> Dosage.Optics.setFrequencyValues vs
+                                |> (Optic.set Dosage.TotalDosage_ (d1 |> Optic.get Dosage.TotalDosage_))
+                            )
+                        )
+                    else
+                        d
+
+            )
+
+            |> (fun d -> 
+                d 
+                |> Dosage.Optics.setFrequencyTimeUnit (d1 |> Dosage.Optics.getFrequencyTimeUnit)
+            )
+            //|> (fun d -> 
+            //    printfn "dosage is now: %s" (d |> Dosage.toString false)
+            //    d
+            //)
+
+        match ds |> Seq.toList with
+        | [d1] -> seq { yield merge d1 d }
+        | _ -> 
+            ds
+            |> Seq.append (seq { yield d })
 
    
     let createDoseRules all age wght bsa gpk gen shp rte =
@@ -555,6 +660,25 @@ module GStand =
                         pats
                         |> Seq.fold (fun acc pat ->
                             let pat, sds = pat
+
+                            let sds =
+                                sds
+                                |> Seq.fold (fun acc sd ->
+                                    match acc 
+                                          |> Seq.toList 
+                                          |> List.filter (fun d -> d.Name = sd.Name) with
+                                    | [] -> acc |> Seq.append (seq { yield sd })
+                                    | ns -> 
+                                        match ns 
+                                              |> List.filter (fun d -> 
+                                                d.Frequencies.TimeUnit = sd.Frequencies.TimeUnit ||
+                                                sd.Frequencies.Frequencies = []
+                                              ) with
+                                        | [] -> acc |> Seq.append (seq {yield sd })
+                                        | ns ->
+                                            acc |> mergeDosages sd 
+                                            
+                                ) Seq.empty
 
                             acc
                             |> DoseRule.Optics.addPatient ind r [shp] pat
