@@ -887,7 +887,10 @@ module DoseRule =
                 | Some h, Some t -> sprintf "%s - %s" (h.ToString ()) (t.ToString ())
                 | _ -> freqs.Frequencies |> List.toString
             |> (fun s ->
-                sprintf "%s keer per %s" s fu
+                if s |> String.isNullOrWhiteSpace ||
+                   s |> String.isNullOrWhiteSpace then ""
+                else
+                    sprintf "%s keer per %s" s fu
             )
 
 
@@ -2879,7 +2882,6 @@ Doseringen:
 """
 
     let mdDosageText = """
-          -------------------
           {dosage}
 """
 

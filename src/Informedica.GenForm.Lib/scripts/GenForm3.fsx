@@ -271,7 +271,7 @@ module GStandTests =
         createDoseRules "dopamine" "" "intraveneus"
         |> printDoseRules
 
-        createDoseRules "salbutamol" "" "intraveneus"
+        createDoseRules "digoxine" "" ""
         |> printDoseRules
 
 

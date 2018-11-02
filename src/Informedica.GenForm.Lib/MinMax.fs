@@ -70,6 +70,26 @@ module MinMax =
     let valueSTE = applyValue2 (<=?) (<=?) (<=?) (<=?) 
 
 
+    let compOpt comp nn sn ns v1 v2 =
+        match v1, v2 with
+        | None, None -> nn
+        | Some _, None -> sn
+        | None, Some _ -> ns
+        | Some v1, Some v2 -> comp v1 v2
+
+
+    let valueOptLT = compOpt valueLT false true false 
+
+
+    let valueOptST = compOpt valueST false false true 
+
+
+    let valueOptLTE = compOpt valueLTE false true false 
+
+
+    let valueOptSTE = compOpt valueSTE false false true 
+
+
     let isValid ({ Min = min; Max = max }) =
         match min, max with
         | None, None -> true
@@ -169,6 +189,7 @@ module MinMax =
         | Exclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Exclusive  
 
 
+
     type Value with
     
         static member Inclusive_ =
@@ -213,8 +234,8 @@ module MinMax =
             (fun mm -> mm.Max), 
             (fun v mm -> mm |> setMax (Some v))
 
+            
 
-    
     module Optics =
     
     

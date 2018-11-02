@@ -60,6 +60,7 @@ module GStand =
             "fentanyl", UNTS.perOneDay, NormKg,  UNTS.mcgKgDay, NoRate
             "fentanyl", UNTS.perOneHour, NormKg, UNTS.mcgKgHour, Rate
             "salbutamol", UNTS.perFourHour, NormKg, UNTS.mcgKgMin, Rate
+            "digoxine", UNTS.perOneDay, NormKg, UNTS.mcgKgDay, NoRate
         ]
 
 
