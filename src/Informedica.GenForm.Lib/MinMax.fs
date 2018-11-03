@@ -225,6 +225,23 @@ module MinMax =
         }
         
 
+    let withUnit u (mm : MinMax) =
+        let convert =
+            applyValue1 
+                (fun vu -> vu |> ValueUnit.getValue |> ValueUnit.create u) 
+                (fun vu -> vu |> ValueUnit.getValue |> ValueUnit.create u) 
+            >> Some
+        { 
+            Min =
+                match mm.Min with
+                | None -> None
+                | Some v -> v |> convert
+            Max =
+                match mm.Max with
+                | None -> None
+                | Some v -> v |> convert
+        }
+
 
     type Value with
     

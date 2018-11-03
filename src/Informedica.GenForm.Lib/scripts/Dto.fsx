@@ -41,7 +41,7 @@ open Informedica.GenProduct.Lib
 open Informedica.GenForm.Lib
 
 
-GenPresProduct.filter false "paracetamol" "" "oraal"
+GenPresProduct.filter false "paracetamol" "" ""
 |> Seq.collect (fun gpp ->
     gpp.GenericProducts
     |> Seq.collect (fun gp ->

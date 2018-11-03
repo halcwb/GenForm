@@ -126,39 +126,6 @@ module Dto =
             Text = ""
         }
 
-    type Mapping = FormMap | GStandMap | PedMap  | StandMap
-
-
-    let mapping path m1 m2 s =
-        let i1, i2 =
-            match m1, m2 with
-            | FormMap,   GStandMap -> 0, 1
-            | GStandMap, FormMap   -> 1, 0
-            | FormMap,   StandMap  -> 0, 3
-            | GStandMap, StandMap  -> 1, 3
-            | StandMap,  FormMap   -> 3, 0
-            | StandMap,  GStandMap -> 1, 3
-            | _ -> 0, 0
-
-        let map =
-            File.readAllLines path
-            |> Array.skip 1
-            |> Array.map (String.splitAt ';')
-        if i1 = 0 && i2 = 0 || (i1 > map.Length || i2 > map.Length) then ""
-        else
-            map
-            |> Array.filter (fun x -> x.[i1] |> String.equalsCapInsens s)
-            |> Array.fold (fun acc xs ->  
-                if acc = "" then xs.[i2]
-                else acc + "||" + xs.[i2]
-            ) ""
-
-
-    let unitMapping = mapping (Environment.CurrentDirectory + "/" + FP.data + "/formulary/UnitMapping.csv")
-
-    
-    let frequencyMapping = mapping (Environment.CurrentDirectory + "/" + FP.data + "/formulary/FrequencyMapping.csv")
-
 
     let loadGenForm () =
         GPP.load false
@@ -187,9 +154,11 @@ module Dto =
         let freqsToStr (fr : Dosage.Frequency) =
             fr.Frequencies
             |> List.map (fun f ->
-                Dosage.createFrequency [f] fr.TimeUnit fr.MinimalInterval
+                f
+                |> ValueUnit.create fr.TimeUnit
+                |> ValueUnit.toStringPrec 0
+                |> Mapping.mapFreq Mapping.GenFormMap Mapping.FormMap
             )
-            |> List.map Dosage.freqsToStr
             |> String.concat "||"
 
         let getValue prism d =
@@ -368,7 +337,9 @@ module Dto =
                     Shape = shp
                     Label = lbl
                     Concentration = conc
-                    ConcentrationUnit = unt |> unitMapping GStandMap FormMap
+                    ConcentrationUnit = 
+                        unt 
+                        |> Mapping.mapUnit Mapping.GStandMap Mapping.FormMap
                     Multiple =
                         if dto.Multiple = 0. then 0.
                         else dto.Multiple

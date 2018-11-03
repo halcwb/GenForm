@@ -295,6 +295,10 @@ module GStand =
             
             // if weight or bsa is known the adjusted or unadjusted doses can be calculated
             let calcNoneAndAdjusted (c : MinMax) (un : MinMax) (adj : MinMax) =
+                // remove the adjust unit by making it a count
+                let c = 
+                    c |> MinMax.withUnit ValueUnit.Units.Count.times
+
                 let calc op x1 x2 y =
                     match y with
                     | Some _ -> y
@@ -302,7 +306,8 @@ module GStand =
                         match x1, x2 with
                         | Some x1_, Some x2_ ->
                             // printfn "calculating %A %A = %A" x1_ x2_ (x1_ |> op <| x2_)  
-                            (x1_ |> op <| x2_) |> Some
+                            (x1_ |> op <| x2_) 
+                            |> Some
                         | _ -> y
 
                 // Norm.min = PerKg.min * Wght.min
