@@ -42,6 +42,13 @@ module MinMax =
     
 
     let empty = create None None
+
+
+    let one u = 
+        {
+            Min = 1N |> ValueUnit.create u |> inclusive |> Some
+            Max = 1N |> ValueUnit.create u |> inclusive |> Some
+        }
     
 
     let inline applyValue1 f1 f2 v1 =
@@ -189,6 +196,35 @@ module MinMax =
         | Exclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Exclusive  
 
 
+    let calc op (mm1 : MinMax) (mm2 : MinMax) =
+        let c m1 m2 =
+            match m1, m2 with
+            | None, None
+            | Some _, None | None, Some _ -> None
+            | Some v1, Some v2 -> v1 |> op <| v2 |> Some
+        {
+            empty with
+                Min = c mm1.Min mm2.Min
+                Max = c mm1.Max mm2.Max
+        }
+
+
+    let convertTo u (mm : MinMax) =
+        let convert =
+            applyValue1 (ValueUnit.convertTo u) (ValueUnit.convertTo u)
+            >> Some
+        { 
+            Min =
+                match mm.Min with
+                | None -> None
+                | Some v -> v |> convert
+            Max =
+                match mm.Max with
+                | None -> None
+                | Some v -> v |> convert
+        }
+        
+
 
     type Value with
     
@@ -233,6 +269,11 @@ module MinMax =
             (MinMax -> Value Option) * (Value -> MinMax -> MinMax) =
             (fun mm -> mm.Max), 
             (fun v mm -> mm |> setMax (Some v))
+
+
+        static member (*) (mm1, mm2) = calc (*) mm1 mm2
+            
+        static member (/) (mm1, mm2) = calc (/) mm1 mm2
 
             
 

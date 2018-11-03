@@ -54,6 +54,7 @@ module Dto =
     open Informedica.GenUtils.Lib.BCL
 
     module Dosage = DoseRule.Dosage
+    module DoseRange = DoseRule.DoseRange
     
     module RF = Informedica.GenProduct.Lib.RuleFinder 
     module DR = Informedica.GenProduct.Lib.DoseRule
@@ -72,12 +73,13 @@ module Dto =
         {
             AgeInMo : float
             WeightKg : float
-            BirthWeightGram : float
+            LengthCm : float
             BSAInM2 : float
             Gender : string
+            BirthWeightGram : float
             GestAgeWeeks : int
             GestAgeDays : int
-            GPK : string
+            GPK : int
             ATC : string
             TherapyGroup : string
             TherapySubGroup : string
@@ -137,12 +139,13 @@ module Dto =
         {
             AgeInMo = 0.
             WeightKg = 0.
-            BirthWeightGram = 0.
+            LengthCm = 0.
             BSAInM2 = 0.
             Gender = ""
+            BirthWeightGram = 0.
             GestAgeWeeks = 0
             GestAgeDays = 0
-            GPK = ""
+            GPK = 0
             ATC = ""
             TherapyGroup = ""
             TherapySubGroup = ""
@@ -200,7 +203,23 @@ module Dto =
         ATC.load ()
 
     
-    let toDto age weight bsa gend gpk route =
+    let processDto (dto : Dto) =
+
+        let u =
+            dto.MultipleUnit |> ValueUnit.unitFromAppString 
+        
+        let dto =
+            if dto.BSAInM2 > 0. then dto
+            else 
+                if dto.LengthCm > 0. && dto.WeightKg > 0. then
+                    {
+                        dto with 
+                            BSAInM2 =
+                                // (w / (l  ** 2.)) |> Some
+                                dto.WeightKg / (dto.LengthCm ** 2.)
+                    }
+                else
+                    dto
 
         let freqsToStr (fr : Dosage.Frequency) =
             fr.Frequencies
@@ -223,12 +242,11 @@ module Dto =
                 | None -> 0.
             )
 
-
         let gen, shp, lbl, conc, unt, tps =
-            match gpk |> GPP.findByGPK |> Array.toList with
+            match dto.GPK |> GPP.findByGPK |> Array.toList with
             | [gpp] -> 
                 let lbl, conc, unt, tps = 
-                    match gpp.GenericProducts |> Seq.tryFind (fun gp -> gp.Id = gpk) with
+                    match gpp.GenericProducts |> Seq.tryFind (fun gp -> gp.Id = dto.GPK) with
                     | Some gp -> 
                         let conc, unt =
                             match gp.Substances |> Seq.tryFind (fun s -> s.SubstanceName = gpp.Name) with
@@ -250,7 +268,16 @@ module Dto =
                 gpp.Name, gpp.Shape, lbl, conc, unt, tps
             | _ -> "", "", "", 0., "", ""
 
-        let rs = GStand.createDoseRules false age weight bsa (Some gpk) gen shp route
+        let rs = 
+            GStand.createDoseRules 
+                false 
+                (Some dto.AgeInMo) 
+                (Some dto.WeightKg)
+                (Some dto.BSAInM2) 
+                (Some dto.GPK) 
+                gen 
+                shp 
+                dto.Route
         
         if rs |> Seq.length <> 1 then dto
         else
@@ -278,7 +305,11 @@ module Dto =
                                     |> List.filter (fun sd ->
                                         sd.Name = gen
                                     )
-                                    |> List.exists (fun sd -> sd.Frequencies.TimeUnit = ValueUnit.NoUnit)
+                                    |> List.exists (fun sd -> 
+                                        sd.Frequencies.TimeUnit = ValueUnit.NoUnit ||
+                                        sd.SingleDosage <> DoseRange.empty ||
+                                        sd.StartDosage <> DoseRange.empty
+                                    )
                                 )
 
                             if pds |> List.length = 0 then [] 
@@ -299,6 +330,11 @@ module Dto =
                                         sd.Name = gen
                                     )
                                     |> List.map (fun d ->
+                                        let d =
+                                            match u with
+                                            | Some u -> d |> Dosage.convertTo u
+                                            | None -> d
+
                                         {
                                             rule with
                                                 Frequency = 
@@ -307,24 +343,12 @@ module Dto =
 
                                                 MinTotalDose = d |> getValue Dosage.Optics.inclMinNormTotalDosagePrism
                                                 MaxTotalDose = d |> getValue Dosage.Optics.exclMaxNormTotalDosagePrism
-                                                MaxPerDose   = 
-                                                    let d1 = d |> getValue Dosage.Optics.exclMaxNormSingleDosagePrism
-                                                    let d2 = d |> getValue Dosage.Optics.exclMaxNormStartDosagePrism
-                                                    if d1 = 0. then d2 else d1
 
                                                 MinTotalDosePerKg = d |> getValue Dosage.Optics.inclMinNormWeightTotalDosagePrism
                                                 MaxTotalDosePerKg = d |> getValue Dosage.Optics.exclMaxNormWeightTotalDosagePrism
-                                                MaxPerDosePerKg =
-                                                    let d1 = d |> getValue Dosage.Optics.exclMaxNormWeightSingleDosagePrism
-                                                    let d2 = d |> getValue Dosage.Optics.exclMaxNormWeightStartDosagePrism
-                                                    if d1 = 0. then d2 else d1
 
                                                 MinTotalDosePerM2 = d |> getValue Dosage.Optics.inclMinNormBSATotalDosagePrism
                                                 MaxTotalDosePerM2 = d |> getValue Dosage.Optics.exclMaxNormBSATotalDosagePrism
-                                                MaxPerDosePerM2 =
-                                                    let d1 = d |> getValue Dosage.Optics.exclMaxNormBSASingleDosagePrism
-                                                    let d2 = d |> getValue Dosage.Optics.exclMaxNormBSAStartDosagePrism
-                                                    if d1 = 0. then d2 else d1
                                         } 
                                         |> (fun r ->
                                             let sds = 
@@ -333,27 +357,31 @@ module Dto =
                                                     d.SubstanceDosages
                                                     |> List.filter (fun d -> d.Name = gen)
                                                 )
-                                            if sds |> List.length <> 1 then r
-                                            else
-                                                sds
-                                                |> List.head
-                                                |> (fun d ->
-                                                    {
-                                                        r with
-                                                            MaxPerDose   = 
+                                            sds
+                                            |> List.fold (fun acc d ->
+                                                printfn "folding %s" (d |> Dosage.toString false)
+                                                {
+                                                    acc with
+                                                        MaxPerDose   = 
+                                                            if acc.MaxPerDose = 0. then
                                                                 let d1 = d |> getValue Dosage.Optics.exclMaxNormSingleDosagePrism
                                                                 let d2 = d |> getValue Dosage.Optics.exclMaxNormStartDosagePrism
                                                                 if d1 = 0. then d2 else d1
-                                                            MaxPerDosePerKg =
+                                                            else acc.MaxPerDose
+                                                        MaxPerDosePerKg =
+                                                            if acc.MaxPerDosePerKg = 0. then
                                                                 let d1 = d |> getValue Dosage.Optics.exclMaxNormWeightSingleDosagePrism
                                                                 let d2 = d |> getValue Dosage.Optics.exclMaxNormWeightStartDosagePrism
                                                                 if d1 = 0. then d2 else d1
-                                                            MaxPerDosePerM2 =
+                                                            else acc.MaxPerDosePerKg
+                                                        MaxPerDosePerM2 =
+                                                            if acc.MaxTotalDosePerM2 = 0. then
                                                                 let d1 = d |> getValue Dosage.Optics.exclMaxNormBSASingleDosagePrism
                                                                 let d2 = d |> getValue Dosage.Optics.exclMaxNormBSAStartDosagePrism
                                                                 if d1 = 0. then d2 else d1
-                                                    }
-                                                )
+                                                            else acc.MaxTotalDosePerM2 
+                                                }
+                                            ) r
                                         )
                                     )
                                 )
@@ -361,31 +389,26 @@ module Dto =
             
             {
                 dto with
-                    AgeInMo = 
-                        if age |> Option.isSome then age |> Option.get 
-                        else 0.
-                    WeightKg = 
-                        if weight |> Option.isSome then weight |> Option.get 
-                        else 0.
-                    BSAInM2 = 
-                        if bsa |> Option.isSome then bsa |> Option.get
-                        else 0.
-                    Gender = gend
-                    GPK = gpk |> string
                     ATC = r.ATC
                     TherapyGroup = r.ATCTherapyGroup
                     TherapySubGroup = r.ATCTherapySubGroup
-                    Generic = r.Generic
+                    Generic = gen
                     TradeProduct = tps
                     Shape = shp
                     Label = lbl
                     Concentration = conc
                     ConcentrationUnit = unt |> unitMapping GStandMap FormMap
-                    Multiple = 0.
-                    MultipleUnit = ""
-                    Route = route
+                    Multiple =
+                        if dto.Multiple = 0. then 0.
+                        else dto.Multiple
+                    MultipleUnit = 
+                        if dto.MultipleUnit = "" then ""
+                        else dto.MultipleUnit
                     Rules = rules |> List.toArray
-                    Text = r |> DoseRule.toString false
+                    Text = 
+                        r 
+                        |> (fun dr -> match u with | Some u -> dr |> DoseRule.convertTo gen u | None -> dr)
+                        |> DoseRule.toString false
             }
 
 
@@ -394,18 +417,37 @@ module Dto =
 open Informedica.GenProduct.Lib
 
 
-GenPresProduct.filter false "ondansetron" "" "oraal"
+GenPresProduct.filter false "paracetamol" "" "oraal"
 |> Seq.collect (fun gpp ->
     gpp.GenericProducts
     |> Seq.collect (fun gp ->
         gp.Route
         |> Seq.map (fun r ->
-            Dto.toDto (Some 22.) (Some 12.) None "" gp.Id r
+            {
+                Dto.dto with
+                    AgeInMo = 22.
+                    WeightKg = 12.
+                    LengthCm = 60.
+                    GPK = gp.Id
+                    Route = r
+            }
+            |> Dto.processDto 
         )
     )
 )
 
 
-Dto.toDto (Some 0.) (Some 1.5) None "" 3689 "intraveneus"
+{
+    Dto.dto with
+        AgeInMo = 22.
+        WeightKg = 12.
+        GPK = 3689
+        Route = "intraveneus"
+        MultipleUnit = "mcg"
+}
+|> Dto.processDto 
+
+
+
 
 

@@ -29,6 +29,13 @@ module ValueUnit =
             |> Mapping.mapUnit m Mapping.GenFormMap
             |> Units.fromString
 
+
+    let unitFromGStandString = unitFromString Mapping.GStandMap
+
+
+    let unitFromAppString = unitFromString Mapping.FormMap
+
+
     let createUnit m v u =
         let s = 
             u

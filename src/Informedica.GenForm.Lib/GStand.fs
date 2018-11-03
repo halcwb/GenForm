@@ -195,7 +195,12 @@ module GStand =
                     | None -> vu
                     | Some (_, _, _, cu, _) ->
                         vu |> ValueUnit.convertTo cu)
-                |> Some
+                |> (fun vu ->
+                    vu 
+                    |> ValueUnit.getValue
+                    |> ValueUnit.create unit 
+                    |> Some
+                )
             | None -> None
     
         let minmax n mapping (mm : DR.MinMax) =
@@ -338,7 +343,7 @@ module GStand =
                 match tu with
                 | _ when tu = ValueUnit.NoUnit || (tu |> ValueUnit.isCountUnit) -> 
                     ds 
-                    |> (Optic.set Dosage.SingleDosage_ dr) 
+                    |> (Optic.set Dosage.StartDosage_ dr) 
 
                 | _ when rts = ["INTRAVENEUS"] &&
                          unitMapping 
@@ -476,14 +481,14 @@ module GStand =
             )
             // merge start dose
             |> (fun d ->
-                if d.StartDosage = DoseRule.DoseRange.empty then
+                if d.StartDosage = DoseRange.empty then
                     if d1.StartDosage = DoseRange.empty then d2.StartDosage else d1.StartDosage
                     |> (fun x -> d |> (Optic.set Dosage.StartDosage_ x))
                 else d
             )
             // merge single dose
             |> (fun d ->
-                if d.SingleDosage = DoseRule.DoseRange.empty then
+                if d.SingleDosage = DoseRange.empty then
                     if d1.SingleDosage = DoseRange.empty then d2.SingleDosage else d1.SingleDosage
                     |> (fun x -> d |> (Optic.set Dosage.SingleDosage_ x))
                 else d
@@ -521,7 +526,7 @@ module GStand =
                 else
                     if d1.Frequencies.Frequencies = [ 1N ] then
                         d
-                        |> (Optic.set Dosage.StartDosage_ (d1.TotalDosage |> fst))
+                        |> (Optic.set Dosage.SingleDosage_ (d1.TotalDosage |> fst))
                         |> (fun d ->
                             d2
                             |> Dosage.Optics.getFrequencyValues
@@ -533,7 +538,7 @@ module GStand =
                         )
                     else if d2.Frequencies.Frequencies = [ 1N ] then
                         d
-                        |> (Optic.set Dosage.StartDosage_ (d2.TotalDosage |> fst))
+                        |> (Optic.set Dosage.SingleDosage_ (d2.TotalDosage |> fst))
                         |> (fun d ->
                             d1
                             |> Dosage.Optics.getFrequencyValues

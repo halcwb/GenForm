@@ -10,6 +10,7 @@ module Mapping =
     open Informedica.GenUtils.Lib.BCL
     open Informedica.GenProduct.Lib
 
+
     [<Literal>]
     let unitPath = "/formulary/UnitMapping.csv"
 
@@ -48,6 +49,12 @@ module Mapping =
 
     let mapUnit = map (Environment.CurrentDirectory + "/" + FilePath.data + unitPath)
     
+
+    let mapUnitFromFormularyToGenForm = mapUnit FormMap GenFormMap
+
+
+    let mapUnitFromGStandToGenForm = mapUnit GStandMap GenFormMap
+
 
     let mapFreq = map (Environment.CurrentDirectory + "/" + FilePath.data + freqPath)
 

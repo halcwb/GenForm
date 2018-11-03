@@ -61,6 +61,46 @@ module DoseRule =
         let empty = create MinMax.empty emptyWeight emptyBSA MinMax.empty emptyWeight emptyBSA
 
 
+        let calc op (dr1 : DoseRange) (dr2 : DoseRange) =
+            {
+                empty with
+                    Norm = dr1.Norm |> op <| dr2.Norm
+                    NormWeight = 
+                        (dr1.NormWeight |> fst) * (dr2.NormWeight |> fst), 
+                        (dr1.NormWeight |> snd)
+                    NormBSA = 
+                        (dr1.NormBSA |> fst) * (dr2.NormBSA |> fst), 
+                        (dr1.NormBSA |> snd)
+                    Abs = dr1.Abs |> op <| dr2.Abs
+                    AbsWeight = 
+                        (dr1.AbsWeight |> fst) * (dr2.AbsWeight |> fst), 
+                        (dr1.AbsWeight |> snd)
+                    AbsBSA = 
+                        (dr1.AbsBSA |> fst) * (dr2.AbsBSA |> fst), 
+                        (dr1.AbsBSA |> snd)
+            }
+
+
+        let convertTo u (dr: DoseRange) =
+            {
+                dr with
+                    Norm = dr.Norm |> MinMax.convertTo u
+                    NormWeight =
+                        dr.NormWeight |> fst |> MinMax.convertTo u ,
+                        dr.NormWeight |> snd
+                    NormBSA =
+                        dr.NormBSA |> fst |> MinMax.convertTo u ,
+                        dr.NormBSA |> snd
+                    Abs = dr.Abs |> MinMax.convertTo u
+                    AbsWeight =
+                        dr.AbsWeight |> fst |> MinMax.convertTo u ,
+                        dr.AbsWeight |> snd
+                    AbsBSA =
+                        dr.AbsBSA |> fst |> MinMax.convertTo u ,
+                        dr.AbsBSA |> snd                        
+            }
+
+
         type DoseRange with
 
             static member Norm_ :
@@ -92,6 +132,12 @@ module DoseRule =
                 (DoseRange -> (MinMax * BSAUnit)) * ((MinMax * BSAUnit) -> DoseRange -> DoseRange) =
                 (fun dr -> dr.AbsBSA),
                 (fun mm dr -> { dr with AbsBSA = mm })
+
+            static member (*) (dr1, dr2) = calc (*) dr1 dr2
+
+            static member (/) (dr1, dr2) = calc (/) dr1 dr2
+
+
 
         module Optics =
             
@@ -221,13 +267,26 @@ module DoseRule =
 
             let norm = if norm = abs then MinMax.empty else norm
             
-            let nw, _ = normwght
-            let nb, _ = normbsa
-            let aw, _ = abswght
-            let ab, _ = absbsa
+            let nw, nuw = normwght
+            let nb, nub = normbsa
+            let aw, auw = abswght
+            let ab, aub = absbsa
 
-            let nw = if nw = aw then MinMax.empty else nw
-            let nb = if nb = ab then MinMax.empty else nb
+            let nw, aw = 
+                if nw = aw then 
+                    MinMax.empty ,
+                    aw / (auw |> MinMax.one)
+                else 
+                    nw / (nuw |> MinMax.one) ,
+                    aw / (auw |> MinMax.one)
+
+            let nb, ab = 
+                if nb = ab then 
+                    MinMax.empty ,
+                    ab / (aub |> MinMax.one)
+                else 
+                    nb / (nub |> MinMax.one) ,
+                    ab / (aub |> MinMax.one)
                 
             norm 
             |> MinMax.toString
@@ -311,6 +370,7 @@ module DoseRule =
                 Rules = rls
             }
 
+
         let emptyFrequencies = { Frequencies = []; TimeUnit = ValueUnit.NoUnit; MinimalInterval = None }
 
 
@@ -323,6 +383,22 @@ module DoseRule =
                 (DoseRange.empty, ValueUnit.NoUnit) 
                 emptyFrequencies
                 []
+
+
+        let convertTo u (ds : Dosage) =
+            let convert = DoseRange.convertTo u
+
+            {
+                ds with
+                    StartDosage = ds.StartDosage |> convert
+                    SingleDosage = ds.SingleDosage |> convert
+                    RateDosage =
+                        ds.RateDosage |> fst |> convert ,
+                        ds.RateDosage |> snd
+                    TotalDosage =
+                        ds.TotalDosage |> fst |> convert ,
+                        ds.TotalDosage |> snd
+            }
 
 
         type Frequency with
@@ -1204,6 +1280,7 @@ module DoseRule =
             (DoseRule -> IndicationDosage list) * (IndicationDosage list -> DoseRule -> DoseRule) =
             (fun dr -> dr.IndicationsDosages) ,
             (fun inds dr -> { dr with IndicationsDosages = inds })
+
 
 
     module Optics =
@@ -2836,7 +2913,50 @@ module DoseRule =
         let setExclMaxAbsBSATotalSubstanceDosage = substanceDosageSetter Dosage.exclMaxAbsBSATotalDosagePrism
     
 
-    
+    let convertTo gen u (dr : DoseRule) =
+        {
+            dr with
+                IndicationsDosages =
+                    dr.IndicationsDosages
+                    |> List.map (fun id ->
+                        {
+                            id with
+                                RouteDosages =
+                                    id.RouteDosages
+                                    |> List.map (fun rd ->
+                                        {
+                                            rd with
+                                                ShapeDosages =
+                                                    rd.ShapeDosages 
+                                                    |> List.map (fun sd ->
+                                                         {
+                                                            sd with
+                                                                PatientDosages =
+                                                                    sd.PatientDosages
+                                                                    |> List.map (fun pd ->
+                                                                        {
+                                                                            pd with
+                                                                                SubstanceDosages =
+                                                                                    pd.SubstanceDosages 
+                                                                                    |> List.map (fun sd ->
+                                                                                        if sd.Name = gen then
+                                                                                            sd 
+                                                                                            |> Dosage.convertTo u
+                                                                                        else sd
+                                                                                    )
+                                                                        }    
+                                                                    )
+                                                         }
+                                                    )
+                                        }
+                                    )
+                        }
+                    )
+
+        }
+
+
+   
     module Operators =
         
         let (|>>) (x1, x2) f = f x2 x1 
