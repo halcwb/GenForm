@@ -17,11 +17,11 @@ module Main =
     open Informedica.GenForm.Lib
 
     open HttpsConfig
+    open Informedica.GenForm.Lib
+
         
     type RuleRequest () =
-        member val bty = 0 with get, set
-        member val btm = 0 with get, set
-        member val btd = 0 with get, set
+        member val age = 0. with get, set
         member val wth = 0. with get, set
         member val hgt = 0. with get, set
         member val gpk = "" with get, set
@@ -29,11 +29,37 @@ module Main =
         member val unt = "" with get, set
 
 
+    let toDto (req : RuleRequest) =
+        { 
+            Dto.dto with
+                AgeInMo = req.age
+                WeightKg = req.wth
+                LengthCm = req.hgt
+                GPK = 
+                    match req.gpk |> Int32.tryParse with
+                    | Some i -> i
+                    | None -> 0
+                Route = req.rte
+                MultipleUnit = req.unt
+        }
+        
+
+
+    let testDto =
+        {
+            Dto.dto with
+                AgeInMo = 12.
+                WeightKg = 10.
+                GPK = 9504
+                Route = "oraal"
+        }
+
+
     let handleTestRequest =
         fun (next : HttpFunc) (ctx : HttpContext) ->    
-            Dto.testDto
+            testDto
             |> (fun dto -> printfn "request: %A" dto; dto)
-            |> Dto.findRules
+            |> Dto.processDto
             |> (fun dto' -> printfn "response: %A" dto'; dto')
             |> (fun dto' -> 
                     match dto' with 
@@ -45,25 +71,14 @@ module Main =
 
     let handleRequest =
         fun (next : HttpFunc) (ctx : HttpContext) ->    
-            let dto = 
-                let req = ctx.BindQueryString<RuleRequest>()
-                { Dto.dto with
-                    BirthYear = req.bty
-                    BirthMonth = req.btm
-                    BirthDay = req.btd
-                    WeightKg = req.wth
-                    LengthCm = req.hgt
-                    GPK = req.gpk
-                    Route = req.rte
-                    MultipleUnit = req.unt
-                }
-            dto
+            ctx.BindQueryString<RuleRequest>()
+            |> toDto
             |> (fun dto -> printfn "request: %A" dto; dto)
-            |> Dto.findRules
+            |> Dto.processDto
             |> (fun dto' -> printfn "response: %A" dto'; dto')
             |> (fun dto' -> 
                     match dto' with 
-                    | _ -> json dto next ctx
+                    | _ -> json dto' next ctx
                     //| Some r -> json r next ctx
                     //| None   -> json dto next ctx
                 )
