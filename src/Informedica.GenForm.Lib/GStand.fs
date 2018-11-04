@@ -408,8 +408,8 @@ module GStand =
         |> Seq.groupBy fst
         |> Seq.map ((fun (k, v) -> k |> snd, v |> Seq.map snd) 
         >> (fun (pat, drs) ->
-            printfn "patient: %s" (pat |> Patient.toString)
-            printfn "doserules:\n%s" (drs |> Seq.map DR.toString2 |> String.concat "\n")
+            //printfn "patient: %s" (pat |> Patient.toString)
+            //printfn "doserules:\n%s" (drs |> Seq.map DR.toString2 |> String.concat "\n")
 
             (pat, drs |> getSubstanceDoses, drs))
         ) 

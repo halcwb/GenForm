@@ -1,5 +1,5 @@
-Formulary;G-Standaard;Kinderformularium;Stand
-;1 eenmalig;;1
+AppMap;GStandMap;PedFormMap;ValueUnitMap
+;1 eenmalig;;
 antenoctum;1 per dag;;1 Times[Count]/1 Day[Time]
 1 x / dag;1 per dag;;1 Times[Count]/1 Day[Time]
 2 x / dag;2 per dag;;2 Times[Count]/1 Day[Time]

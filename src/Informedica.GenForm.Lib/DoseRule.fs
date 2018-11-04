@@ -966,7 +966,7 @@ module DoseRule =
                 if s |> String.isNullOrWhiteSpace ||
                    s |> String.isNullOrWhiteSpace then ""
                 else
-                    sprintf "%s keer per %s" s fu
+                    sprintf "%s x / %s" s fu
             )
 
 

@@ -157,7 +157,7 @@ module Dto =
                 f
                 |> ValueUnit.create fr.TimeUnit
                 |> ValueUnit.toStringPrec 0
-                |> Mapping.mapFreq Mapping.GenFormMap Mapping.FormMap
+                |> Mapping.mapFreq Mapping.ValueUnitMap Mapping.AppMap
             )
             |> String.concat "||"
 
@@ -209,7 +209,8 @@ module Dto =
                 (Some dto.GPK) 
                 gen 
                 shp 
-                dto.Route
+                (dto.Route |> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap) 
+                
         
         if rs |> Seq.length <> 1 then dto
         else
@@ -299,7 +300,7 @@ module Dto =
                                                 )
                                             sds
                                             |> List.fold (fun acc d ->
-                                                printfn "folding %s" (d |> Dosage.toString false)
+                                                //printfn "folding %s" (d |> Dosage.toString false)
                                                 {
                                                     acc with
                                                         MaxPerDose   = 
@@ -339,12 +340,14 @@ module Dto =
                     Concentration = conc
                     ConcentrationUnit = 
                         unt 
-                        |> Mapping.mapUnit Mapping.GStandMap Mapping.FormMap
+                        |> Mapping.mapUnit Mapping.GStandMap Mapping.AppMap
                     Multiple =
                         if dto.Multiple = 0. then 0.
                         else dto.Multiple
                     MultipleUnit = 
-                        if dto.MultipleUnit = "" then ""
+                        if dto.MultipleUnit = "" then 
+                            unt 
+                            |> Mapping.mapUnit Mapping.GStandMap Mapping.AppMap
                         else dto.MultipleUnit
                     Rules = rules |> List.toArray
                     Text = 

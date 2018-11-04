@@ -26,20 +26,20 @@ module ValueUnit =
 
     let unitFromString m u = 
             u
-            |> Mapping.mapUnit m Mapping.GenFormMap
+            |> Mapping.mapUnit m Mapping.ValueUnitMap
             |> Units.fromString
 
 
     let unitFromGStandString = unitFromString Mapping.GStandMap
 
 
-    let unitFromAppString = unitFromString Mapping.FormMap
+    let unitFromAppString = unitFromString Mapping.AppMap
 
 
     let createUnit m v u =
         let s = 
             u
-            |> Mapping.mapUnit m Mapping.GenFormMap
+            |> Mapping.mapUnit m Mapping.ValueUnitMap
         if s = "" then None
         else
             v
@@ -54,7 +54,7 @@ module ValueUnit =
     let createFromGStand = createUnit Mapping.GStandMap
 
 
-    let createFromFormul = createUnit Mapping.FormMap
+    let createFromFormul = createUnit Mapping.AppMap
 
 
     let fromFloat v u =
@@ -75,7 +75,7 @@ module ValueUnit =
         v |> BigRational.toFloat, 
         u 
         |> unitToString
-        |> Mapping.mapUnit Mapping.GenFormMap Mapping.GStandMap
+        |> Mapping.mapUnit Mapping.ValueUnitMap Mapping.GStandMap
 
 
     let timeMinute = (fun n -> fromFloat n Units.Time.minute)

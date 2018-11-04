@@ -53,7 +53,7 @@ GenPresProduct.filter false "paracetamol" "" ""
                     WeightKg = 12.
                     LengthCm = 60.
                     GPK = gp.Id
-                    Route = r
+                    Route = "or"
             }
             |> Dto.processDto 
         )
@@ -66,7 +66,7 @@ GenPresProduct.filter false "paracetamol" "" ""
         AgeInMo = 22.
         WeightKg = 12.
         GPK = 3689
-        Route = "intraveneus"
+        Route = "iv"
         MultipleUnit = ""
 }
 |> Dto.processDto 
