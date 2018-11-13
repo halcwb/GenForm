@@ -5,17 +5,6 @@ module String =
     open Informedica.GenUtils.Lib.BCL
 
 
-    let removeTextBetween start stop text =
-        let regex = @"\" + start + @"[^\" + stop + "]*]"
-        printfn "regex: %s" regex
-
-        (String.regex regex).Replace(text, "")
-        |> String.trim
-
-
-    let removeTextBetweenBrackets = removeTextBetween "[" "]"
-        
-  
 
     open System
 
@@ -79,5 +68,4 @@ module String =
     let removeTrailingEOL = removeTrailing "\n"
 
 
-    let remBr (s: String) = 
-        (String.regex "\[[^\]]*]").Replace(s, "")
+    let remBr = String.removeTextBetweenBrackets

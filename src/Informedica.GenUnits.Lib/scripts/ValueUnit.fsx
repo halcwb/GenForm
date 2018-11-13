@@ -3,6 +3,7 @@
 open MathNet.Numerics
 
 open Informedica.GenUnits.Lib
+open Informedica.GenUtils.Lib.BCL
 open ValueUnit
 
 let toString = toString Units.English Units.Short
@@ -39,25 +40,23 @@ let microgkgday = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units
 |> convertTo mcgkgmin
 |> convertTo (Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.minute)
 
-
 ((400N |> mg) /  (20N |> ml)) * (((10N |> ml) + (10N |> ml)) / (1N |> hr))
 
 
 createCombiUnit (Count(Times(2N)), OpPer, Time(Hour(1N)))
 |> (fun u -> createCombiUnit ((Mass(MilliGram(1N)), OpTimes, u)))
 
-((20N |> mg) + (30N |> mg)) * ((3N |> x) / (1N |> day)) / (8N |> kg)
+
+// Calculate (20 mg + 30 ml) * 3 / (1 day) / (8 kg) and express this
+// as mg/kg/day
+((20N |> mg) + (30N |> mg)) / ((3N |> x) / (1N |> day)) / (8N |> kg)
 ==> mgkgday
+
+(40N |> mg) / (1N |> ml)
+
 
 let dripMgPerHour n = (n |> mg) / (1N |> hr)
 
-Api.eval "100 mg[Mass] * 1 gram[Mass]"
-
-"10 mg[Mass]/kg[Weight]/d[Time]"
-|> ValueUnit.fromString
-|> ValueUnit.toString ValueUnit.Units.English ValueUnit.Units.Short
-|> ValueUnit.fromString
-|> ValueUnit.toString ValueUnit.Units.English ValueUnit.Units.Short
 
 
 let test () =
@@ -77,3 +76,56 @@ let test () =
     |> printfn "%A"
 
 
+
+module Demo =
+
+    let create u v =
+        v
+        |> BigRational.FromInt
+        |> create u
+
+    let x = create Units.Count.times
+    let mg = create Units.Mass.milliGram
+    let mcg = create Units.Mass.microGram
+    let ml = create Units.Volume.milliLiter
+    let kg = create Units.Weight.kiloGram
+    let hr = create Units.Time.hour
+    let day = create Units.Time.day
+    let min = create Units.Time.minute
+
+    let mcgkgmin = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.minute
+
+    let print vu =
+        let v, u = vu |> ValueUnit.get
+
+        v 
+        |> BigRational.toFloat
+        |> Double.fixPrecision 2
+        |> string
+        |> (fun s -> 
+            s + " "  + 
+            (u |> ValueUnit.Units.toString ValueUnit.Units.Dutch ValueUnit.Units.Short)
+            |> String.removeTextBetweenBrackets
+        )
+        |> printfn "%s"
+
+    // Calculation for a dopamin infusion for a patient with weight 10 kg
+    // - Take 5 ml of dopamine 40 mg/ml
+    // - Add 45 ml of saline for a 50 ml pump
+    // - Set the pump rate to 1 ml/hour
+    //
+    // Calculate ((dopamine 40 mg/ml * 5 ml + saline 45 ml) * (1 ml / hour)) / 10 kg = ... mcg/kg/min
+    (((40 |> mg) / (1 |> ml)) * (5 |> ml) / ((5 |> ml) + (45 |> ml))) * ((1 |> ml) / (1 |> hr)) / (10 |> kg)
+    // Convert the result to mcg/kg/min
+    ==> mcgkgmin
+    // Print the result
+    |> print
+    // Prints : 6.7 mcg/kg/min
+
+    Api.eval "100 mg[Mass] * 1 gram[Mass]"
+
+    "10 mg[Mass]/kg[Weight]/day[Time]"
+    |> ValueUnit.fromString
+    |> ValueUnit.toString ValueUnit.Units.English ValueUnit.Units.Short
+    |> ValueUnit.fromString
+    |> ValueUnit.toString ValueUnit.Units.English ValueUnit.Units.Short

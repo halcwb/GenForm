@@ -141,3 +141,17 @@ module String =
             else
                 t |> Seq.fold(fun (flag, dec) c' -> if c' = c && flag then (true, dec + 1) else (false, dec)) (true, 0) 
         count
+
+
+    let removeTextBetween start stop text =
+        let regs = @"\" + start + @"[^\" + stop + "]*]"
+
+        (regex regs).Replace(text, "")
+        |> trim
+
+
+    let removeTextBetweenBrackets = removeTextBetween "[" "]"
+        
+  
+    let removeBrackets (s: String) = 
+        (regex "\[[^\]]*]").Replace(s, "")
