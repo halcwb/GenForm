@@ -2965,49 +2965,77 @@ module DoseRule =
         let (|>>>) (x1, x2) f = f x2 x1, x2 
 
  
+
     let mdText = """
-Stofnaam: {generic}
-{synonym}
+## _Stofnaam_: {generic}
+Synoniemen: {synonym}
 
-ATC code: {atc}
+---
 
-Therapeutische groep: {thergroup} 
+### _ATC code_: {atc}
 
-Therapeutische subgroep: {thersub}
+### _Therapeutische groep_: {thergroup} 
 
-Generiek groep: {gengroup}
+### _Therapeutische subgroep_: {thersub}
 
-Generiek subgroep: {gensub}
+### _Generiek groep_: {gengroup}
 
-Doseringen:
+### _Generiek subgroep_: {gensub}
+
 """
 
     let mdIndicationText = """
-  Indicatie: {indication}
+
+---
+
+### _Indicatie_: {indication}
 """
 
 
     let mdRouteText = """
-    Route: {route}
+* _Route_: {route}
 """
 
     let mdShapeText = """
-      Vorm: {shape}
-      Producten: 
-      {products}
+  * _Vorm_: {shape}
+  * _Producten_: 
+  * {products}
 """
 
     let mdPatientText = """
-        {patient}
+    * _Patient_: __{patient}__
 """
 
     let mdDosageText = """
-          {dosage}
+      * {dosage}
+
 """
 
 
-    let toString printRules (dr : DoseRule) =
-        mdText
+    type TextConfig = 
+        {
+            MainText: string
+            IndicationText : string
+            RouteText : string
+            ShapeText : string
+            PatientText : string
+            DosageText : string
+        }
+
+
+    let mdConfig = 
+        {
+            MainText = mdText
+            IndicationText = mdIndicationText
+            RouteText = mdRouteText
+            ShapeText = mdShapeText
+            PatientText = mdPatientText
+            DosageText = mdDosageText
+        }
+
+
+    let toStringWithConfig (config : TextConfig) printRules (dr : DoseRule) =
+        config.MainText
         |> String.replace "{generic}" dr.Generic
         |> String.replace "{synonym}" (dr.Synonyms |> String.concat ",")
         |> String.replace "{atc}" dr.ATC
@@ -3028,7 +3056,7 @@ Doseringen:
                     rd.ShapeDosages
                     |> List.fold (fun acc sd ->
                         let shapeStr =
-                            mdShapeText 
+                            config.ShapeText 
                             |> String.replace "{shape}" (sd.Shape |> String.concat ",")
                             |> String.replace "{products}" (sd.GenericProducts |> String.concat "\n      ")
 
@@ -3036,7 +3064,7 @@ Doseringen:
                         |> List.fold (fun acc pd ->
 
                             let s =
-                                (mdPatientText
+                                (config.PatientText
                                  |> String.replace "{patient}" (pd.Patient |> Patient.toString)) +
                                 ("{dosage}" 
                                  |> String.replace "{dosage}" (pd.ShapeDosage |> Dosage.toString printRules))
@@ -3044,14 +3072,17 @@ Doseringen:
                             pd.SubstanceDosages
                             |> List.fold (fun acc sd ->
 
-                                acc + (mdDosageText |> String.replace "{dosage}" (sd |> Dosage.toString printRules))
+                                acc + (config.DosageText |> String.replace "{dosage}" (sd |> Dosage.toString printRules))
 
                             ) (acc + s)
 
                         ) (acc + shapeStr)
                                                 
-                    ) (acc + (mdRouteText |> String.replace "{route}" rd.Route))
+                    ) (acc + (config.RouteText |> String.replace "{route}" rd.Route))
 
-                ) (acc + (mdIndicationText |> String.replace "{indication}" ind))
+                ) (acc + (config.IndicationText |> String.replace "{indication}" ind))
             ) s
         )
+
+
+    let toString = toStringWithConfig mdConfig

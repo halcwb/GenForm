@@ -354,5 +354,6 @@ module Dto =
                         r 
                         |> (fun dr -> match u with | Some u -> dr |> DoseRule.convertTo gen u | None -> dr)
                         |> DoseRule.toString false
+                        |> Markdown.toHtml
             }
 

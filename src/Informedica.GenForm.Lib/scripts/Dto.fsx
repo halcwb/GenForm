@@ -26,6 +26,7 @@ Environment.CurrentDirectory <-
 
 #load "./../Utils/String.fs" 
 #load "./../Utils/List.fs" 
+#load "./../Utils/MarkDown.fs" 
 #load "./../Mapping.fs" 
 #load "./../ValueUnit.fs" 
 #load "./../MinMax.fs" 
@@ -35,6 +36,9 @@ Environment.CurrentDirectory <-
 #load "./../DoseRule.fs" 
 #load "./../GStand.fs" 
 #load "./../Dto.fs"
+
+#load "./../../../.paket/load/netstandard2.0/Markdig.fsx"
+
 
 
 open Informedica.GenProduct.Lib
@@ -59,19 +63,31 @@ GenPresProduct.filter false "paracetamol" "" ""
         )
     )
 )
-
+|> Seq.iter (fun dto ->
+    dto.Text
+    |> Markdown.htmlToBrowser
+)
 
 {
     Dto.dto with
         AgeInMo = 22.
         WeightKg = 12.
         GPK = 3689
-        Route = "iv"
+        Route = "IV"
         MultipleUnit = ""
 }
 |> Dto.processDto 
 
+"iv" 
+|> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap
 
 
+Informedica.GenProduct.Lib.DoseRule.get()
+|> Array.collect (fun dr ->
+    dr.Routes
+)
+|> Array.distinct
+|> Array.sort
+|> Array.iter (printfn "%s")
 
 

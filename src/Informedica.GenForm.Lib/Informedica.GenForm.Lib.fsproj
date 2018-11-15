@@ -9,6 +9,7 @@
     <None Include="scripts\Dto.fsx" />
     <Compile Include="Utils\String.fs" />
     <Compile Include="Utils\List.fs" />
+    <Compile Include="Utils\MarkDown.fs" />
     <Compile Include="Mapping.fs" />
     <Compile Include="ValueUnit.fs" />
     <Compile Include="MinMax.fs" />

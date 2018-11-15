@@ -193,9 +193,9 @@ module Patient =
             let sl = sl |> String.trim
             
             if s |> String.isNullOrWhiteSpace then sl
-            else sl + (if sl = "Patient:" then " " else  ", ") + l + s
+            else sl + (if sl = "" then " " else  ", ") + l + s
         
-        "Patient:"
+        ""
         >+ ("Zwangerschapsduur: ", ga |> MinMax.gestAgeToString)
         >+ ("Leeftijd: ", age |> MinMax.ageToString)
         >+ ("Gewicht: ", wght |> MinMax.toString)

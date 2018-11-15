@@ -1,3 +1,4 @@
+
 #I __SOURCE_DIRECTORY__
 
 #load "./../../../.paket/load/netstandard2.0/main.group.fsx"
@@ -25,6 +26,7 @@ Environment.CurrentDirectory <-
 
 #load "./../Utils/String.fs" 
 #load "./../Utils/List.fs" 
+#load "./../Utils/MarkDown.fs" 
 #load "./../Mapping.fs" 
 #load "./../ValueUnit.fs" 
 #load "./../MinMax.fs" 
@@ -33,6 +35,11 @@ Environment.CurrentDirectory <-
 #load "./../Patient.fs" 
 #load "./../DoseRule.fs" 
 #load "./../GStand.fs" 
+
+
+#load "./../../../.paket/load/netstandard2.0/Markdig.fsx"
+
+
 
 
 open Aether  
@@ -233,7 +240,65 @@ module GStandTests =
     let createDoseRules = GStand.createDoseRules false None None None None
 
 
-    let toStr = DoseRule.toString false
+    let mdText = """
+## _Stofnaam_: {generic}
+Synoniemen: {synonym}
+
+---
+
+### _ATC code_: {atc}
+
+### _Therapeutische groep_: {thergroup} 
+
+### _Therapeutische subgroep_: {thersub}
+
+### _Generiek groep_: {gengroup}
+
+### _Generiek subgroep_: {gensub}
+
+"""
+
+    let mdIndicationText = """
+
+---
+
+### _Indicatie_: {indication}
+"""
+
+
+    let mdRouteText = """
+* _Route_: {route}
+"""
+
+    let mdShapeText = """
+  * _Vorm_: {shape}
+  * _Producten_: 
+  * {products}
+"""
+
+    let mdPatientText = """
+    * _Patient_: __{patient}__
+"""
+
+    let mdDosageText = """
+      * {dosage}
+
+"""
+
+
+    let mdConfig = 
+        {
+            DoseRule.mdConfig with
+                MainText = mdText
+                IndicationText = mdIndicationText
+                RouteText = mdRouteText
+                ShapeText = mdShapeText
+                PatientText = mdPatientText
+                DosageText = mdDosageText
+        }
+
+
+    let toStr = DoseRule.toStringWithConfig mdConfig false
 
 
     let printDoseRules rs = 
@@ -241,7 +306,8 @@ module GStandTests =
         |> Seq.iter (fun dr -> 
             dr 
             |> toStr
-            |> printfn "%s\n"
+            |> Markdown.toBrowser
+
         )
 
 
@@ -256,6 +322,7 @@ module GStandTests =
         )
 
     let tests () =
+
         createDoseRules "trimethoprim/sulfamethoxazol" "" ""
         |> printDoseRules
 
