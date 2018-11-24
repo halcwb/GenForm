@@ -37,15 +37,13 @@ Environment.CurrentDirectory <-
 #load "./../GStand.fs" 
 #load "./../Dto.fs"
 
-#load "./../../../.paket/load/netstandard2.0/Markdig.fsx"
-
 
 
 open Informedica.GenProduct.Lib
 open Informedica.GenForm.Lib
 
 
-GenPresProduct.filter false "paracetamol" "" ""
+GenPresProduct.filter false "dopamine" "" ""
 |> Seq.collect (fun gpp ->
     gpp.GenericProducts
     |> Seq.collect (fun gp ->
@@ -57,13 +55,17 @@ GenPresProduct.filter false "paracetamol" "" ""
                     WeightKg = 12.
                     LengthCm = 60.
                     GPK = gp.Id
-                    Route = "or"
+                    Route = "iv"
+                    IsRate = true
+                    MultipleUnit = "mcg"
+                    RateUnit = "min"
             }
             |> Dto.processDto 
         )
     )
 )
 |> Seq.iter (fun dto ->
+    printfn "%A" dto
     dto.Text
     |> Markdown.htmlToBrowser
 )
@@ -77,6 +79,7 @@ GenPresProduct.filter false "paracetamol" "" ""
         MultipleUnit = ""
 }
 |> Dto.processDto 
+|> (fun dto -> dto.Text |> Markdown.toBrowser)
 
 "iv" 
 |> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap

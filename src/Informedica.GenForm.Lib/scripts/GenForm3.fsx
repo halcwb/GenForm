@@ -165,7 +165,6 @@ module MinMaxTests =
         ]
         |> List.iter (fun (v, mm) -> test v mm)
 
-        
 
 
 module DoseRangeTests =
@@ -237,7 +236,7 @@ module GStandTests =
     module GPP = Informedica.GenProduct.Lib.GenPresProduct
 
 
-    let createDoseRules = GStand.createDoseRules false None None None None
+    let createDoseRules = GStand.createDoseRules false false None None None None
 
 
     let mdText = """
@@ -281,7 +280,7 @@ Synoniemen: {synonym}
 """
 
     let mdDosageText = """
-      * {dosage}
+      {dosage}
 
 """
 
@@ -323,7 +322,7 @@ Synoniemen: {synonym}
 
     let tests () =
 
-        createDoseRules "trimethoprim/sulfamethoxazol" "" ""
+        createDoseRules "trimethoprim/sulfamethoxazol" "" "intraveneus"
         |> printDoseRules
 
         createDoseRules "paracetamol" "" ""
@@ -344,7 +343,7 @@ Synoniemen: {synonym}
 
         RF.createFilter None None None None "paracetamol" "" ""
         |> RF.find true
-        |> getSubstanceDoses
+        |> getSubstanceDoses false
         |> Seq.iter (fun (inds, sd) -> 
             printfn "Indication %s" (inds |> String.concat ", ")
             printfn "%s" (sd |> Dosage.toString true)
@@ -353,7 +352,7 @@ Synoniemen: {synonym}
 
         RF.createFilter None None None None "gentamicine" "" ""
         |> RF.find true
-        |> getPatients
+        |> getPatients false
         |> Seq.iter (fun (pat, sds, _) -> 
             printfn "%s" (pat |> Patient.toString)
             sds
@@ -364,7 +363,7 @@ Synoniemen: {synonym}
         )
 
 
-        GStand.createDoseRules true (Some 2.) (Some 4.) None None "paracetamol" "" "oraal"
+        GStand.createDoseRules true false (Some 2.) (Some 4.) None None "paracetamol" "" "oraal"
         |> printDoseRules
 
         DR.get ()
@@ -467,7 +466,7 @@ Synoniemen: {synonym}
         |> Seq.iter (printfn "|%s|")
 
 
-    GStand.createDoseRules false (Some 1.1) (Some 5.) None None "gentamicine" "" "intraveneus"
+    GStand.createDoseRules false false (Some 1.1) (Some 5.) None None "gentamicine" "" "intraveneus"
     |> printDoseRules
 
     

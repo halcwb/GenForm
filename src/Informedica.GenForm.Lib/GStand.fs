@@ -51,18 +51,6 @@ module GStand =
         | AbsM2
 
 
-    type UnitMapping = | NoRate | Rate 
-
-
-    let unitMapping =
-        [
-            "dopamine", UNTS.perOneHour, NormKg, UNTS.mcgKgMin, Rate
-            "fentanyl", UNTS.perOneDay, NormKg,  UNTS.mcgKgDay, NoRate
-            "fentanyl", UNTS.perOneHour, NormKg, UNTS.mcgKgHour, Rate
-            "salbutamol", UNTS.perFourHour, NormKg, UNTS.mcgKgMin, Rate
-            "digoxine", UNTS.perOneDay, NormKg, UNTS.mcgKgDay, NoRate
-        ]
-
 
     /// Map GSTand min max float Option values to
     /// a `DoseRule` `MinMax`
@@ -173,34 +161,17 @@ module GStand =
         let setMin = Optic.set MinMax.Optics.inclMinLens
         let setMax = Optic.set MinMax.Optics.exclMaxLens
 
+        // ToDo remove n and mapping
         let toVu n mapping v =
-            let u = 
-                match mapping with
-                | NormKg | AbsKg -> unit |> ValueUnit.per ValueUnit.Units.Weight.kiloGram
-                | NormM2 | AbsM2 -> unit |> ValueUnit.per ValueUnit.Units.BSA.M2
-                | _ -> unit
 
-            match u |> ValueUnit.fromFloat (v * qty) with
+            match unit |> ValueUnit.fromFloat (v * qty) with
             | Some vu -> 
-                vu * fr 
-                |> (fun vu ->
-                    let _, u = fr |> ValueUnit.get
-
-                    match unitMapping 
-                          |> List.tryFind (fun (n_, tu, m, _, _) -> 
-                            n_ |> String.equalsCapInsens n && 
-                            m = mapping &&
-                            tu = u
-                          ) with
-                    | None -> vu
-                    | Some (_, _, _, cu, _) ->
-                        vu |> ValueUnit.convertTo cu)
-                |> (fun vu ->
-                    vu 
-                    |> ValueUnit.getValue
-                    |> ValueUnit.create unit 
-                    |> Some
-                )
+                let x = 
+                    fr 
+                    |> ValueUnit.get
+                    |> fst
+                    |> ValueUnit.create ValueUnit.Units.Count.times
+                vu * x |> Some
             | None -> None
     
         let minmax n mapping (mm : DR.MinMax) =
@@ -208,10 +179,6 @@ module GStand =
             |> setMin (mm.Min |> Option.bind (toVu n mapping))
             |> setMax (mm.Max |> Option.bind (toVu n mapping))
              
-        //printfn "mapping doserule: \n%s to\n %s x %s" 
-        //    (gstdsr |> Informedica.GenProduct.Lib.DoseRule.toString2)
-        //    (fr |> ValueUnit.toStringPrec 1)
-        //    (gstdsr.NormKg |> minmax n NormKg |> MinMax.toString)
 
         (n, gstdsr.Freq.Time |> parseTimeString, gstdsr.Freq.Frequency = 1.) ,
         
@@ -227,7 +194,7 @@ module GStand =
          gstdsr)
           
 
-    let getSubstanceDoses (drs : DR.DoseRule seq) =
+    let getSubstanceDoses isRate (drs : DR.DoseRule seq) =
         // fold maximize with preservation of min
         let fold (mm : MinMax) (mm_ : MinMax) =
             match mm.Min, mm.Min with
@@ -350,13 +317,8 @@ module GStand =
                     ds 
                     |> (Optic.set Dosage.StartDosage_ dr) 
 
-                | _ when rts = ["INTRAVENEUS"] &&
-                         unitMapping 
-                         |> List.exists (fun (n_, u, _, _, dt) ->
-                            n_ |> String.equalsCapInsens n && 
-                            tu = u &&
-                            dt = Rate
-                         ) ->
+                | _ when isRate && 
+                         frs |> List.length = 1 ->
                     
                     ds
                     |> (Optic.set Dosage.RateDosage_ (dr, tu))
@@ -370,12 +332,11 @@ module GStand =
                         Dosage.createFrequency fr tu None         
                     
                     ds
-                    |> (Optic.set Dosage.TotalDosage_ (dr, tu))
-                    |> (Optic.set Dosage.Frequencies_ frs)
+                    |> (Optic.set Dosage.TotalDosage_ (dr, frs))
             )))) 
 
 
-    let getPatients (drs : DR.DoseRule seq) =
+    let getPatients isRate (drs : DR.DoseRule seq) =
         let map = mapMinMax<Patient> 
 
         let ageInMo = Option.bind ValueUnit.ageInMo
@@ -411,7 +372,7 @@ module GStand =
             //printfn "patient: %s" (pat |> Patient.toString)
             //printfn "doserules:\n%s" (drs |> Seq.map DR.toString2 |> String.concat "\n")
 
-            (pat, drs |> getSubstanceDoses, drs))
+            (pat, drs |> getSubstanceDoses isRate, drs))
         ) 
 
 
@@ -529,7 +490,7 @@ module GStand =
                     )
 
                 else
-                    if d1.Frequencies.Frequencies = [ 1N ] then
+                    if d1 |> Dosage.Optics.getFrequencyValues = [ 1N ] then
                         d
                         |> (Optic.set Dosage.SingleDosage_ (d1.TotalDosage |> fst))
                         |> (fun d ->
@@ -541,7 +502,7 @@ module GStand =
                                 |> (Optic.set Dosage.TotalDosage_ (d2 |> Optic.get Dosage.TotalDosage_))
                             )
                         )
-                    else if d2.Frequencies.Frequencies = [ 1N ] then
+                    else if d2 |> Dosage.Optics.getFrequencyValues = [ 1N ] then
                         d
                         |> (Optic.set Dosage.SingleDosage_ (d2.TotalDosage |> fst))
                         |> (fun d ->
@@ -574,7 +535,7 @@ module GStand =
             |> Seq.append (seq { yield d })
 
    
-    let createDoseRules all age wght bsa gpk gen shp rte =
+    let createDoseRules all isRate age wght bsa gpk gen shp rte =
         
         GPP.filter all gen shp rte
         |> Seq.filter (fun gpp ->
@@ -612,7 +573,7 @@ module GStand =
                 |> Seq.collect (fun r ->
                     RF.createFilter age wght bsa gpk gpp.Name gpp.Shape r
                     |> RF.find all
-                    |> getPatients
+                    |> getPatients isRate
                     |> Seq.collect (fun (pat, sds, dsrs) ->
                         let gps = dsrs |> Seq.collect (fun dr -> dr.GenericProduct |> Seq.map (fun gp -> gp.Name))
                         let tps = dsrs |> Seq.collect (fun dr -> dr.TradeProduct |> Seq.map (fun tp -> tp.Name))
@@ -682,8 +643,8 @@ module GStand =
                                     | ns -> 
                                         match ns 
                                               |> List.filter (fun d -> 
-                                                d.Frequencies.TimeUnit = sd.Frequencies.TimeUnit ||
-                                                sd.Frequencies.Frequencies = []
+                                                d |> Dosage.Optics.getFrequencyTimeUnit = (sd |> Dosage.Optics.getFrequencyTimeUnit) ||
+                                                sd |> Dosage.Optics.getFrequencyValues = []
                                               ) with
                                         | [] -> acc |> Seq.append (seq {yield sd })
                                         | ns ->

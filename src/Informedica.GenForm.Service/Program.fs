@@ -27,6 +27,8 @@ module Main =
         member val gpk = "" with get, set
         member val rte = "" with get, set
         member val unt = "" with get, set
+        member val run = "" with get, set
+        member val isr = false with get, set
 
 
     let toDto (req : RuleRequest) =
@@ -41,6 +43,8 @@ module Main =
                     | None -> 0
                 Route = req.rte
                 MultipleUnit = req.unt
+                RateUnit = req.run
+                IsRate = req.isr
         }
         
 
@@ -69,24 +73,33 @@ module Main =
                 )
 
 
+    let processRuleRequest rr =
+        rr
+        |> toDto
+        |> (fun dto -> printfn "request: %A" dto; dto)
+        |> Dto.processDto
+        |> (fun dto' -> printfn "response: %A" dto'; dto')
+
+
     let handleRequest =
         fun (next : HttpFunc) (ctx : HttpContext) ->    
             ctx.BindQueryString<RuleRequest>()
-            |> toDto
-            |> (fun dto -> printfn "request: %A" dto; dto)
-            |> Dto.processDto
-            |> (fun dto' -> printfn "response: %A" dto'; dto')
-            |> (fun dto' -> 
-                    match dto' with 
-                    | _ -> json dto' next ctx
-                    //| Some r -> json r next ctx
-                    //| None   -> json dto next ctx
-                )
+            |> processRuleRequest
+            |> (fun dto' -> json dto' next ctx)
+
+
+    let handleHtml =
+        fun (next : HttpFunc) (ctx : HttpContext) ->    
+            ctx.BindQueryString<RuleRequest>()
+            |> processRuleRequest
+            |> (fun dto' -> Giraffe.ResponseWriters.htmlString dto'.Text next ctx)
+
 
     let webApp =
         choose [
             route "/test"    >=> handleTestRequest  // json Dto.testDto
-            route "/request" >=> handleRequest ]
+            route "/request" >=> handleRequest
+            route "/html" >=> handleHtml ]
 
 
     // ---------------------------------

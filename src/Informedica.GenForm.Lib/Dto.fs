@@ -56,6 +56,8 @@ module Dto =
             MultipleUnit : string
             Route : string
             Indication : string
+            IsRate : Boolean
+            RateUnit : string
             Rules : Rule []
             Text : string
         }
@@ -122,6 +124,8 @@ module Dto =
             MultipleUnit = ""
             Route = ""
             Indication = ""
+            IsRate = false
+            RateUnit = ""
             Rules = [||]
             Text = ""
         }
@@ -137,6 +141,9 @@ module Dto =
 
         let u =
             dto.MultipleUnit |> ValueUnit.unitFromAppString 
+
+        let ru = 
+            dto.RateUnit |> ValueUnit.Units.fromString
         
         let dto =
             if dto.BSAInM2 > 0. then dto
@@ -202,6 +209,7 @@ module Dto =
 
         let rs = 
             GStand.createDoseRules 
+                dto.IsRate 
                 false 
                 (Some dto.AgeInMo) 
                 (Some dto.WeightKg)
@@ -273,8 +281,13 @@ module Dto =
                                     |> List.map (fun d ->
                                         let d =
                                             match u with
-                                            | Some u -> d |> Dosage.convertTo u
+                                            | Some u -> d |> Dosage.convertSubstanceUnitTo u
                                             | None -> d
+                                            |> (fun d ->
+                                                match ru with
+                                                | Some u -> d |> Dosage.convertRateUnitTo u
+                                                | None -> d
+                                            )
 
                                         {
                                             rule with
@@ -352,7 +365,8 @@ module Dto =
                     Rules = rules |> List.toArray
                     Text = 
                         r 
-                        |> (fun dr -> match u with | Some u -> dr |> DoseRule.convertTo gen u | None -> dr)
+                        |> (fun dr -> match u  with | Some u -> dr |> DoseRule.convertSubstanceUnitTo gen u | None -> dr)
+                        |> (fun dr -> match ru with | Some u -> dr |> DoseRule.convertRateUnitTo gen u | None -> dr)
                         |> DoseRule.toString false
                         |> Markdown.toHtml
             }

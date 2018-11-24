@@ -82,6 +82,7 @@ module DoseRule =
 
 
         let convertTo u (dr: DoseRange) =
+            
             {
                 dr with
                     Norm = dr.Norm |> MinMax.convertTo u
@@ -334,9 +335,7 @@ module DoseRule =
                 /// Dosage rate
                 RateDosage : DoseRange * RateUnit
                 /// Total dosage per time period
-                TotalDosage : DoseRange * TimeUnit
-                /// Allowed frequencies
-                Frequencies : Frequency
+                TotalDosage : DoseRange * Frequency
                 /// List of original doserules 
                 Rules : Rule list
             }
@@ -359,19 +358,18 @@ module DoseRule =
             }
 
 
-        let create nm start single rate total freqs rls =
+        let create nm start single rate total rls =
             {
                 Name = nm
                 StartDosage = start
                 SingleDosage = single
                 RateDosage = rate
                 TotalDosage = total
-                Frequencies = freqs
                 Rules = rls
             }
 
 
-        let emptyFrequencies = { Frequencies = []; TimeUnit = ValueUnit.NoUnit; MinimalInterval = None }
+        let emptyFrequency = { Frequencies = []; TimeUnit = ValueUnit.NoUnit; MinimalInterval = None }
 
 
         let empty = 
@@ -380,12 +378,11 @@ module DoseRule =
                 DoseRange.empty 
                 DoseRange.empty 
                 (DoseRange.empty, ValueUnit.NoUnit) 
-                (DoseRange.empty, ValueUnit.NoUnit) 
-                emptyFrequencies
+                (DoseRange.empty, emptyFrequency) 
                 []
 
 
-        let convertTo u (ds : Dosage) =
+        let convertSubstanceUnitTo u (ds : Dosage) =
             let convert = DoseRange.convertTo u
 
             {
@@ -398,6 +395,24 @@ module DoseRule =
                     TotalDosage =
                         ds.TotalDosage |> fst |> convert ,
                         ds.TotalDosage |> snd
+            }
+
+
+
+
+        let convertRateUnitTo u (ds : Dosage) =
+            let convert u1 u2 = 
+                1N 
+                |> ValueUnit.create u2
+                |> ValueUnit.convertTo u1
+                |> ValueUnit.get
+                |> snd
+
+            {
+                ds with
+                    RateDosage =
+                        ds.RateDosage |> fst,
+                        ds.RateDosage |> snd |> convert u
             }
 
 
@@ -442,14 +457,9 @@ module DoseRule =
                 (fun dr d -> { d with RateDosage = dr })
 
             static member TotalDosage_ :
-                (Dosage -> (DoseRange * TimeUnit)) * ((DoseRange * TimeUnit) -> Dosage -> Dosage) =
+                (Dosage -> (DoseRange * Frequency)) * ((DoseRange * Frequency) -> Dosage -> Dosage) =
                 (fun d -> d.TotalDosage),
                 (fun dt d -> { d with TotalDosage = dt })
-                
-            static member Frequencies_ :
-                (Dosage -> Frequency) * (Frequency -> Dosage -> Dosage) =
-                (fun d -> d.Frequencies) ,
-                (fun frqs d -> { d with Frequencies = frqs })        
 
             static member Rules_ :
                 (Dosage -> Rule list) * (Rule list -> Dosage -> Dosage) =
@@ -469,7 +479,7 @@ module DoseRule =
 
 
             let freqsFrequencyLens =
-                Dosage.Frequencies_ >-> Frequency.Frequencies_
+                Dosage.TotalDosage_ >-> snd_ >-> Frequency.Frequencies_
 
 
             let getFrequencyValues = Optic.get freqsFrequencyLens
@@ -479,7 +489,7 @@ module DoseRule =
 
             
             let timeUnitFrequencyLens =
-                Dosage.Frequencies_ >-> Frequency.TimeUnit_
+                Dosage.TotalDosage_ >-> snd_ >-> Frequency.TimeUnit_
 
 
             let getFrequencyTimeUnit = Optic.get timeUnitFrequencyLens
@@ -489,7 +499,7 @@ module DoseRule =
 
 
             let minIntervalValueFrequencyLens =
-                Dosage.Frequencies_ >-> Frequency.MinimalInterval_
+                Dosage.TotalDosage_ >-> snd_ >-> Frequency.MinimalInterval_
 
 
             let inclMinNormStartDosagePrism =
@@ -970,7 +980,7 @@ module DoseRule =
             )
 
 
-        let toString rules ({ Name = n; StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Frequencies = freqs; Rules = rs }) =
+        let toString rules ({ Name = n; StartDosage = start; SingleDosage = single; RateDosage = rate; TotalDosage = total; Rules = rs }) =
             let vuToStr = ValueUnit.toStringPrec 2
             
             let (>+) sl sr = 
@@ -986,24 +996,25 @@ module DoseRule =
             let rt, _ = rate
             let tt, _ = total
 
+            let frqs = total |> snd
             let fu = 
-                freqs.TimeUnit 
+                frqs.TimeUnit
                 |> ValueUnit.unitToString
                 |> String.replace "x/" ""
 
             ""
             >+ ("oplaad:", start |> DoseRange.toString, "")
             >+ ("per keer:", single |> DoseRange.toString, "")
-            >+ ("dosering", rt |> DoseRange.toString, "")
-            >+ ("dosering", tt |> DoseRange.toString, "")
+            >+ ("snelheid:", rt |> DoseRange.toString, "")
+            >+ ("dosering:", tt |> DoseRange.toString, "")
             |> (fun s -> 
                 let  s = s |> String.trim
-                if freqs.Frequencies |> List.isEmpty || 
+                if frqs.Frequencies |> List.isEmpty || 
                    fu |> String.isNullOrWhiteSpace then s
                 else
-                    sprintf "%s in %s" s (freqs |> freqsToStr)
+                    sprintf "%s in %s" s (frqs |> freqsToStr)
                     |> (fun s ->
-                        match freqs.MinimalInterval with
+                        match frqs.MinimalInterval with
                         | Some mi ->
                             s + " " + (sprintf "minimaal interval: %s" (mi |> vuToStr))
                         | None -> s
@@ -1574,10 +1585,10 @@ module DoseRule =
             | None -> dr
 
 
-        let getFrequenciesShapeDosage = shapeDosageGetter Dosage.Frequencies_
+        let getFrequenciesShapeDosage = shapeDosageGetter Dosage.Optics.freqsFrequencyLens
 
 
-        let setFrequenciesShapeDosage = shapeDosageSetter Dosage.Frequencies_
+        let setFrequenciesShapeDosage = shapeDosageSetter Dosage.Optics.freqsFrequencyLens
 
         
         let getInclMinNormStartShapeDosage = shapeDosageGetter Dosage.inclMinNormStartDosagePrism
@@ -2911,9 +2922,10 @@ module DoseRule =
 
 
         let setExclMaxAbsBSATotalSubstanceDosage = substanceDosageSetter Dosage.exclMaxAbsBSATotalDosagePrism
-    
 
-    let convertTo gen u (dr : DoseRule) =
+
+
+    let private convertTo conv gen u (dr : DoseRule) =
         {
             dr with
                 IndicationsDosages =
@@ -2941,7 +2953,7 @@ module DoseRule =
                                                                                     |> List.map (fun sd ->
                                                                                         if sd.Name = gen then
                                                                                             sd 
-                                                                                            |> Dosage.convertTo u
+                                                                                            |> conv u
                                                                                         else sd
                                                                                     )
                                                                         }    
@@ -2955,6 +2967,11 @@ module DoseRule =
 
         }
 
+
+    let convertSubstanceUnitTo = convertTo Dosage.convertSubstanceUnitTo
+    
+
+    let convertRateUnitTo = convertTo Dosage.convertRateUnitTo
 
    
     module Operators =
