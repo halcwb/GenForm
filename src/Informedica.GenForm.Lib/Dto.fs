@@ -255,7 +255,7 @@ module Dto =
                                         sd.Name = gen
                                     )
                                     |> List.exists (fun sd -> 
-                                        sd.Frequencies.TimeUnit = ValueUnit.NoUnit ||
+                                        sd |> Dosage.Optics.getFrequencyTimeUnit = ValueUnit.NoUnit ||
                                         sd.SingleDosage <> DoseRange.empty ||
                                         sd.StartDosage <> DoseRange.empty
                                     )
@@ -292,7 +292,8 @@ module Dto =
                                         {
                                             rule with
                                                 Frequency = 
-                                                    d.Frequencies
+                                                    d.TotalDosage
+                                                    |> snd
                                                     |> freqsToStr
 
                                                 MinTotalDose = d |> getValue Dosage.Optics.inclMinNormTotalDosagePrism

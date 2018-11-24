@@ -415,10 +415,10 @@ module MinMax =
             sprintf "%s - %s" (min_ |> minToString) (max_ |> maxToString)
         | Some min_, None -> 
             (min_ |> minToString) 
-            |> sprintf "vanaf %s"
+            |> sprintf "min. %s"
         | None, Some max_ -> 
             (max_ |> maxToString)
-            |> sprintf "tot %s"
+            |> sprintf "max. %s"
 
 
     let ageToString { Min = min; Max = max } =
