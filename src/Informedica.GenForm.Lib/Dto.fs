@@ -208,9 +208,22 @@ module Dto =
             | _ -> "", "", "", 0., "", ""
 
         let rs = 
+            let su = 
+                if dto.MultipleUnit = "" then None
+                else
+                    dto.MultipleUnit
+                    |> ValueUnit.unitFromAppString
+
+            let tu = 
+                if dto.RateUnit = "" then None
+                else
+                    dto.RateUnit
+                    |> ValueUnit.unitFromAppString
+
+            let cfg = 
+                { UseAll = false ; IsRate = dto.IsRate ; SubstanceUnit = su ; TimeUnit = tu }
             GStand.createDoseRules 
-                dto.IsRate 
-                false 
+                cfg 
                 (Some dto.AgeInMo) 
                 (Some dto.WeightKg)
                 (Some dto.BSAInM2) 

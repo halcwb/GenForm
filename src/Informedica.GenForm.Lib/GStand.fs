@@ -324,14 +324,14 @@ module GStand =
             |> (Optic.set Dosage.Name_ n)  
             |> (Optic.set Dosage.Rules_ (gstdsrs |> List.map (DR.toString2 >> Dosage.GStandRule)))
             |> (fun ds ->
-                printfn "time unit: %s" (tu |> ValueUnit.unitToString)
                 match tu with
                 | _ when tu = ValueUnit.NoUnit || (tu |> ValueUnit.isCountUnit) -> 
                     ds 
                     |> (Optic.set Dosage.StartDosage_ dr) 
 
                 | _ when cfg.IsRate && 
-                         frs |> List.length = 1 ->
+                         frs |> List.length = 1 &&
+                         tu = ValueUnit.Units.Time.hour ->
 
                     ds
                     |> (Optic.set Dosage.RateDosage_ (dr, tu))

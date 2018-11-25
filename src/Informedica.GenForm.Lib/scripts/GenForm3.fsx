@@ -292,7 +292,12 @@ module GStandTests =
 
     let cfg = { UseAll = false ; IsRate = false ; SubstanceUnit = None ; TimeUnit = None }
 
-    let createDoseRules = GStand.createDoseRules cfg None None None None
+    let cfgmcg = { cfg with SubstanceUnit = (Some ValueUnit.Units.mcg) }
+
+    let createWithCfg cfg = GStand.createDoseRules cfg None None None None
+
+    let createDoseRules = createWithCfg cfg
+    
     let createCont su tu = 
         let cfg = { cfg with IsRate = true ; SubstanceUnit = su ; TimeUnit = tu }
         GStand.createDoseRules cfg None None None None
@@ -389,13 +394,13 @@ Synoniemen: {synonym}
         createDoseRules "gentamicine" "" "intraveneus"
         |> printDoseRules
 
-        createDoseRules "fentanyl" "" ""
+        createWithCfg cfgmcg "fentanyl" "" "intraveneus"
         |> printDoseRules
 
-        createCont (None) (None) "dopamine" "" "intraveneus"
+        createCont (Some ValueUnit.Units.mcg) (Some ValueUnit.Units.min) "dopamine" "" "intraveneus"
         |> printDoseRules
 
-        createDoseRules "digoxine" "" ""
+        createWithCfg cfgmcg "digoxine" "" ""
         |> printDoseRules
 
 
