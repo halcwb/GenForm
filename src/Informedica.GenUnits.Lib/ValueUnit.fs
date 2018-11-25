@@ -118,6 +118,67 @@ module ValueUnit =
         | _ -> failwith  <| sprintf "Cannot parse %s to operand" s
 
 
+    let apply f u = 
+        let rec app u =
+            match u with
+            | NoUnit -> u
+            | General (s, n) -> (s, n |> f) |> General
+            | Count g ->
+                match g with
+                | Times n -> n |> f |> Times |> Count
+            | Mass g  ->
+                match g with
+                | KiloGram n  -> n |> f |> KiloGram
+                | Gram n      -> n |> f |> Gram
+                | MilliGram n -> n |> f |> MilliGram
+                | MicroGram n -> n |> f |> MicroGram
+                | NanoGram n  -> n |> f |> NanoGram
+                |> Mass
+            | Volume g  ->
+                match g with
+                | Liter n      -> n |> f |> Liter
+                | DeciLiter n  -> n |> f |> DeciLiter
+                | MilliLiter n -> n |> f |> MilliLiter
+                | MicroLiter n -> n |> f |> MicroLiter
+                |> Volume
+            | Time g  ->
+                match g with
+                | Year n   -> n |> f |> Year
+                | Month n  -> n |> f |> Month
+                | Week n   -> n |> f |> Week
+                | Day n    -> n |> f |> Day
+                | Hour n   -> n |> f |> Hour
+                | Minute n -> n |> f |> Minute
+                | Second n -> n |> f |> Second
+                |> Time
+            | Molar g ->
+                match g with
+                | Mol n      -> n |> f |> Mol
+                | MilliMol n -> n |> f |> MilliMol
+                |> Molar
+            | InterNatUnit g ->
+                match g with
+                | MIU n -> n |> f |> MIU
+                | IU n  -> n |> f |> IU
+                |> InterNatUnit
+            | Weight g -> 
+                match g with
+                | WeightKiloGram n -> n |> f |> WeightKiloGram
+                | WeightGram n     -> n |> f |> WeightGram
+                |> Weight
+            | Height g -> 
+                match g with
+                | HeightMeter n      -> n |> f |> HeightMeter
+                | HeightCentiMeter n -> n |> f |> HeightCentiMeter
+                |> Height
+            | BSA g -> 
+                match g with
+                | M2 n -> n |> f |> M2 |> BSA
+            | CombiUnit (u1, op, u2) ->
+                (app u1, op, app u2) |> CombiUnit
+
+        app u
+
 
     module Group =
 
@@ -380,6 +441,7 @@ module ValueUnit =
             get u 1N
 
 
+
     let create u v = (v, u) |> ValueUnit
 
 
@@ -404,31 +466,37 @@ module ValueUnit =
     let count = 1N |> Times |> Count
 
 
-    let createCombiUnit (u1, op, u2) =
-        match op with
-        | OpPer ->
-            match u1, u2 with
-            | _ when u1 |> Group.eqsGroup u2 ->
-                count
-            | _ when u2 |> Group.eqsGroup count ->
-                u1
-            | _ -> (u1, OpPer, u2) |> CombiUnit
-        | OpTimes ->
-            match u2 with
-            | CombiUnit(Count(Times(_)), OpPer, ur) -> 
-                (u1, OpPer, ur) |> CombiUnit
-            | _  ->
+    let createCombiUnit cmbi =
+        let rec create (u1, op, u2) =
+            match op with
+            | OpPer ->
+                match u2 with
+                | CombiUnit(Count(Times(n)), OpPer, ur) ->
+                    create (u1, OpTimes, (ur |> apply ((/) n)))
+                | _ ->
+                    match u1, u2 with
+                    | _ when u1 |> Group.eqsGroup u2 ->
+                        count
+                    | _ when u2 |> Group.eqsGroup count ->
+                        u1
+                    | _ -> (u1, OpPer, u2) |> CombiUnit
+            | OpTimes ->
+                match u2 with
+                | CombiUnit(Count(Times(n)), OpPer, ur) -> 
+                    (u1 |> apply ((*) n), OpPer, ur) |> CombiUnit
+                | _  ->
+                    match u1, u2 with
+                    | _ when u1 |> Group.eqsGroup count -> u2
+                    | _ when u2 |> Group.eqsGroup count -> u1
+                    | _ when u1 |> Group.eqsGroup count && 
+                             u2 |> Group.eqsGroup count -> u1
+                    | _ -> (u1, OpTimes, u1) |> CombiUnit
+            | OpPlus | OpMinus ->
                 match u1, u2 with
-                | _ when u1 |> Group.eqsGroup count -> u2
-                | _ when u2 |> Group.eqsGroup count -> u1
-                | _ when u1 |> Group.eqsGroup count && 
-                         u2 |> Group.eqsGroup count -> u1
-                | _ -> (u1, OpTimes, u1) |> CombiUnit
-        | OpPlus | OpMinus ->
-            match u1, u2 with
-            | _ when u1 |> Group.eqsGroup u2 -> u1
-            | _ -> (u1, op, u2) |> CombiUnit
+                | _ when u1 |> Group.eqsGroup u2 -> u1
+                | _ -> (u1, op, u2) |> CombiUnit
 
+        create cmbi
 
     let per u2 u1 = (u1, OpPer, u2) |> createCombiUnit
 
@@ -474,12 +542,10 @@ module ValueUnit =
         find u1
 
 
-
     let isUnit u =
         match u with 
         | CombiUnit _ -> false
         | _ -> true
-
 
 
     module private UnitItem =

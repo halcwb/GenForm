@@ -52,6 +52,8 @@ module MinMaxTests =
 
     module MinMax = MinMax.Optics
 
+    let mmToStr = MinMax.toString "van" "tot"
+
     let v1, v2 = 
         ValueUnit.substanceInGStandUnit 10. "milligram" |> Option.get ,
         ValueUnit.substanceInGStandUnit 20. "milligram" |> Option.get
@@ -73,7 +75,7 @@ module MinMaxTests =
         MinMax.empty
         |> MinMax.setMin (ValueUnit.createFromGStand 1. "milligram" |> Option.get |> MinMax.Inclusive)
         |> MinMax.setMax (ValueUnit.createFromGStand 10. "milligram" |> Option.get |> MinMax.Inclusive)
-        |> MinMax.toString
+        |> mmToStr
         
         
     let a1, a2 =
@@ -118,13 +120,13 @@ module MinMaxTests =
 
         mms
         |> MinMax.foldMaximize
-        |> MinMax.toString
+        |> mmToStr
         |> printfn "Maximized:\n%s"
 
 
         mms
         |> MinMax.foldMinimize
-        |> MinMax.toString
+        |> mmToStr
         |> printfn "Minimized:\n%s"
 
 
@@ -142,7 +144,7 @@ module MinMaxTests =
             |> MinMax.setMax incl3
 
         let test v mm =
-            printfn "%A in range: %A = %A" (v |> MinMax.valueToString) (mm |> MinMax.toString) (MinMax.inRange v mm)
+            printfn "%A in range: %A = %A" (v |> MinMax.valueToString) (mm |> mmToStr) (MinMax.inRange v mm)
 
 
         [
@@ -171,14 +173,43 @@ module DoseRangeTests =
 
     module DoseRange = DoseRule.DoseRange
 
+    let setMinNormDose = Optic.set DoseRange.Optics.inclMinNormLens
     let setMaxNormDose = Optic.set DoseRange.Optics.inclMaxNormLens
+
+    let setMinNormPerKgDose = Optic.set DoseRange.Optics.inclMinNormWeightLens
+    let setMaxNormPerKgDose = Optic.set DoseRange.Optics.inclMaxNormWeightLens
+
+    let setMinAbsDose = Optic.set DoseRange.Optics.inclMinAbsLens
     let setMaxAbsDose = Optic.set DoseRange.Optics.inclMaxAbsLens
+
+    let drToStr = DoseRange.toString None
 
     let toString () =
         DoseRange.empty
         |> setMaxNormDose (ValueUnit.createFromGStand 10. "milligram")
         |> setMaxAbsDose (ValueUnit.createFromGStand 100. "milligram")
-        |> DoseRange.toString
+        |> drToStr
+
+    let toRateString () =
+        DoseRange.empty
+        |> setMinNormDose (ValueUnit.createFromGStand 10. "milligram")
+        |> setMaxNormDose (ValueUnit.createFromGStand 100. "milligram")
+        |> DoseRange.toString (Some ValueUnit.Units.hour)        
+
+    let toRatePerKgString () =
+        DoseRange.empty
+        |> setMinNormPerKgDose (ValueUnit.createFromGStand 0.001 "milligram")
+        |> setMaxNormPerKgDose (ValueUnit.createFromGStand 1. "milligram")
+        |> DoseRange.convertTo (ValueUnit.Units.mcg)
+        |> DoseRange.toString (Some ValueUnit.Units.hour)        
+
+    let convert () =
+        DoseRange.empty
+        |> setMaxNormDose (ValueUnit.createFromGStand 1. "milligram")
+        |> setMinNormDose (ValueUnit.createFromGStand 0.001 "milligram")
+        |> DoseRange.convertTo (ValueUnit.Units.mcg)
+        |> drToStr
+        
 
 
 
@@ -192,6 +223,12 @@ module DosageTests =
     let setNormMinSingleDose = Optic.set Dosage.Optics.inclMinNormSingleDosagePrism
     let setAbsMaxSingleDose = Optic.set Dosage.Optics.inclMaxAbsSingleDosagePrism
 
+    let setNormMaxSingleDose = Optic.set Dosage.Optics.inclMaxNormSingleDosagePrism
+
+    let setNormMinRateDose = Optic.set Dosage.Optics.inclMinNormRateDosagePrism
+    let setNormMaxRateDose = Optic.set Dosage.Optics.inclMaxNormRateDosagePrism
+    let setRateUnit = Optic.set Dosage.Optics.rateUnitRateDosagePrism
+
     let toString () =
         Dosage.empty
         |> setNormMinStartDose (ValueUnit.createFromGStand 10. "milligram")
@@ -199,6 +236,24 @@ module DosageTests =
         |> setNormMinSingleDose (ValueUnit.createFromGStand 10. "milligram")
         |> setAbsMaxSingleDose (ValueUnit.createFromGStand 1. "gram")
         |> Dosage.toString true
+
+    
+    let convert () =
+        Dosage.empty
+        |> setNormMinSingleDose (ValueUnit.createFromGStand 0.01 "milligram")
+        |> setNormMaxSingleDose (ValueUnit.createFromGStand 1. "milligram")
+        |> Dosage.convertSubstanceUnitTo (ValueUnit.Units.mcg)
+        |> Dosage.toString false
+        
+
+    let convertRate () =
+        Dosage.empty
+        |> setNormMinRateDose (ValueUnit.createFromGStand 0.01 "milligram")
+        |> setNormMaxRateDose (ValueUnit.createFromGStand 1. "milligram")
+        |> setRateUnit (ValueUnit.Units.hour)
+        |> Dosage.convertSubstanceUnitTo (ValueUnit.Units.mcg)
+        |> Dosage.convertRateUnitTo (ValueUnit.Units.min)
+        |> Dosage.toString false
 
 
 
@@ -235,9 +290,12 @@ module GStandTests =
     module DR = Informedica.GenProduct.Lib.DoseRule
     module GPP = Informedica.GenProduct.Lib.GenPresProduct
 
+    let cfg = { UseAll = false ; IsRate = false ; SubstanceUnit = None ; TimeUnit = None }
 
-    let createDoseRules = GStand.createDoseRules false false None None None None
-
+    let createDoseRules = GStand.createDoseRules cfg None None None None
+    let createCont su tu = 
+        let cfg = { cfg with IsRate = true ; SubstanceUnit = su ; TimeUnit = tu }
+        GStand.createDoseRules cfg None None None None
 
     let mdText = """
 ## _Stofnaam_: {generic}
@@ -334,7 +392,7 @@ Synoniemen: {synonym}
         createDoseRules "fentanyl" "" ""
         |> printDoseRules
 
-        createDoseRules "dopamine" "" "intraveneus"
+        createCont (None) (None) "dopamine" "" "intraveneus"
         |> printDoseRules
 
         createDoseRules "digoxine" "" ""
@@ -343,7 +401,7 @@ Synoniemen: {synonym}
 
         RF.createFilter None None None None "paracetamol" "" ""
         |> RF.find true
-        |> getSubstanceDoses false
+        |> getSubstanceDoses cfg
         |> Seq.iter (fun (inds, sd) -> 
             printfn "Indication %s" (inds |> String.concat ", ")
             printfn "%s" (sd |> Dosage.toString true)
@@ -352,7 +410,7 @@ Synoniemen: {synonym}
 
         RF.createFilter None None None None "gentamicine" "" ""
         |> RF.find true
-        |> getPatients false
+        |> getPatients cfg
         |> Seq.iter (fun (pat, sds, _) -> 
             printfn "%s" (pat |> Patient.toString)
             sds
@@ -363,7 +421,7 @@ Synoniemen: {synonym}
         )
 
 
-        GStand.createDoseRules true false (Some 2.) (Some 4.) None None "paracetamol" "" "oraal"
+        GStand.createDoseRules cfg (Some 2.) (Some 4.) None None "paracetamol" "" "oraal"
         |> printDoseRules
 
         DR.get ()
@@ -466,7 +524,7 @@ Synoniemen: {synonym}
         |> Seq.iter (printfn "|%s|")
 
 
-    GStand.createDoseRules false false (Some 1.1) (Some 5.) None None "gentamicine" "" "intraveneus"
+    GStand.createDoseRules cfg (Some 1.1) (Some 5.) None None "gentamicine" "" "intraveneus"
     |> printDoseRules
 
     

@@ -61,22 +61,38 @@ module DoseRule =
         let empty = create MinMax.empty emptyWeight emptyBSA MinMax.empty emptyWeight emptyBSA
 
 
+        let count n = 
+            let setMinIncl = Optic.set MinMax.Optics.inclMinLens
+            let setMaxIncl = Optic.set MinMax.Optics.inclMaxLens
+
+            let mm = 
+                MinMax.empty
+                |> setMinIncl (Some n)
+                |> setMaxIncl (Some n)
+
+            let wmm = (mm, ValueUnit.Units.Weight.kiloGram) 
+
+            let bmm = (mm, ValueUnit.Units.BSA.M2) 
+            
+            create mm wmm bmm mm wmm bmm
+
+
         let calc op (dr1 : DoseRange) (dr2 : DoseRange) =
             {
                 empty with
                     Norm = dr1.Norm |> op <| dr2.Norm
                     NormWeight = 
-                        (dr1.NormWeight |> fst) * (dr2.NormWeight |> fst), 
+                        (dr1.NormWeight |> fst) |> op <| (dr2.NormWeight |> fst), 
                         (dr1.NormWeight |> snd)
                     NormBSA = 
-                        (dr1.NormBSA |> fst) * (dr2.NormBSA |> fst), 
+                        (dr1.NormBSA |> fst)  |> op <|  (dr2.NormBSA |> fst), 
                         (dr1.NormBSA |> snd)
                     Abs = dr1.Abs |> op <| dr2.Abs
                     AbsWeight = 
-                        (dr1.AbsWeight |> fst) * (dr2.AbsWeight |> fst), 
+                        (dr1.AbsWeight |> fst)  |> op <|  (dr2.AbsWeight |> fst), 
                         (dr1.AbsWeight |> snd)
                     AbsBSA = 
-                        (dr1.AbsBSA |> fst) * (dr2.AbsBSA |> fst), 
+                        (dr1.AbsBSA |> fst)  |> op <|  (dr2.AbsBSA |> fst), 
                         (dr1.AbsBSA |> snd)
             }
 
@@ -256,7 +272,7 @@ module DoseRule =
                 DoseRange.AbsBSA_ >-> fst_ >-> MinMax.exclMaxLens
 
 
-        let toString ({ Norm = norm; NormWeight = normwght; NormBSA = normbsa; Abs = abs; AbsWeight = abswght; AbsBSA = absbsa}) =
+        let toString ru ({ Norm = norm; NormWeight = normwght; NormBSA = normbsa; Abs = abs; AbsWeight = abswght; AbsBSA = absbsa}) =
             let (>+) sl sr = 
                 let sl = sl |> String.trim
                 let sr = sr |> String.trim
@@ -266,7 +282,18 @@ module DoseRule =
                     let sr = if sr |> String.isNullOrWhiteSpace then sr else " of " + sr
                     sl + sr
 
-            let norm = if norm = abs then MinMax.empty else norm
+
+            let optRate mm =
+                match ru with
+                | Some u -> 
+                    mm / (u |> MinMax.one)
+                | None -> mm
+
+            let norm, abs = 
+                if norm = abs then 
+                    MinMax.empty, abs |> optRate
+                else 
+                    norm |> optRate, abs |> optRate
             
             let nw, nuw = normwght
             let nb, nub = normbsa
@@ -276,23 +303,25 @@ module DoseRule =
             let nw, aw = 
                 if nw = aw then 
                     MinMax.empty ,
-                    aw / (auw |> MinMax.one)
+                    aw / (auw |> MinMax.one) |> optRate
                 else 
-                    nw / (nuw |> MinMax.one) ,
-                    aw / (auw |> MinMax.one)
+                    nw / (nuw |> MinMax.one) |> optRate ,
+                    aw / (auw |> MinMax.one) |> optRate
 
             let nb, ab = 
                 if nb = ab then 
                     MinMax.empty ,
-                    ab / (aub |> MinMax.one)
+                    ab / (aub |> MinMax.one) |> optRate
                 else 
-                    nb / (nub |> MinMax.one) ,
-                    ab / (aub |> MinMax.one)
+                    nb / (nub |> MinMax.one) |> optRate ,
+                    ab / (aub |> MinMax.one) |> optRate
                 
+            let mmToStr = MinMax.toString "van" "tot"
+
             norm 
-            |> MinMax.toString
-            >+ (nw |> MinMax.toString)
-            >+ (nb |> MinMax.toString)
+            |> mmToStr
+            >+ (nw |> mmToStr)
+            >+ (nb |> mmToStr)
             |> (fun s -> 
                 let s = s |> String.trim
 
@@ -303,9 +332,9 @@ module DoseRule =
                 let sn = sn |> String.trim
 
                 let sa =
-                    abs |> MinMax.toString
-                    >+ (aw |> MinMax.toString)
-                    >+ (ab |> MinMax.toString)
+                    abs |> mmToStr
+                    >+ (aw |> mmToStr)
+                    >+ (ab |> mmToStr)
 
                 if sa |> String.isNullOrWhiteSpace then sn
                 else 
@@ -398,21 +427,26 @@ module DoseRule =
             }
 
 
-
-
         let convertRateUnitTo u (ds : Dosage) =
-            let convert u1 u2 = 
+            let getCount u1 u2 = 
                 1N 
                 |> ValueUnit.create u2
                 |> ValueUnit.convertTo u1
                 |> ValueUnit.get
-                |> snd
-
+                |> fst
+                |> ValueUnit.create ValueUnit.Units.Count.times
+                |> DoseRange.count
+                
             {
                 ds with
                     RateDosage =
-                        ds.RateDosage |> fst,
-                        ds.RateDosage |> snd |> convert u
+                        let factor =
+                            ds.RateDosage
+                            |> snd
+                            |> getCount u 
+
+                        (ds.RateDosage |> fst) / factor,
+                        u
             }
 
 
@@ -984,16 +1018,15 @@ module DoseRule =
             let vuToStr = ValueUnit.toStringPrec 2
             
             let (>+) sl sr = 
-                let l, s, u = sr
-                let u = if u |> String.isNullOrWhiteSpace then u else "/" + u
+                let l, s = sr
 
                 if s |> String.isNullOrWhiteSpace then sl
                 else 
                     let sl = sl |> String.trim
                     (if sl |> String.isNullOrWhiteSpace then sl else sl + ", ") + 
-                    (if l |> String.isNullOrWhiteSpace then "" else  l + " ") + s + u + " "
+                    (if l |> String.isNullOrWhiteSpace then "" else  l + " ") + s
                 
-            let rt, _ = rate
+            let rt, ru = rate
             let tt, _ = total
 
             let frqs = total |> snd
@@ -1002,11 +1035,13 @@ module DoseRule =
                 |> ValueUnit.unitToString
                 |> String.replace "x/" ""
 
+            let drToStr = DoseRange.toString None
+
             ""
-            >+ ("oplaad:", start |> DoseRange.toString, "")
-            >+ ("per keer:", single |> DoseRange.toString, "")
-            >+ ("snelheid:", rt |> DoseRange.toString, "")
-            >+ ("dosering:", tt |> DoseRange.toString, "")
+            >+ ("oplaad:", start |> drToStr)
+            >+ ("per keer:", single |> drToStr)
+            >+ ("snelheid:", rt |> DoseRange.toString (Some ru))
+            >+ ("dosering:", tt |> drToStr)
             |> (fun s -> 
                 let  s = s |> String.trim
                 if frqs.Frequencies |> List.isEmpty || 

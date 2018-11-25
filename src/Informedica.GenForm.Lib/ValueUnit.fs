@@ -170,3 +170,9 @@ module ValueUnit =
         let mcgKgMin = Units.Mass.microGram  |> per Units.Weight.kiloGram |> per Units.Time.minute
             
         let mcgKgDay = Units.Mass.microGram |> per Units.Weight.kiloGram |> per Units.Time.day
+
+        let mcg = Units.Mass.microGram
+
+        let min = Units.Time.minute
+
+        let hour = Units.Time.hour

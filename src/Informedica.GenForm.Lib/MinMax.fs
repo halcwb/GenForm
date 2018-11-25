@@ -369,12 +369,14 @@ module MinMax =
             )
         
 
+
+
     let valueToString = function
         | Inclusive vu -> sprintf "incl %s" (vu |> ValueUnit.toStringPrec 2)
         | Exclusive vu -> sprintf "excl %s" (vu |> ValueUnit.toStringPrec 2)
 
 
-    let toString { Min = min; Max = max } =
+    let toString mins maxs { Min = min; Max = max } =
         let vuToStr vu = 
             let milliGram = ValueUnit.Units.Mass.milliGram
             let gram = ValueUnit.Units.Mass.gram
@@ -415,10 +417,10 @@ module MinMax =
             sprintf "%s - %s" (min_ |> minToString) (max_ |> maxToString)
         | Some min_, None -> 
             (min_ |> minToString) 
-            |> sprintf "min. %s"
+            |> sprintf "%s %s" mins
         | None, Some max_ -> 
             (max_ |> maxToString)
-            |> sprintf "max. %s"
+            |> sprintf "%s %s" maxs
 
 
     let ageToString { Min = min; Max = max } =
@@ -435,7 +437,7 @@ module MinMax =
                 | _ -> vu >>= ValueUnit.Units.Time.year
             Option.bind (applyValue1 c c >> Some)
             
-        { Min = min |> convert; Max = max |> convert } |> toString
+        { Min = min |> convert; Max = max |> convert } |> toString "van" "tot"
         
         
 
@@ -446,4 +448,4 @@ module MinMax =
             let c vu = vu >>= ValueUnit.Units.Time.week
             Option.bind (applyValue1 c c >> Some)
             
-        { Min = min |> convert; Max = max |> convert } |> toString        
+        { Min = min |> convert; Max = max |> convert } |> toString "van" "tot"  

@@ -194,11 +194,13 @@ module Patient =
             
             if s |> String.isNullOrWhiteSpace then sl
             else sl + (if sl = "" then " " else  ", ") + l + s
+
+        let mmToStr = MinMax.toString "van" "tot"
         
         ""
         >+ ("Zwangerschapsduur: ", ga |> MinMax.gestAgeToString)
         >+ ("Leeftijd: ", age |> MinMax.ageToString)
-        >+ ("Gewicht: ", wght |> MinMax.toString)
-        >+ ("BSA: ", bsa |> MinMax.toString)
+        >+ ("Gewicht: ", wght |> mmToStr)
+        >+ ("BSA: ", bsa |> mmToStr)
         >+ ("Geslacht: ", gen |> genderToString)
         |> String.removeTrailingEOL
