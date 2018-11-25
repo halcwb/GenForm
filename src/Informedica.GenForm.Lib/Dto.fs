@@ -162,8 +162,9 @@ module Dto =
             fr.Frequencies
             |> List.map (fun f ->
                 f
-                |> ValueUnit.create fr.TimeUnit
-                |> ValueUnit.toStringPrec 0
+                |> ValueUnit.create (ValueUnit.createCombiUnit (ValueUnit.Units.Count.times, ValueUnit.OpPer, fr.TimeUnit))
+                |> ValueUnit.freqToValueUnitString
+                |> (fun s -> printfn "%s" s; s)
                 |> Mapping.mapFreq Mapping.ValueUnitMap Mapping.AppMap
             )
             |> String.concat "||"

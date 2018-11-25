@@ -75,7 +75,7 @@ GenPresProduct.filter false "dopamine" "" ""
         AgeInMo = 22.
         WeightKg = 12.
         GPK = 3689
-        Route = "IV"
+        Route = "iv"
         MultipleUnit = ""
 }
 |> Dto.processDto 

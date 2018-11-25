@@ -131,6 +131,11 @@ module ValueUnit =
         )
 
 
+    let freqToValueUnitString freq =
+        freq
+        |> ValueUnit.toString ValueUnit.Units.English ValueUnit.Units.Long
+
+
     let toStringPrec prec vu = 
         let v, u = vu |> ValueUnit.get
 
