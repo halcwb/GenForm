@@ -222,7 +222,8 @@ module Dto =
                     |> ValueUnit.unitFromAppString
 
             let cfg = 
-                { UseAll = false ; IsRate = dto.IsRate ; SubstanceUnit = su ; TimeUnit = tu }
+                { UseAll = true ; IsRate = dto.IsRate ; SubstanceUnit = su ; TimeUnit = tu }
+
             GStand.createDoseRules 
                 cfg 
                 (Some dto.AgeInMo) 
@@ -234,7 +235,8 @@ module Dto =
                 (dto.Route |> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap) 
                 
         
-        if rs |> Seq.length <> 1 then dto
+        if rs |> Seq.length <> 1 then 
+           dto
         else
             let r = rs |> Seq.head
 
@@ -251,13 +253,19 @@ module Dto =
                         )
                     )
 
-                if ids |> Seq.length <> 1 then []
+                if ids |> Seq.length <> 1 then
+                    printfn "wrong ids count: %A" ids
+                    []
                 else
                     let id = ids |> Seq.head
-                    if id.RouteDosages |> Seq.length <> 1 then []
+                    if id.RouteDosages |> Seq.length <> 1 then 
+                        printfn "wrong rds count: %A" id.RouteDosages                        
+                        []
                     else
                         let rd = id.RouteDosages |> Seq.head
-                        if rd.ShapeDosages |> Seq.length <> 1 then []
+                        if rd.ShapeDosages |> Seq.length <> 1 then 
+                            printfn "wrong sds count: %A" rd.ShapeDosages                        
+                            []
                         else
                             let sd = rd.ShapeDosages |> Seq.head
 
@@ -266,7 +274,7 @@ module Dto =
                                 |> List.partition (fun pd ->
                                     pd.SubstanceDosages
                                     |> List.filter (fun sd ->
-                                        sd.Name = gen
+                                        sd.Name |> String.equalsCapInsens gen
                                     )
                                     |> List.exists (fun sd -> 
                                         sd |> Dosage.Optics.getFrequencyTimeUnit = ValueUnit.NoUnit ||
@@ -274,8 +282,11 @@ module Dto =
                                         sd.StartDosage <> DoseRange.empty
                                     )
                                 )
-
-                            if pds |> List.length = 0 then [] 
+                            
+                            let pds = pds |> List.append sds
+                            if pds |> List.length = 0 then 
+                                printfn "no pds"
+                                [] 
                             else
                                 pds
                                 |> List.fold (fun (acc : PatientDosage) pd ->
@@ -290,7 +301,7 @@ module Dto =
                                 |> (fun pd ->
                                     pd.SubstanceDosages 
                                     |> List.filter (fun sd ->
-                                        sd.Name = gen
+                                        sd.Name |> String.equalsCapInsens gen
                                     )
                                     |> List.map (fun d ->
                                         let d =

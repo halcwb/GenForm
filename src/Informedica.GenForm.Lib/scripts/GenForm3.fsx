@@ -390,6 +390,10 @@ Synoniemen: {synonym}
 
         createDoseRules "paracetamol" "" ""
         |> printDoseRules
+
+        GStand.createDoseRules cfg (Some 12.) (Some 12.) None (Some 165573) "" "" "oraal"
+        |> Seq.length
+        |> (printfn "%A")
          
         GStand.createDoseRules cfg (Some 0.) (Some 1.5) None None "gentamicine" "" "intraveneus"
         |> printDoseRules
@@ -485,12 +489,11 @@ Synoniemen: {synonym}
         |> Seq.iter (printfn "%A")
 
 
-        GPP.get true
-        |> Seq.filter (fun gpp -> gpp.Name |> String.equalsCapInsens "salbutamol")
+        GPP.get false
+        |> Seq.filter (fun gpp -> gpp.Name |> String.equalsCapInsens "paracetamol")
         |> Seq.iter (fun gpp -> 
             gpp 
-            |> Informedica.GenProduct.Lib.GenPresProduct.toString
-            |> (printfn "%s")
+            |> (printfn "%A")
         )
 
         DR.get ()
