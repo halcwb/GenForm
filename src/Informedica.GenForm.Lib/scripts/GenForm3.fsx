@@ -391,7 +391,7 @@ Synoniemen: {synonym}
         createDoseRules "paracetamol" "" ""
         |> printDoseRules
          
-        createDoseRules "gentamicine" "" "intraveneus"
+        GStand.createDoseRules cfg (Some 0.) (Some 1.5) None None "gentamicine" "" "intraveneus"
         |> printDoseRules
 
         createWithCfg cfgmcg "fentanyl" "" "intraveneus"

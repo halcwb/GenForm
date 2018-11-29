@@ -35,7 +35,7 @@ module Main =
         { 
             Dto.dto with
                 AgeInMo = req.age
-                WeightKg = req.wth
+                WeightKg = req.wth 
                 LengthCm = req.hgt
                 GPK = 
                     match req.gpk |> Int32.tryParse with

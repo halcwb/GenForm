@@ -13,6 +13,7 @@ module GStand =
     open DoseRule
     open DoseRule.Dosage
     open MinMax
+    open System.Drawing
 
     module GPP = Informedica.GenProduct.Lib.GenPresProduct
     module ATC = Informedica.GenProduct.Lib.ATCGroup
@@ -314,9 +315,9 @@ module GStand =
             let tu = 
                 match frs with
                 | fr::_ -> 
-                    (1N |> ValueUnit.create ValueUnit.Units.Count.times) / fr 
-                    |> ValueUnit.get 
-                    |> snd
+                    match fr |> ValueUnit.get |> snd with
+                    | ValueUnit.CombiUnit(_, ValueUnit.OpPer, tu) -> tu
+                    | _ -> ValueUnit.NoUnit
                 | _ -> ValueUnit.NoUnit
 
             inds ,

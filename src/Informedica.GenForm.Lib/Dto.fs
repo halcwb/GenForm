@@ -370,7 +370,7 @@ module Dto =
                         unt 
                         |> Mapping.mapUnit Mapping.GStandMap Mapping.AppMap
                     Multiple =
-                        if dto.Multiple = 0. then 0.
+                        if dto.Multiple = 0. then conc
                         else dto.Multiple
                     MultipleUnit = 
                         if dto.MultipleUnit = "" then 

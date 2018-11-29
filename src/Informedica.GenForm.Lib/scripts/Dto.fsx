@@ -43,7 +43,7 @@ open Informedica.GenProduct.Lib
 open Informedica.GenForm.Lib
 
 
-GenPresProduct.filter false "dopamine" "" ""
+GenPresProduct.filter false "gentamicine" "" "intraveneus"
 |> Seq.collect (fun gpp ->
     gpp.GenericProducts
     |> Seq.collect (fun gp ->
@@ -51,14 +51,14 @@ GenPresProduct.filter false "dopamine" "" ""
         |> Seq.map (fun r ->
             {
                 Dto.dto with
-                    AgeInMo = 22.
-                    WeightKg = 12.
+                    AgeInMo = 0.
+                    WeightKg = 1.2
                     LengthCm = 60.
                     GPK = gp.Id
                     Route = "iv"
-                    IsRate = true
-                    MultipleUnit = "mcg"
-                    RateUnit = "min"
+                    IsRate = false
+                    MultipleUnit = ""
+                    RateUnit = ""
             }
             |> Dto.processDto 
         )

@@ -12,81 +12,140 @@ Environment.CurrentDirectory <-
     else 
         pwd + "/Development/GenForm/" //__SOURCE_DIRECTORY__ + "/../../../"
 
-open MathNet.Numerics
 
-open Informedica.GenUtils.Lib
-open Informedica.GenUtils.Lib.BCL
-open Informedica.GenUnits.Lib
-open Informedica.GenUnits.Lib.Api
-open Informedica.GenProduct.Lib
-open Informedica.GenForm.Lib
-
-FilePath.formulary |> (fun p -> printfn "%s" p; p) |> File.exists
-let printResult m r = printf m; printfn " %A" r; r
-    
-
-GenPresProduct.getAssortment ()
-|> Array.filter (fun gpp ->
-    gpp.GenericProducts
-    |> Array.exists (fun gp ->
-        gp.Substances |> Array.length = 2
-    )
-)
+module EventStore =
 
 
-DoseRule.GStand.map (GenPresProduct.filter "paracetamol" "" "")
-|> List.map (fun dr -> dr |> DoseRule.toString)
-|> List.iter (printfn "%s")
+    let addToStore store events = 
+        events 
+        |> List.map (fun e ->
+            printfn "Storing event: %A" e 
+            e
+        )
+        |> List.append store
 
 
-"per dag" |> ValueUnit.unitFromString Mapping.GStandMap
 
-GenPresProduct.getAssortment ()
-|> Array.filter (fun gpp ->
-    gpp.GenericProducts
-    |> Array.exists (fun gp ->
-        gp.Substances |> Array.length = 2
-    )
-)
-|> Array.map (fun gpp -> gpp.Name)
-|> Array.distinct
+module Program =
 
-"216 maand[Time]" 
-|> ValueUnit.fromString
-|> ValueUnit.convertTo ValueUnit.Units.Time.year
-
-GenPresProduct.filter "gentamicine" "" ""
-|> Array.collect(fun gpp ->
-    gpp.GenericProducts 
-    |> Array.collect (fun gp ->
-        gp.Substances |> Array.map (fun s -> s.SubstanceName, s.SubstanceQuantity, s.SubstanceUnit)
-    )
-)
-|> Array.distinct
+    let replay init apply events =
+        events
+        |> List.fold apply init
 
 
-DoseRule.get ()
-|> Array.map (fun dr ->
-    dr.Freq
-)
-|> Array.distinct
-|> Array.sortBy (fun f -> f.Time, f.Frequency)
-|> Array.map (DoseRule.GStand.mapFreq >> ValueUnit.toStringPrec 1)
-|> Array.iter (printfn "%s")
+    let decide init apply runCmd cmd events = 
+        events 
+        |> replay init apply
+        |> runCmd cmd
+        |> EventStore.addToStore events
 
 
-// Print the doserule text for trimethoprim/sulfamethoxazol
-DoseRule.GStand.map (GenPresProduct.filter "TRIMETHOPRIM/SULFAMETHOXAZOL" "" "")
-|> List.map Informedica.GenForm.Lib.DoseRule.toString
-|> List.iter (printfn "%s")
+    let run init apply runCmd cmds =
+        cmds
+        |> List.fold (fun events cmd ->
+            printfn "Running cmd %A" cmd
+            events
+            |> decide init apply runCmd cmd
+        ) []
 
-// Get the doserules for the test case
-GenPresProduct.filter "gentamicine" "" "iv"
-|> Array.filter (fun gpp -> 
-    gpp.GenericProducts
-    |> Array.exists (fun gp -> gp.Id = 3689)
-)
-|> DoseRule.GStand.map
-// Pretty print
-|> List.map Informedica.GenForm.Lib.DoseRule.toString
-|> List.iter (printf "%s")
+
+module Treatment =
+
+    type Treatment = Treatment of string
+
+
+    type Patient = Patient of string | NoPatient
+
+
+    type Problem = Problem of string
+
+
+    type State =
+        | TreatmentPlan of Patient * ((Problem * Treatment list) list)
+
+
+    type Event =
+        | PatientAdmitted of PatientAdmitted
+        | PatientChecked of PatientChecked
+        | PatientTreated of PatientTreated
+        | PatientDischarged of PatientDischarged
+    and PatientAdmitted = Patient
+    and PatientChecked = Problem list
+    and PatientTreated = Problem * Treatment
+    and PatientDischarged = unit
+
+
+    type Command =
+        | AdmitPatient of (Patient -> PatientAdmitted)
+        | CheckPatient of (Patient -> PatientChecked)
+        | TreatPatient of ((Patient * (Problem * Treatment list) list) -> PatientTreated)
+        | DischargePatient of (Patient -> PatientDischarged)
+
+
+    let init  = (NoPatient, []) |> TreatmentPlan
+
+
+    let apply state event = 
+
+        match event with
+        | PatientAdmitted patient -> 
+            (patient, [])
+            |> TreatmentPlan
+        | PatientChecked problems -> 
+            match state with
+            | TreatmentPlan (patient, _) ->
+                (patient, problems |> List.map (fun p -> (p, [])))
+                |> TreatmentPlan
+            | _ -> state
+        | PatientTreated (problem, treatment) ->
+            match state with
+            | TreatmentPlan(pat, problems) ->
+                (pat ,
+                 problems
+                 |> List.map (fun (p, tl) ->
+                    if p = problem then 
+                        (p, treatment::tl)
+                    else (p, tl)
+                ))
+                |> TreatmentPlan
+        | PatientDischarged _ ->
+            init 
+
+
+
+    let runCmd cmd state = 
+        printfn "State is %A" state
+        match cmd with
+        | AdmitPatient f -> 
+            match state with
+            | _ ->  
+                [ NoPatient |> f |> PatientAdmitted ]
+        | CheckPatient f -> 
+            match state with
+            | TreatmentPlan (patient, _) ->  [ patient |> f |> PatientChecked ]
+        | TreatPatient f -> 
+            match state with
+            | TreatmentPlan (patient, pts) ->
+                [ (patient, pts)  |> f |> PatientTreated ]
+        | DischargePatient f ->
+            match state with
+            | TreatmentPlan _ -> []
+
+
+    let run = Program.run init apply runCmd
+
+    let runCmds () =
+        [
+            (fun _ -> "Test Patient" |> Patient) |> AdmitPatient
+            (fun _ -> 
+                ["Infection"; "Low bloodpressure"] 
+                |> List.map Problem
+            ) |> CheckPatient
+            (fun (_, pl)
+                pl
+                |> 
+
+                
+            )
+        ]
+        |> run
