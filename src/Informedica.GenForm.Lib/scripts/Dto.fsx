@@ -43,7 +43,7 @@ open Informedica.GenProduct.Lib
 open Informedica.GenForm.Lib
 
 
-GenPresProduct.filter false "gentamicine" "" "intraveneus"
+GenPresProduct.filter false "paracetamol" "" "intraveneus"
 |> Seq.collect (fun gpp ->
     gpp.GenericProducts
     |> Seq.collect (fun gp ->
@@ -51,8 +51,8 @@ GenPresProduct.filter false "gentamicine" "" "intraveneus"
         |> Seq.map (fun r ->
             {
                 Dto.dto with
-                    AgeInMo = 0.
-                    WeightKg = 1.2
+                    AgeInMo = 12.
+                    WeightKg = 10.
                     LengthCm = 60.
                     GPK = gp.Id
                     Route = "iv"
@@ -60,7 +60,7 @@ GenPresProduct.filter false "gentamicine" "" "intraveneus"
                     MultipleUnit = ""
                     RateUnit = ""
             }
-            |> Dto.processDto 
+            |> Dto.processDto2
         )
     )
 )
@@ -72,11 +72,10 @@ GenPresProduct.filter false "gentamicine" "" "intraveneus"
 
 {
     Dto.dto with
-        AgeInMo = 22.
-        WeightKg = 12.
-        GPK = 3689
-        Route = "iv"
-        MultipleUnit = ""
+        AgeInMo = 12.
+        WeightKg = 10.
+        GPK = 165573
+        Route = "or"
 }
 |> Dto.processDto 
 |> (fun dto -> dto.Text |> Markdown.toBrowser)
