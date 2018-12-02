@@ -77,7 +77,7 @@ module Main =
         rr
         |> toDto
         |> (fun dto -> printfn "request: %A" dto; dto)
-        |> Dto.processDto
+        |> Dto.processDto2
         |> (fun dto' -> printfn "response: %A" dto'; dto')
 
 
