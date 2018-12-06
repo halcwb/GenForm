@@ -298,7 +298,7 @@ module RuleFinder =
                 |> Array.map (fun gp -> gp.Id)
             )
             |> Array.distinct
-            |> Array.collect GenPresProduct.findByGPK
+            |> Array.collect GenPresProduct.findByGPK 
             |> (fun gpps ->
                 if gpps |> Array.isEmpty then None
                 else

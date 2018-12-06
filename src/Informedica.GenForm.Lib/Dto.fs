@@ -236,6 +236,7 @@ module Dto =
                 
         
         if rs |> Seq.length <> 1 then 
+           printfn "found %i rulse" (rs |> Seq.length)
            dto
         else
             let r = rs |> Seq.head
@@ -498,7 +499,8 @@ module Dto =
                 
         
         if rs |> Seq.length <> 1 then 
-           dto
+            printfn "found %i rules" (rs |> Seq.length)
+            dto
         else
             let r = rs |> Seq.head
 
@@ -531,16 +533,21 @@ module Dto =
                         else
                             let sd = rd.ShapeDosages |> Seq.head
 
+                            printfn "found %i patient dosages" (sd.PatientDosages |> Seq.length)
+
                             sd.PatientDosages
                             |> List.collect (fun pd ->
                                 pd.SubstanceDosages
-                                |> List.filter (fun sd -> sd.Name = gen)
+                                |> List.filter (fun sd -> 
+                                    printfn "filtering %s = %s" sd.Name gen
+                                    sd.Name |> String.equalsCapInsens gen
+                                )
                             )
                             |> List.groupBy (fun sd ->
                                 sd 
                                 |> Dosage.Optics.getFrequencyTimeUnit
                             )
-                            |> List.map (fun (tu, sds) ->
+                            |> List.map (fun (_, sds) ->
 
                                 sds
                                 |> List.fold (fun acc d ->
@@ -586,15 +593,15 @@ module Dto =
                 |> (fun rules ->
                     match rules |> List.tryFind (fun r -> r.Frequency = "") with
                     | None -> rules
-                    | Some r ->
+                    | Some noFreq ->
                         rules
                         |> List.filter (fun r -> r.Frequency <> "")
-                        |> List.map (fun r_ ->
+                        |> List.map (fun r ->
                             {
-                                r_ with
-                                    MaxPerDose = r.MaxPerDose
-                                    MaxPerDosePerKg = r.MaxPerDosePerKg
-                                    MaxPerDosePerM2 = r.MaxPerDosePerM2
+                                r with
+                                    MaxPerDose = noFreq.MaxPerDose
+                                    MaxPerDosePerKg = noFreq.MaxPerDosePerKg
+                                    MaxPerDosePerM2 = noFreq.MaxPerDosePerM2
                             }
                         )
                 )

@@ -166,7 +166,7 @@ module GenPresProduct =
 
 
     let findByGPK gpk =
-        getAssortment ()
+        getAll ()
         |> Array.filter (fun gpp ->
             gpp.GenericProducts
             |> Array.exists (fun gp -> gp.Id = gpk)
