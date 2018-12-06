@@ -290,7 +290,7 @@ module GStandTests =
     module DR = Informedica.GenProduct.Lib.DoseRule
     module GPP = Informedica.GenProduct.Lib.GenPresProduct
 
-    let cfg = { UseAll = false ; IsRate = false ; SubstanceUnit = None ; TimeUnit = None }
+    let cfg = { UseAll = true ; IsRate = false ; SubstanceUnit = None ; TimeUnit = None }
 
     let cfgmcg = { cfg with SubstanceUnit = (Some ValueUnit.Units.mcg) }
 
@@ -388,11 +388,14 @@ Synoniemen: {synonym}
         createDoseRules "trimethoprim/sulfamethoxazol" "" "intraveneus"
         |> printDoseRules
 
-        createDoseRules "paracetamol" "" ""
+        createDoseRules "clonidine" "" "oraal"
         |> printDoseRules
 
-        GStand.createDoseRules cfg (Some 12.) (Some 12.) None (Some 165573) "" "" "oraal"
-        |> Seq.length
+        GStand.createDoseRules cfg (Some 0.) (Some 12.) None None "paracetamol" "" "oraal"
+        |> printDoseRules
+
+        GStand.createDoseRules cfg (Some 100.) None (None) (Some 78514) "" "" ""
+        |> printDoseRules
         |> (printfn "%A")
          
         GStand.createDoseRules cfg (Some 0.) (Some 1.5) None None "gentamicine" "" "intraveneus"
@@ -509,6 +512,11 @@ Synoniemen: {synonym}
         |> Seq.distinct
         |> Seq.sort
         |> Seq.iter (GPP.toString >> printfn "%s")
+
+
+        GPP.filter true "" "" ""
+        |> Seq.length
+        |> ignore
 
         printfn "DoseRule Routes"
         DR.routes ()

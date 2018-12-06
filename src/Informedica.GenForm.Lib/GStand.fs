@@ -606,8 +606,8 @@ module GStand =
                     |> RF.find cfg.UseAll
                     |> getPatients cfg
                     |> Seq.collect (fun (pat, sds, dsrs) ->
-                        let gps = dsrs |> Seq.collect (fun dr -> dr.GenericProduct |> Seq.map (fun gp -> gp.Name))
-                        let tps = dsrs |> Seq.collect (fun dr -> dr.TradeProduct |> Seq.map (fun tp -> tp.Name))
+                        let gps = dsrs |> Seq.collect (fun dr -> dr.GenericProduct |> Seq.map (fun gp -> gp.Id, gp.Name))
+                        let tps = dsrs |> Seq.collect (fun dr -> dr.TradeProduct |> Seq.map (fun tp   -> tp.Id, tp.Name))
 
                         sds
                         |> Seq.map (fun (ind, sds) -> ind, (r, (gpp.Shape, gps, tps, pat, sds)))
@@ -657,8 +657,12 @@ module GStand =
                         let dr =
                             acc
                             |> DoseRule.Optics.addShape ind r [shp]
-                            |> DoseRule.Optics.setGenericProducts ind r [shp] (gps |> Seq.toList |> List.sort)
-                            |> DoseRule.Optics.setTradeProducts ind r [shp] (tps |> Seq.toList |> List.sort)
+                            |> DoseRule.Optics.setGenericProducts 
+                                ind r [shp] 
+                                (gps |> Seq.toList |> List.map (fun (id, nm) -> { GPK = id; Label = nm }) |> List.sortBy (fun gp -> gp.Label))
+                            |> DoseRule.Optics.setTradeProducts 
+                                ind r [shp] 
+                                (tps |> Seq.toList |> List.map (fun (id, nm) -> { HPK = id; Label = nm }) |>  List.sortBy (fun hp -> hp.Label))
                     
                         pats
                         |> Seq.fold (fun acc pat ->

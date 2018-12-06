@@ -159,10 +159,9 @@ module GenPresProduct =
     let filter all n s r =
         if all then getAll () else getAssortment ()
         |> Array.filter (fun gpp ->
-            gpp.Name  |> String.equalsCapInsens n && 
+            (n = "" || gpp.Name  |> String.equalsCapInsens n) && 
             (s = "" || gpp.Shape |> String.equalsCapInsens s) && 
             (r = "" || gpp.Route |> Array.exists (fun r' -> r' |> String.equalsCapInsens r))
-
         )
 
 

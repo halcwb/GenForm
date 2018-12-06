@@ -1127,8 +1127,8 @@ module DoseRule =
             // List of substances that have a dosage
             SubstanceDosages : Dosage list            
         }
-    and TradeProduct = string
-    and GenericProduct = string
+    and TradeProduct = { HPK : int; Label : string }
+    and GenericProduct = { GPK : int; Label : string }
 
     
     let apply f (dr : DoseRule) = f dr
@@ -1241,7 +1241,12 @@ module DoseRule =
                         |> List.prepend [ indd ]
             }
 
+    let genericProductLabel { GPK = _ ; Label = lbl } = lbl
+
+
+    let tradeProductLabel { HPK = _ ; Label = lbl } = lbl
  
+
     type PatientDosage with
     
         static member Patient_ :
@@ -3087,6 +3092,11 @@ Synoniemen: {synonym}
 
 
     let toStringWithConfig (config : TextConfig) printRules (dr : DoseRule) =
+        let gpsToString (gps : GenericProduct list) = 
+            gps
+            |> List.map (fun gp -> gp.Label)
+            |> String.concat "\n      "
+
         config.MainText
         |> String.replace "{generic}" dr.Generic
         |> String.replace "{synonym}" (dr.Synonyms |> String.concat ",")
@@ -3110,7 +3120,7 @@ Synoniemen: {synonym}
                         let shapeStr =
                             config.ShapeText 
                             |> String.replace "{shape}" (sd.Shape |> String.concat ",")
-                            |> String.replace "{products}" (sd.GenericProducts |> String.concat "\n      ")
+                            |> String.replace "{products}" (sd.GenericProducts |> gpsToString)
 
                         sd.PatientDosages
                         |> List.fold (fun acc pd ->
