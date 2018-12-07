@@ -356,16 +356,18 @@ module Dto =
                     match rules |> List.tryFind (fun r -> r.Frequency = "") with
                     | None -> rules
                     | Some noFreq ->
-                        rules
-                        |> List.filter (fun r -> r.Frequency <> "")
-                        |> List.map (fun r ->
-                            {
-                                r with
-                                    MaxPerDose = noFreq.MaxPerDose
-                                    MaxPerDosePerKg = noFreq.MaxPerDosePerKg
-                                    MaxPerDosePerM2 = noFreq.MaxPerDosePerM2
-                            }
-                        )
+                        if rules |> Seq.length = 1 then rules
+                        else
+                            rules
+                            |> List.filter (fun r -> r.Frequency <> "")
+                            |> List.map (fun r ->
+                                {
+                                    r with
+                                        MaxPerDose = noFreq.MaxPerDose
+                                        MaxPerDosePerKg = noFreq.MaxPerDosePerKg
+                                        MaxPerDosePerM2 = noFreq.MaxPerDosePerM2
+                                }
+                            )
                 )
             
             {
