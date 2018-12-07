@@ -394,7 +394,7 @@ Synoniemen: {synonym}
         GStand.createDoseRules cfg (Some 0.) (Some 12.) None None "paracetamol" "" "oraal"
         |> printDoseRules
 
-        GStand.createDoseRules cfg (Some 100.) None (None) (Some 78514) "" "" ""
+        GStand.createDoseRules cfg (Some 100.) None (None) (Some 167541) "" "" ""
         |> printDoseRules
         |> (printfn "%A")
          
@@ -514,7 +514,7 @@ Synoniemen: {synonym}
         |> Seq.iter (GPP.toString >> printfn "%s")
 
 
-        GPP.filter true "" "" ""
+        GPP.filter true "" "" "oraal"
         |> Seq.length
         |> ignore
 
