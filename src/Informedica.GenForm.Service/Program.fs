@@ -18,6 +18,7 @@ module Main =
 
     open HttpsConfig
     open Informedica.GenForm.Lib
+    open Informedica.GenProduct.Lib
 
         
     type RuleRequest () =
@@ -25,6 +26,8 @@ module Main =
         member val wth = 0. with get, set
         member val hgt = 0. with get, set
         member val gpk = "" with get, set
+        member val gen = "" with get, set
+        member val shp = "" with get, set
         member val rte = "" with get, set
         member val unt = "" with get, set
         member val run = "" with get, set
@@ -41,6 +44,8 @@ module Main =
                     match req.gpk |> Int32.tryParse with
                     | Some i -> i
                     | None -> 0
+                Generic = req.gen
+                Shape = req.shp
                 Route = req.rte
                 MultipleUnit = req.unt
                 RateUnit = req.run
