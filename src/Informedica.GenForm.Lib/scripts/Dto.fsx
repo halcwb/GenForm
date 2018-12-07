@@ -56,7 +56,7 @@ GenPresProduct.filter true "clonidine" "drank" "oraal"
                     AgeInMo = 12.
                     WeightKg = 10.
                     LengthCm = 60.
-                    //GPK = gp.Id
+                    GPK = 9999 // gp.Id
                     Generic = "clonidine"
                     Shape = "drank"
                     Route = "or"
@@ -98,3 +98,72 @@ Informedica.GenProduct.Lib.DoseRule.get()
 |> Array.iter (printfn "%s")
 
 
+
+GenPresProduct.filter true "clonidine" "drank" "oraal"
+|> Seq.collect (fun gpp ->
+    gpp.GenericProducts
+    |> Seq.map (fun gp -> gp.Substances)
+)
+
+open Informedica.GenUtils.Lib.BCL
+
+module GPP = GenPresProduct
+
+let find (dto : Dto.Dto) =
+    let rte = dto.Route |> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap
+
+    let gpps =
+        let ps = dto.GPK |> GPP.findByGPK 
+
+        if ps |> Array.length = 0 then
+            GenPresProduct.filter true dto.Generic dto.Shape rte
+        else ps
+        |> Array.toList
+
+    match gpps with
+    | [gpp] -> 
+        let lbl, conc, unt, tps = 
+            let gp = 
+                if dto.GPK = 0 then
+                    if gpp.GenericProducts |> Seq.length = 1 then gpp.GenericProducts |> Seq.head |> Some
+                    else None
+                else gpp.GenericProducts |> Seq.tryFind (fun p -> p.Id = dto.GPK)
+            match gp with
+            | Some gp -> 
+                let conc, unt =
+                    match gp.Substances |> Seq.tryFind (fun s -> s.SubstanceName |> String.equalsCapInsens gpp.Name) with
+                    | Some s -> s.SubstanceQuantity, s.SubstanceUnit
+                    | None -> 0., ""
+
+                let tps =
+                    gp.PrescriptionProducts
+                    |> Array.fold (fun acc pp ->
+                        pp.TradeProducts
+                        |> Array.map (fun tp -> tp.Label)
+                        |> Array.toList
+                        |> List.append acc
+                    ) []
+                    |> String.concat "||"
+                gp.Label, conc, unt, tps
+            | None -> "", 0., "", ""
+
+        gpp.Name, gpp.Shape, lbl, conc, unt, tps
+    | _ -> 
+        printfn "Could not find product %s %s %s with GPK: %i" dto.Generic dto.Shape dto.Route dto.GPK
+        "", "", "", 0., "", ""
+
+
+{
+    Dto.dto with
+        AgeInMo = 12.
+        WeightKg = 10.
+        LengthCm = 60.
+        //GPK = gp.Id
+        Generic = "clonidine"
+        Shape = "drank"
+        Route = "or"
+        IsRate = false
+        MultipleUnit = "mcg"
+        RateUnit = ""
+}
+|> find

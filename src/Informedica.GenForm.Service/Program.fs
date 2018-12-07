@@ -68,7 +68,7 @@ module Main =
         fun (next : HttpFunc) (ctx : HttpContext) ->    
             testDto
             |> (fun dto -> printfn "request: %A" dto; dto)
-            |> Dto.processDto
+            |> Dto.processDto2
             |> (fun dto' -> printfn "response: %A" dto'; dto')
             |> (fun dto' -> 
                     match dto' with 
