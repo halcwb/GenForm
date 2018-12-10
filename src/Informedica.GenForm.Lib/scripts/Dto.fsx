@@ -56,12 +56,12 @@ GenPresProduct.filter true "clonidine" "drank" "oraal"
                     AgeInMo = 12.
                     WeightKg = 10.
                     LengthCm = 60.
-                    GPK = 9999 // gp.Id
-                    Generic = "clonidine"
-                    Shape = "drank"
+                    GPK = 54550 // gp.Id
+                    Generic = ""
+                    Shape = ""
                     Route = "or"
-                    IsRate = false
-                    MultipleUnit = "mcg"
+                    IsRate = true
+                    MultipleUnit = "mg"
                     RateUnit = ""
             }
             |> Dto.processDto2
@@ -71,8 +71,9 @@ GenPresProduct.filter true "clonidine" "drank" "oraal"
 
 |> Seq.iter (fun dto ->
     printfn "%A" dto
-    dto.Text
-    |> Markdown.htmlToBrowser
+    if dto.Rules |> Seq.length <> 0 then 
+        dto.Text
+        |> Markdown.htmlToBrowser
 )
 
 {
@@ -158,12 +159,107 @@ let find (dto : Dto.Dto) =
         AgeInMo = 12.
         WeightKg = 10.
         LengthCm = 60.
-        //GPK = gp.Id
-        Generic = "clonidine"
-        Shape = "drank"
-        Route = "or"
+        GPK = 5533
+        Generic = ""
+        Shape = ""
+        Route = "iv"
         IsRate = false
         MultipleUnit = "mcg"
         RateUnit = ""
 }
 |> find
+
+
+GenPresProduct.get false
+|> Seq.sortBy (fun gpp -> gpp.Name)
+|> Seq.take 1000
+|> Seq.collect (fun gpp ->
+    
+    gpp.Route
+    |> Seq.map (fun r ->
+
+        {
+            Dto.dto with
+                AgeInMo = 12.
+                WeightKg = 10.
+                LengthCm = 80.
+                Generic = gpp.Name
+                Shape = gpp.Shape
+                Route = r
+                IsRate = true
+        }
+        |> Dto.processDto2
+
+    )
+)
+|> Seq.fold (fun acc dto ->
+    printfn "%A" dto
+    if dto.Rules |> Seq.length <> 0 then 
+        acc + "<p></p>" + dto.Text
+    else acc
+) ""
+|> Markdown.htmlToBrowser
+
+
+GenPresProduct.get false
+//|> Seq.take 1
+|> Seq.sortBy (fun gpp -> gpp.Name)
+//|> Seq.filter (fun gpp ->
+//    gpp.GenericProducts
+//    |> Seq.exists(fun gp -> gp.Id = 170925)
+//)
+|> Seq.collect (fun gpp ->
+    
+    gpp.GenericProducts
+    |> Seq.collect (fun gp ->
+        gp.Route 
+        |> Seq.map (fun r ->
+            let r_ = 
+                r
+                |> Mapping.mapRoute Mapping.GStandMap Mapping.AppMap
+                |> String.split "||"
+                |> List.head
+
+            // printfn "using route: %s for %s" r_ r
+            {
+                Dto.dto with
+                    AgeInMo = 120.
+                    WeightKg = 40.
+                    LengthCm = 120.
+                    GPK = gp.Id
+                    Route = r_
+            }
+            |> Dto.processDto2
+
+        )
+
+    )
+) //|> Seq.iter (printfn "%A")
+|> Seq.fold (fun acc dto ->
+    if dto.Rules |> Seq.length <> 0 then 
+        acc + "<p></p>" + dto.Text
+    else acc
+) ""
+|> Markdown.htmlToBrowser
+
+
+
+GenPresProduct.get false
+|> Seq.length
+
+GenPresProduct.get true
+|> Seq.collect (fun gpp -> gpp.Route)
+|> Seq.distinct
+|> Seq.sort
+|> Seq.iter (printfn "%s")
+
+
+GenPresProduct.get true
+|> Seq.collect (fun gpp ->
+    gpp.GenericProducts
+    |> Seq.collect (fun gp -> gp.Route)
+)
+|> Seq.distinct
+|> Seq.sort
+|> Seq.iter (printfn "%s")
+

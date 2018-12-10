@@ -138,7 +138,9 @@ module Dto =
 
 
     let find (dto : Dto) =
-        let rte = dto.Route |> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap
+        let rte = 
+            dto.Route 
+            |> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap
 
         let gpps =
             let ps = dto.GPK |> GPP.findByGPK 
@@ -176,7 +178,9 @@ module Dto =
 
                     gp.Id, gp.Label, conc, unt, tps
                 
-                | None -> 0, "", 0., "", ""
+                | None -> 
+                    printfn "Could not find product %s %s %s with GPK: %i" dto.Generic dto.Shape dto.Route dto.GPK
+                    0, "", 0., "", ""
 
             gpk, gpp.Name, gpp.Shape, lbl, conc, unt, tps
         | _ -> 
@@ -193,7 +197,13 @@ module Dto =
         let ru = 
             dto.RateUnit |> ValueUnit.Units.fromString
 
-        let rte = dto.Route |> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap
+        let rte = 
+            dto.Route 
+            |> Mapping.mapRoute Mapping.AppMap Mapping.GStandMap
+            |> (fun r ->
+                if r = "" then printfn "Could not map route %s" dto.Route
+                r
+            )
         
         let dto =
             if dto.BSAInM2 > 0. then dto
@@ -214,7 +224,6 @@ module Dto =
                 f
                 |> ValueUnit.create (ValueUnit.createCombiUnit (ValueUnit.Units.Count.times, ValueUnit.OpPer, fr.TimeUnit))
                 |> ValueUnit.freqToValueUnitString
-                |> (fun s -> printfn "%s" s; s)
                 |> Mapping.mapFreq Mapping.ValueUnitMap Mapping.AppMap
             )
             |> String.concat "||"
@@ -233,6 +242,8 @@ module Dto =
             )
 
         let gpk, gen, shp, lbl, conc, unt, tps = find dto
+
+        let prodName = sprintf "%i: %s " gpk lbl 
 
         let rs = 
             let su = 
@@ -261,7 +272,7 @@ module Dto =
                 rte
         
         if rs |> Seq.length <> 1 then 
-            printfn "found %i rules" (rs |> Seq.length)
+            printfn "found %i rules for %s" (rs |> Seq.length) prodName
             dto
         else
             let r = rs |> Seq.head
@@ -280,28 +291,32 @@ module Dto =
                     )
 
                 if ids |> Seq.length <> 1 then
-                    printfn "wrong ids count: %A" ids
+                    printfn "wrong ids count: %i for %s" (ids |> Seq.length) prodName 
                     []
                 else
                     let id = ids |> Seq.head
-                    if id.RouteDosages |> Seq.length <> 1 then 
-                        printfn "wrong rds count: %A" id.RouteDosages                        
+                    let rds = 
+                        id.RouteDosages
+
+                    if rds |> Seq.length <> 1 then 
+                        let rts =
+                            rds
+                            |> List.map(fun rd -> rd.Route)
+                            |> String.concat ", "
+                        printfn "wrong rds count: %i for %s with routes: %s using route: %s" (rds |> Seq.length) prodName rts rte                      
                         []
                     else
-                        let rd = id.RouteDosages |> Seq.head
+                        let rd = rds |> Seq.head
                         if rd.ShapeDosages |> Seq.length <> 1 then 
-                            printfn "wrong sds count: %A" rd.ShapeDosages                        
+                            printfn "wrong sds count: %i for %s" (rd.ShapeDosages |> Seq.length) prodName                        
                             []
                         else
                             let sd = rd.ShapeDosages |> Seq.head
-
-                            printfn "found %i patient dosages" (sd.PatientDosages |> Seq.length)
 
                             sd.PatientDosages
                             |> List.collect (fun pd ->
                                 pd.SubstanceDosages
                                 |> List.filter (fun sd -> 
-                                    printfn "filtering %s = %s" sd.Name gen
                                     sd.Name |> String.equalsCapInsens gen
                                 )
                             )

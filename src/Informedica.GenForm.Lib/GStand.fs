@@ -566,7 +566,6 @@ module GStand =
         
 
     let createDoseRules (cfg : CreateConfig) age wght bsa gpk gen shp rte =
-        printfn "Creating doserules for %s with config %A" gen cfg
         
         GPP.filter cfg.UseAll gen shp rte
         |> Seq.filter (fun gpp ->
