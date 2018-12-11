@@ -63,6 +63,7 @@ module Dto =
         }
     and Rule =
         {
+            Substance : string
             Frequency : string
 
             NormTotalDose : float
@@ -83,6 +84,7 @@ module Dto =
 
     let rule =
         {
+            Substance = ""
             Frequency = ""
             NormTotalDose = 0.
             MinTotalDose = 0.
@@ -188,6 +190,69 @@ module Dto =
             0, "", "", "", 0., "", "" 
 
 
+    let fillRuleWithDosage (d : Dosage)  (r : Rule) =
+    
+        let freqsToStr (fr : Dosage.Frequency) =
+            fr.Frequencies
+            |> List.map (fun f ->
+                f
+                |> ValueUnit.create (ValueUnit.createCombiUnit (ValueUnit.Units.Count.times, ValueUnit.OpPer, fr.TimeUnit))
+                |> ValueUnit.freqToValueUnitString
+                |> Mapping.mapFreq Mapping.ValueUnitMap Mapping.AppMap
+            )
+            |> String.concat "||"
+
+        let getValue prism d =
+            d
+            |> (Optic.get prism)
+            |> (fun vu ->
+                match vu with
+                | Some vu ->
+                    vu 
+                    |> ValueUnit.getValue
+                    |> BigRational.ToDouble
+                    |> Double.fixPrecision 2
+                | None -> 0.
+            )
+
+        {
+            r with
+                Substance = d.Name
+
+                Frequency = 
+                    d.TotalDosage
+                    |> snd
+                    |> freqsToStr
+
+                MinTotalDose = d |> getValue Dosage.Optics.inclMinNormTotalDosagePrism
+                MaxTotalDose = d |> getValue Dosage.Optics.exclMaxNormTotalDosagePrism
+
+                MinTotalDosePerKg = d |> getValue Dosage.Optics.inclMinNormWeightTotalDosagePrism
+                MaxTotalDosePerKg = d |> getValue Dosage.Optics.exclMaxNormWeightTotalDosagePrism
+
+                MinTotalDosePerM2 = d |> getValue Dosage.Optics.inclMinNormBSATotalDosagePrism
+                MaxTotalDosePerM2 = d |> getValue Dosage.Optics.exclMaxNormBSATotalDosagePrism
+
+                MaxPerDose   = 
+                    if r.MaxPerDose = 0. then
+                        let d1 = d |> getValue Dosage.Optics.exclMaxNormSingleDosagePrism
+                        let d2 = d |> getValue Dosage.Optics.exclMaxNormStartDosagePrism
+                        if d1 = 0. then d2 else d1
+                    else r.MaxPerDose
+                MaxPerDosePerKg =
+                    if r.MaxPerDosePerKg = 0. then
+                        let d1 = d |> getValue Dosage.Optics.exclMaxNormWeightSingleDosagePrism
+                        let d2 = d |> getValue Dosage.Optics.exclMaxNormWeightStartDosagePrism
+                        if d1 = 0. then d2 else d1
+                    else r.MaxPerDosePerKg
+                MaxPerDosePerM2 =
+                    if r.MaxTotalDosePerM2 = 0. then
+                        let d1 = d |> getValue Dosage.Optics.exclMaxNormBSASingleDosagePrism
+                        let d2 = d |> getValue Dosage.Optics.exclMaxNormBSAStartDosagePrism
+                        if d1 = 0. then d2 else d1
+                    else r.MaxTotalDosePerM2 
+        }
+
 
     let processDto2 (dto : Dto) =
 
@@ -217,29 +282,6 @@ module Dto =
                     }
                 else
                     dto
-
-        let freqsToStr (fr : Dosage.Frequency) =
-            fr.Frequencies
-            |> List.map (fun f ->
-                f
-                |> ValueUnit.create (ValueUnit.createCombiUnit (ValueUnit.Units.Count.times, ValueUnit.OpPer, fr.TimeUnit))
-                |> ValueUnit.freqToValueUnitString
-                |> Mapping.mapFreq Mapping.ValueUnitMap Mapping.AppMap
-            )
-            |> String.concat "||"
-
-        let getValue prism d =
-            d
-            |> (Optic.get prism)
-            |> (fun vu ->
-                match vu with
-                | Some vu ->
-                    vu 
-                    |> ValueUnit.getValue
-                    |> BigRational.ToDouble
-                    |> Double.fixPrecision 2
-                | None -> 0.
-            )
 
         let gpk, gen, shp, lbl, conc, unt, tps = find dto
 
@@ -316,56 +358,29 @@ module Dto =
                             sd.PatientDosages
                             |> List.collect (fun pd ->
                                 pd.SubstanceDosages
-                                |> List.filter (fun sd -> 
-                                    sd.Name |> String.equalsCapInsens gen
-                                )
                             )
                             |> List.groupBy (fun sd ->
                                 sd 
                                 |> Dosage.Optics.getFrequencyTimeUnit
                             )
-                            |> List.map (fun (_, sds) ->
+                            |> List.collect (fun (_, sds) ->
 
                                 sds
-                                |> List.fold (fun acc d ->
-                                    //printfn "folding %s" (d |> Dosage.toString false)
-                                    {
-                                        acc with
+                                |> List.fold (fun (acc : Rule list) d ->
+                                    match acc |> List.tryFind (fun d_ -> d_.Substance = d.Name) with
+                                    | Some r -> 
+                                        let rest = 
+                                            acc
+                                            |> List.filter (fun r_ -> r_.Substance <> d.Name)
+                                        [ r
+                                        |> fillRuleWithDosage d ]
+                                        |> List.append rest
 
-                                            Frequency = 
-                                                d.TotalDosage
-                                                |> snd
-                                                |> freqsToStr
-
-                                            MinTotalDose = d |> getValue Dosage.Optics.inclMinNormTotalDosagePrism
-                                            MaxTotalDose = d |> getValue Dosage.Optics.exclMaxNormTotalDosagePrism
-
-                                            MinTotalDosePerKg = d |> getValue Dosage.Optics.inclMinNormWeightTotalDosagePrism
-                                            MaxTotalDosePerKg = d |> getValue Dosage.Optics.exclMaxNormWeightTotalDosagePrism
-
-                                            MinTotalDosePerM2 = d |> getValue Dosage.Optics.inclMinNormBSATotalDosagePrism
-                                            MaxTotalDosePerM2 = d |> getValue Dosage.Optics.exclMaxNormBSATotalDosagePrism
-
-                                            MaxPerDose   = 
-                                                if acc.MaxPerDose = 0. then
-                                                    let d1 = d |> getValue Dosage.Optics.exclMaxNormSingleDosagePrism
-                                                    let d2 = d |> getValue Dosage.Optics.exclMaxNormStartDosagePrism
-                                                    if d1 = 0. then d2 else d1
-                                                else acc.MaxPerDose
-                                            MaxPerDosePerKg =
-                                                if acc.MaxPerDosePerKg = 0. then
-                                                    let d1 = d |> getValue Dosage.Optics.exclMaxNormWeightSingleDosagePrism
-                                                    let d2 = d |> getValue Dosage.Optics.exclMaxNormWeightStartDosagePrism
-                                                    if d1 = 0. then d2 else d1
-                                                else acc.MaxPerDosePerKg
-                                            MaxPerDosePerM2 =
-                                                if acc.MaxTotalDosePerM2 = 0. then
-                                                    let d1 = d |> getValue Dosage.Optics.exclMaxNormBSASingleDosagePrism
-                                                    let d2 = d |> getValue Dosage.Optics.exclMaxNormBSAStartDosagePrism
-                                                    if d1 = 0. then d2 else d1
-                                                else acc.MaxTotalDosePerM2 
-                                    }
-                                ) rule
+                                    | None -> 
+                                        [ rule
+                                        |> fillRuleWithDosage d ]
+                                        |> List.append acc
+                                ) []
                             )
                 |> (fun rules ->
                     match rules |> List.tryFind (fun r -> r.Frequency = "") with
