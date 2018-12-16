@@ -64,7 +64,7 @@ GenPresProduct.filter true "clonidine" "drank" "oraal"
                     MultipleUnit = "mg"
                     RateUnit = ""
             }
-            |> Dto.processDto2
+            |> Dto.processDto
         )
     )
 )
@@ -83,7 +83,7 @@ GenPresProduct.filter true "clonidine" "drank" "oraal"
         GPK = 78514
         Route = "or"
 }
-|> Dto.processDto2
+|> Dto.processDto
 |> (fun dto -> dto.Text |> Markdown.toBrowser)
 
 "iv" 
@@ -188,7 +188,7 @@ GenPresProduct.get false
                 Route = r
                 IsRate = true
         }
-        |> Dto.processDto2
+        |> Dto.processDto
 
     )
 )
@@ -229,7 +229,7 @@ GenPresProduct.get false
                     GPK = gp.Id
                     Route = r_
             }
-            |> Dto.processDto2
+            |> Dto.processDto
 
         )
 
@@ -262,4 +262,16 @@ GenPresProduct.get true
 |> Seq.distinct
 |> Seq.sort
 |> Seq.iter (printfn "%s")
+
+
+{
+    Dto.dto with
+        AgeInMo = 12.
+        WeightKg = 10.
+        LengthCm = 80.
+        GPK = 3387
+        Route = "iv"
+}
+|> Dto.processDto
+|> ignore
 

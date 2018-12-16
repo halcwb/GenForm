@@ -64,6 +64,9 @@ module Dto =
     and Rule =
         {
             Substance : string
+            Concentration : float
+            Unit : string
+
             Frequency : string
 
             NormTotalDose : float
@@ -85,6 +88,8 @@ module Dto =
     let rule =
         {
             Substance = ""
+            Concentration = 0.
+            Unit = ""
             Frequency = ""
             NormTotalDose = 0.
             MinTotalDose = 0.
@@ -190,7 +195,15 @@ module Dto =
             0, "", "", "", 0., "", "" 
 
 
-    let fillRuleWithDosage (d : Dosage)  (r : Rule) =
+    let fillRuleWithDosage  gpk (d : Dosage)  (r : Rule) =
+
+        let conc, unt =
+            match
+                gpk 
+                |> GPP.getSubstQtyUnit 
+                |> Array.tryFind (fun (n, _, _) -> n |> String.equalsCapInsens d.Name) with
+            | Some (_, conc, unt) -> conc, unt
+            | None -> 0., ""
     
         let freqsToStr (fr : Dosage.Frequency) =
             fr.Frequencies
@@ -218,6 +231,8 @@ module Dto =
         {
             r with
                 Substance = d.Name
+                Concentration = conc
+                Unit = unt
 
                 Frequency = 
                     d.TotalDosage
@@ -254,7 +269,7 @@ module Dto =
         }
 
 
-    let processDto2 (dto : Dto) =
+    let processDto (dto : Dto) =
 
         let u =
             dto.MultipleUnit |> ValueUnit.unitFromAppString 
@@ -373,12 +388,12 @@ module Dto =
                                             acc
                                             |> List.filter (fun r_ -> r_.Substance <> d.Name)
                                         [ r
-                                        |> fillRuleWithDosage d ]
+                                        |> fillRuleWithDosage gpk d ]
                                         |> List.append rest
 
                                     | None -> 
                                         [ rule
-                                        |> fillRuleWithDosage d ]
+                                        |> fillRuleWithDosage gpk d ]
                                         |> List.append acc
                                 ) []
                             )

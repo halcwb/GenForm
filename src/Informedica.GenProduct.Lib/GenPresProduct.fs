@@ -269,6 +269,20 @@ module GenPresProduct =
             |> Array.sort
         |> Memoization.memoize
 
+
+    let getSubstQtyUnit gpk =
+        getAll ()
+        |> Array.collect (fun gpp ->
+            gpp.GenericProducts
+            |> Array.filter (fun gp -> gp.Id = gpk)
+            |> Array.collect (fun gp ->
+                gp.Substances
+                |> Array.map (fun s ->
+                    s.SubstanceName, s.SubstanceQuantity, s.SubstanceUnit
+                ) 
+            )
+        )
+
 (*
     let getPediatric () =
         getAssortment () 
