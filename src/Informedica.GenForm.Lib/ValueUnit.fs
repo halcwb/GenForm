@@ -14,7 +14,8 @@ module ValueUnit =
 
     open ValueUnit
 
-
+    /// Get the value of the value unit `vu`, i.e. 
+    /// the number without the unit.
     let getValue vu = let v, _ = vu |> ValueUnit.get in v
 
 
@@ -35,8 +36,9 @@ module ValueUnit =
 
     let unitFromAppString = unitFromString Mapping.AppMap
 
-
-    let createUnit m v u =
+    /// Create a value unit using a specific mapping `m`
+    /// with value `v` and unit `u`.
+    let createValueUnit m v u =
         let s = 
             u
             |> Mapping.mapUnit m Mapping.ValueUnitMap
@@ -50,11 +52,14 @@ module ValueUnit =
                 |> Some
             )
 
+    /// Create a `ValueUnit` using a float value
+    /// and a string unit using the GStand mapping
+    let createFromGStand = createValueUnit Mapping.GStandMap
 
-    let createFromGStand = createUnit Mapping.GStandMap
 
-
-    let createFromFormul = createUnit Mapping.AppMap
+    /// Create a `ValueUnit` using a float value
+    /// and a string unit using the App mapping
+    let createFromFormul = createValueUnit Mapping.AppMap
 
 
     let fromFloat v u =
@@ -181,3 +186,12 @@ module ValueUnit =
         let min = Units.Time.minute
 
         let hour = Units.Time.hour
+
+    
+    module ValueUnitTests =
+
+        let tests () =
+
+            createValueUnit (Mapping.GStandMap) 10. "milligram"         
+            |> printfn "Create value unit 10 milligram using GStand mapping: %A"
+            
