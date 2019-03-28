@@ -1,7 +1,8 @@
 ﻿namespace Informedica.GenForm.Lib
 
 
-
+/// Utility methods to extend the 
+/// `Informedica.GenUnits.Lib.ValueUnit` library
 module ValueUnit =
 
     open MathNet.Numerics
@@ -18,50 +19,52 @@ module ValueUnit =
     /// the number without the unit.
     let getValue vu = let v, _ = vu |> ValueUnit.get in v
 
+    let unitFromString = Units.fromString
+    let unitToString = Units.toString Units.Localization.English Units.Short
 
-    let unitToString u =
+    /// Get the user readable string version
+    /// of a unit, i.e. without unit group between
+    /// brackets
+    let unitToReadableString u =
         u
         |> Units.toString Units.Dutch Units.Short
         |> String.remBr
 
-
-    let unitFromString m u = 
+    /// Map a unit `u` to a `ValueUnit.Unit`
+    /// using a mapping `m`.
+    let unitFromMappedString m u = 
             u
             |> Mapping.mapUnit m Mapping.ValueUnitMap
             |> Units.fromString
 
+    /// Create a unit from a GStand unit
+    let unitFromGStandString = unitFromMappedString Mapping.GStandMap
 
-    let unitFromGStandString = unitFromString Mapping.GStandMap
-
-
-    let unitFromAppString = unitFromString Mapping.AppMap
+    /// Create a unit from an App unit
+    let unitFromAppString = unitFromMappedString Mapping.AppMap
 
     /// Create a value unit using a specific mapping `m`
     /// with value `v` and unit `u`.
     let createValueUnit m v u =
-        let s = 
-            u
-            |> Mapping.mapUnit m Mapping.ValueUnitMap
-        if s = "" then None
-        else
-            v
-            |> BigRational.fromFloat 
-            |> Option.bind (fun v ->
-                (v |> BigRational.toString) + " " + s
-                |> fromString
-                |> Some
-            )
+        match u |> unitFromMappedString m with
+        | None -> None
+        | Some u ->
+            match v |> BigRational.fromFloat with
+            | None -> None
+            | Some v  -> 
+                ValueUnit.create u v |> Some
 
     /// Create a `ValueUnit` using a float value
     /// and a string unit using the GStand mapping
-    let createFromGStand = createValueUnit Mapping.GStandMap
+    let valueUnitFromGStandUnitString = createValueUnit Mapping.GStandMap
 
 
     /// Create a `ValueUnit` using a float value
     /// and a string unit using the App mapping
-    let createFromFormul = createValueUnit Mapping.AppMap
+    let valueUnitFromAppUnitString = createValueUnit Mapping.AppMap
 
-
+    /// Create a `ValueUnit` using a float value
+    /// `v` and a `Unit` `u`.
     let fromFloat v u =
         v
         |> BigRational.fromFloat
@@ -69,30 +72,39 @@ module ValueUnit =
             ValueUnit.create u br
             |> Some
         )
-
-
-    let substanceInGStandUnit = createFromGStand
  
-
-    let getSubstanceInGStandUnit vu =
+    /// Turn a `ValueUnit` to a float, string tuple. 
+    /// Where the unit string representation is a 
+    /// GSTand string.
+    let valueUnitToGStandUnitString vu =
         let v, u = ValueUnit.get vu
 
         v |> BigRational.toFloat, 
         u 
-        |> unitToString
+        |> ValueUnit.Units.toString Units.Localization.English Units.Short
         |> Mapping.mapUnit Mapping.ValueUnitMap Mapping.GStandMap
 
+    /// Turn a `ValueUnit` to a float, string tuple. 
+    /// Where the unit string representation is an 
+    /// App string.
+    let valueUnitToAppUnitString vu =
+        let v, u = ValueUnit.get vu
 
-    let timeMinute = (fun n -> fromFloat n Units.Time.minute)
+        v |> BigRational.toFloat, 
+        u 
+        |> ValueUnit.Units.toString Units.Localization.English Units.Short
+        |> Mapping.mapUnit Mapping.ValueUnitMap Mapping.AppMap
+
+    let timeInMinute = (fun n -> fromFloat n Units.Time.minute)
 
 
-    let timeHour =  (fun n -> fromFloat n Units.Time.hour)
+    let timeInHour =  (fun n -> fromFloat n Units.Time.hour)
 
 
-    let timeDay =  (fun n -> fromFloat n Units.Time.day)
+    let timeInDay =  (fun n -> fromFloat n Units.Time.day)
 
 
-    let timeWeek =  (fun n -> fromFloat n Units.Time.week)
+    let timeInWeek =  (fun n -> fromFloat n Units.Time.week)
 
 
     let ageInWk =  (fun n -> fromFloat n Units.Time.week)
@@ -109,22 +121,27 @@ module ValueUnit =
 
     let bsaInM2 =  (fun n -> fromFloat n Units.BSA.M2)
 
-
+    /// Create a frequency unit
+    /// per `n` days
     let freqUnitPerNday n = 
         1N 
         |> Units.Count.nTimes
         |> per (Units.Time.nDay n)
 
 
+    /// Create a frequency unit
+    /// per `n` hours
     let freqUnitPerNHour n = 
         1N 
         |> Units.Count.nTimes
         |> per (Units.Time.nHour n)
 
-
+    /// Freq unit per 1 hour.
     let freqPerOneHour = freqUnitPerNHour 1N
 
-
+    /// Create an optional `ValueUnit` using 
+    /// an optional gestational age `gest` in 
+    /// weeks and days.
     let gestAgeInDaysAndWeeks gest =
         gest 
         |> Option.bind (fun (w, d) ->
@@ -135,12 +152,14 @@ module ValueUnit =
             )
         )
 
-
+    /// Turn a frequency `ValueUnit` `freq` 
+    /// to a valueunit string representation.
     let freqToValueUnitString freq =
         freq
         |> ValueUnit.toString ValueUnit.Units.English ValueUnit.Units.Long
 
-
+    /// Turn a `ValueUnit` `vu` into
+    /// a string using precision `prec`.
     let toStringPrec prec vu = 
         let v, u = vu |> ValueUnit.get
 
@@ -152,15 +171,18 @@ module ValueUnit =
 
         let us = 
             u 
-            |> unitToString
+            |> unitToReadableString
 
         vs + " " + us
 
-
+    /// Check whether a unit `u`
+    /// is a time unit.
     let isTimeUnit u =
         (u |> ValueUnit.Group.unitToGroup) = ValueUnit.Group.TimeGroup
         
-
+    
+    /// Helper functions to quicly create
+    /// combined units
     module Units =
 
         let perOneHour = freqPerOneHour
@@ -195,3 +217,34 @@ module ValueUnit =
             createValueUnit (Mapping.GStandMap) 10. "milligram"         
             |> printfn "Create value unit 10 milligram using GStand mapping: %A"
             
+            Mapping.allGStandUnits ()
+            |> Array.iter (fun s ->
+                printfn "Mapping %s: %A" s (s |> unitFromGStandString)
+                match s |> unitFromGStandString with
+                | Some u -> 
+                    u 
+                    |> ValueUnit.Units.toString Units.Localization.English Units.Short
+                    |> printfn "ValueUnit unit string: %s"
+                | None -> ()
+                printfn "ValueUnit: %A" (valueUnitFromGStandUnitString 1.5 s)
+                match (valueUnitFromGStandUnitString 1.5 s) |> (Option.bind (valueUnitToGStandUnitString >> Some)) with
+                | Some (_, u) -> 
+                    if u = "" then printfn "Cannot parse: %s" s
+                | None -> ()
+            )
+
+            Mapping.allAppUnits ()
+            |> Array.iter (fun s ->
+                printfn "Mapping %s: %A" s (s |> unitFromAppString)
+                match s |> unitFromAppString with
+                | Some u -> 
+                    u 
+                    |> ValueUnit.Units.toString Units.Localization.English Units.Short
+                    |> printfn "ValueUnit unit string: %s"
+                | None -> ()
+                printfn "ValueUnit: %A" (valueUnitFromAppUnitString 1.5 s)
+                match (valueUnitFromAppUnitString 1.5 s) |> (Option.bind (valueUnitToAppUnitString >> Some)) with
+                | Some (_, u) -> 
+                    if u = "" then printfn "Cannot parse: %s" s
+                | None -> ()
+            )

@@ -55,16 +55,16 @@ module MinMaxTests =
     let mmToStr = MinMax.toString "van" "tot"
 
     let v1, v2 = 
-        ValueUnit.substanceInGStandUnit 10. "milligram" |> Option.get ,
-        ValueUnit.substanceInGStandUnit 20. "milligram" |> Option.get
+        ValueUnit.valueUnitFromGStandUnitString 10. "milligram" |> Option.get ,
+        ValueUnit.valueUnitFromGStandUnitString 20. "milligram" |> Option.get
         
     let incl1, incl2 =
         v1 |> MinMax.inclusive, 
         v2 |> MinMax.inclusive
 
     let v3, v4 = 
-        ValueUnit.substanceInGStandUnit 30. "milligram" |> Option.get ,
-        ValueUnit.substanceInGStandUnit 40. "milligram" |> Option.get
+        ValueUnit.valueUnitFromGStandUnitString 30. "milligram" |> Option.get ,
+        ValueUnit.valueUnitFromGStandUnitString 40. "milligram" |> Option.get
         
     let incl3, incl4 =
         v3 |> MinMax.inclusive, 
@@ -73,8 +73,8 @@ module MinMaxTests =
 
     let toString () =
         MinMax.empty
-        |> MinMax.setMin (ValueUnit.createFromGStand 1. "milligram" |> Option.get |> MinMax.Inclusive)
-        |> MinMax.setMax (ValueUnit.createFromGStand 10. "milligram" |> Option.get |> MinMax.Inclusive)
+        |> MinMax.setMin (ValueUnit.createUnitFromGStandString 1. "milligram" |> Option.get |> MinMax.Inclusive)
+        |> MinMax.setMax (ValueUnit.createUnitFromGStandString 10. "milligram" |> Option.get |> MinMax.Inclusive)
         |> mmToStr
         
         
@@ -186,27 +186,27 @@ module DoseRangeTests =
 
     let toString () =
         DoseRange.empty
-        |> setMaxNormDose (ValueUnit.createFromGStand 10. "milligram")
-        |> setMaxAbsDose (ValueUnit.createFromGStand 100. "milligram")
+        |> setMaxNormDose (ValueUnit.createUnitFromGStandString 10. "milligram")
+        |> setMaxAbsDose (ValueUnit.createUnitFromGStandString 100. "milligram")
         |> drToStr
 
     let toRateString () =
         DoseRange.empty
-        |> setMinNormDose (ValueUnit.createFromGStand 10. "milligram")
-        |> setMaxNormDose (ValueUnit.createFromGStand 100. "milligram")
+        |> setMinNormDose (ValueUnit.createUnitFromGStandString 10. "milligram")
+        |> setMaxNormDose (ValueUnit.createUnitFromGStandString 100. "milligram")
         |> DoseRange.toString (Some ValueUnit.Units.hour)        
 
     let toRatePerKgString () =
         DoseRange.empty
-        |> setMinNormPerKgDose (ValueUnit.createFromGStand 0.001 "milligram")
-        |> setMaxNormPerKgDose (ValueUnit.createFromGStand 1. "milligram")
+        |> setMinNormPerKgDose (ValueUnit.createUnitFromGStandString 0.001 "milligram")
+        |> setMaxNormPerKgDose (ValueUnit.createUnitFromGStandString 1. "milligram")
         |> DoseRange.convertTo (ValueUnit.Units.mcg)
         |> DoseRange.toString (Some ValueUnit.Units.hour)        
 
     let convert () =
         DoseRange.empty
-        |> setMaxNormDose (ValueUnit.createFromGStand 1. "milligram")
-        |> setMinNormDose (ValueUnit.createFromGStand 0.001 "milligram")
+        |> setMaxNormDose (ValueUnit.createUnitFromGStandString 1. "milligram")
+        |> setMinNormDose (ValueUnit.createUnitFromGStandString 0.001 "milligram")
         |> DoseRange.convertTo (ValueUnit.Units.mcg)
         |> drToStr
         
@@ -231,25 +231,25 @@ module DosageTests =
 
     let toString () =
         Dosage.empty
-        |> setNormMinStartDose (ValueUnit.createFromGStand 10. "milligram")
-        |> setAbsMaxStartDose (ValueUnit.createFromGStand 1. "gram")
-        |> setNormMinSingleDose (ValueUnit.createFromGStand 10. "milligram")
-        |> setAbsMaxSingleDose (ValueUnit.createFromGStand 1. "gram")
+        |> setNormMinStartDose (ValueUnit.createUnitFromGStandString 10. "milligram")
+        |> setAbsMaxStartDose (ValueUnit.createUnitFromGStandString 1. "gram")
+        |> setNormMinSingleDose (ValueUnit.createUnitFromGStandString 10. "milligram")
+        |> setAbsMaxSingleDose (ValueUnit.createUnitFromGStandString 1. "gram")
         |> Dosage.toString true
 
     
     let convert () =
         Dosage.empty
-        |> setNormMinSingleDose (ValueUnit.createFromGStand 0.01 "milligram")
-        |> setNormMaxSingleDose (ValueUnit.createFromGStand 1. "milligram")
+        |> setNormMinSingleDose (ValueUnit.createUnitFromGStandString 0.01 "milligram")
+        |> setNormMaxSingleDose (ValueUnit.createUnitFromGStandString 1. "milligram")
         |> Dosage.convertSubstanceUnitTo (ValueUnit.Units.mcg)
         |> Dosage.toString false
         
 
     let convertRate () =
         Dosage.empty
-        |> setNormMinRateDose (ValueUnit.createFromGStand 0.01 "milligram")
-        |> setNormMaxRateDose (ValueUnit.createFromGStand 1. "milligram")
+        |> setNormMinRateDose (ValueUnit.createUnitFromGStandString 0.01 "milligram")
+        |> setNormMaxRateDose (ValueUnit.createUnitFromGStandString 1. "milligram")
         |> setRateUnit (ValueUnit.Units.hour)
         |> Dosage.convertSubstanceUnitTo (ValueUnit.Units.mcg)
         |> Dosage.convertRateUnitTo (ValueUnit.Units.min)

@@ -14,8 +14,7 @@ module Mapping =
     open Informedica.GenProduct.Lib
 
 
-    let combineWith p2 p1 = 
-        Path.Combine(p1, p2)
+    let combineWith = Path.combineWith
 
 
     [<Literal>]
@@ -108,12 +107,13 @@ module Mapping =
 
         let i1, i2 =
             match m1, m2 with
-            | AppMap,       GStandMap    -> 0, 1
-            | GStandMap,    AppMap       -> 1, 0
-            | AppMap,       ValueUnitMap -> 0, 3
-            | GStandMap,    ValueUnitMap -> 1, 3
-            | ValueUnitMap, AppMap       -> 3, 0
-            | ValueUnitMap, GStandMap    -> 1, 3
+            | AppMap,       GStandMap    
+            | GStandMap,    AppMap       
+            | AppMap,       ValueUnitMap 
+            | GStandMap,    ValueUnitMap 
+            | ValueUnitMap, AppMap       
+            | ValueUnitMap, GStandMap    -> 
+                (m1 |> getMappingValue), (m2 |> getMappingValue)
             | _ -> 0, 0
 
         let mapping = readMappingFile path

@@ -21,6 +21,7 @@
     <Compile Include="Array.fs" />
     <Compile Include="List.fs" />
     <Compile Include="Seq.fs" />
+    <Compile Include="Path.fs" />
     <Compile Include="File.fs" />
     <Compile Include="App.fs" />
     <None Include="Scripts\references.fsx" />

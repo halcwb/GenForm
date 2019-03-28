@@ -1,7 +1,7 @@
 ﻿namespace Informedica.GenForm.Lib
 
 
-
+/// Functions to handle a `MinMax` type
 module MinMax =
 
     open MathNet.Numerics
@@ -29,6 +29,7 @@ module MinMax =
             Min : Value option
             Max : Value option
         }
+    /// Can be either `Inclusive` or `Exclusive`
     and Value = Inclusive of ValueUnit | Exclusive of ValueUnit
 
 
@@ -43,7 +44,9 @@ module MinMax =
 
     let empty = create None None
 
-
+    /// A `MinMax` range with value 1, can 
+    /// be used in calculations as a "unit" 
+    /// with multiplication and division
     let one u = 
         {
             Min = 1N |> ValueUnit.create u |> inclusive |> Some
@@ -65,15 +68,23 @@ module MinMax =
             | Exclusive vu1, Exclusive vu2 -> vu1 |> f4 <| vu2
 
 
+    /// Check whether v1 > v2 using
+    /// inclusive and exclusive logic
     let valueLT = applyValue2 (>?) (>=?) (>?) (>?) 
 
 
+    /// Check whether v1 < v2 using
+    /// inclusive and exclusive logic
     let valueST = applyValue2 (<?) (<?) (<=?) (<?) 
 
 
+    /// Check whether v1 >= v2 using
+    /// inclusive and exclusive logic
     let valueLTE = applyValue2 (>=?) (>=?) (>=?) (>=?)
 
 
+    /// Check whether v1 <= v2 using
+    /// inclusive and exclusive logic
     let valueSTE = applyValue2 (<=?) (<=?) (<=?) (<=?) 
 
 
@@ -293,7 +304,6 @@ module MinMax =
         static member (/) (mm1, mm2) = calc (/) mm1 mm2
 
             
-
     module Optics =
     
     
@@ -368,7 +378,106 @@ module MinMax =
                 | None -> mm
             )
         
+    
+    module Dto =
 
+        type Dto () =
+            member val Min = 0. with get, set
+            member val MinIncl = true with get, set
+            member val Max = 0. with get, set
+            member val MaxIncl = true with get, set
+            member val Unit = "" with get, set
+
+        let dto () = Dto ()
+
+        let fromDto (dto : Dto) =
+            let opt f v = 
+                if v = 0. then None 
+                else 
+                    let vu = 
+                        dto.Unit
+                        |> ValueUnit.unitFromString
+                        |> Option.bind (ValueUnit.fromFloat v)
+                    match vu with 
+                    | None -> None
+                    | Some v -> 
+                        v
+                        |> f 
+                        |> Some
+            let inclusive = opt inclusive
+            let exclusive = opt exclusive
+
+            let min, max =
+                match dto.MinIncl, dto.MaxIncl with
+                | false, false -> 
+                    dto.Min |> exclusive, dto.Max |> exclusive
+                | true, true -> 
+                    dto.Min |> inclusive, dto.Max |> inclusive
+                | true, false -> 
+                    dto.Min |> inclusive, dto.Max |> exclusive
+                | false, true -> 
+                    dto.Min |> exclusive, dto.Max |> inclusive
+            
+            create min max
+
+        let toDto (minmax : MinMax) =
+            let dto = dto ()
+            let get vu =
+                let v, u = 
+                    ValueUnit.get vu
+                v |> BigRational.ToDouble, 
+                u |> ValueUnit.unitToString
+                
+            match minmax.Min, minmax.Max with
+            | None, None -> dto
+            | Some min, Some max ->
+                let v1, v2 =
+                    match min, max with
+                    | Inclusive v1, Inclusive v2 ->
+                        dto.MinIncl <- true
+                        dto.MaxIncl <- true
+                        v1, v2
+                    | Exclusive v1, Exclusive v2 ->
+                        dto.MinIncl <- false
+                        dto.MaxIncl <- false
+                        v1, v2
+                    | Inclusive v1, Exclusive v2 ->
+                        dto.MinIncl <- true
+                        dto.MaxIncl <- false
+                        v1, v2
+                    | Exclusive v1, Inclusive v2 ->
+                        dto.MinIncl <- false
+                        dto.MaxIncl <- true
+                        v1, v2
+                dto.Min  <- v1 |> get |> fst
+                dto.Max  <- v2 |> get |> fst
+                dto.Unit <- v1 |> get |> snd
+                dto
+            | Some m, None ->
+                let v1 =
+                    match m with
+                    | Inclusive v1 ->
+                        dto.MinIncl <- true
+                        v1
+                    | Exclusive v1 ->
+                        dto.MinIncl <- false
+                        v1
+                dto.Min  <- v1 |> get |> fst
+                dto.Unit <- v1 |> get |> snd
+                dto
+            | None, Some m ->
+                let v2 =
+                    match m with
+                    | Inclusive v2 ->
+                        dto.MaxIncl <- true
+                        v2
+                    | Exclusive v2 ->
+                        dto.MaxIncl <- false
+                        v2
+                dto.Max  <- v2 |> get |> fst
+                dto.Unit <- v2 |> get |> snd
+                dto
+                
 
 
     let valueToString = function
@@ -440,7 +549,6 @@ module MinMax =
         { Min = min |> convert; Max = max |> convert } |> toString "van" "tot"
         
         
-
 
     let gestAgeToString { Min = min; Max = max } =
 

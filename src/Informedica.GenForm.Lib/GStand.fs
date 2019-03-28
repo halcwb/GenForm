@@ -219,7 +219,7 @@ module GStand =
             |> Seq.collect (fun gp ->
                 gp.Substances
                 |> Seq.collect (fun s ->
-                    match s.Unit |> ValueUnit.unitFromString Mapping.GStandMap with
+                    match s.Unit |> ValueUnit.unitFromMappedString Mapping.GStandMap with
                     | None -> []
                     | Some u ->
                         [ mapDoses s.Name s.Quantity u dr ]

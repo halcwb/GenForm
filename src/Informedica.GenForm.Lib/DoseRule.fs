@@ -996,7 +996,7 @@ module DoseRule =
         let freqsToStr (freqs : Frequency) =
             let fu = 
                 freqs.TimeUnit 
-                |> ValueUnit.unitToString
+                |> ValueUnit.unitToReadableString
                 |> String.replace "x/" ""
 
 
@@ -1032,7 +1032,7 @@ module DoseRule =
             let frqs = total |> snd
             let fu = 
                 frqs.TimeUnit
-                |> ValueUnit.unitToString
+                |> ValueUnit.unitToReadableString
                 |> String.replace "x/" ""
 
             let drToStr = DoseRange.toString None

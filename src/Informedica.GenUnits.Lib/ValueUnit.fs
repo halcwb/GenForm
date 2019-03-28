@@ -1105,7 +1105,7 @@ module ValueUnit =
                     uls + (op |> opToStr) + urs
 
                 | General (n, v) ->
-                    let ustr = n + "[General]"
+                    let ustr = n // + "[General]"
                     if v > 1N then
                         (1N |> BigRational.toString) + ustr
                     else ustr
