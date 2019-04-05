@@ -1,7 +1,12 @@
 ﻿namespace Informedica.GenForm.Lib
 
 
-/// Functions to handle a `MinMax` type
+/// Functions to handle a `MinMax` type. 
+/// The concept is that of a range definition with
+/// either a min value, a max value, none or both.
+/// The min and/or max value can be inclusive or exclusive
+/// to model the difference of something being >= or >.
+/// This in turns enables ranges to be be complementary.
 module MinMax =
 
     open MathNet.Numerics
@@ -87,7 +92,8 @@ module MinMax =
     /// inclusive and exclusive logic
     let valueSTE = applyValue2 (<=?) (<=?) (<=?) (<=?) 
 
-
+    /// Calculate the comparison of 2
+    /// optional `Value` types `v1` and `v2`.
     let compOpt comp nn sn ns v1 v2 =
         match v1, v2 with
         | None, None -> nn
@@ -107,13 +113,21 @@ module MinMax =
 
     let valueOptSTE = compOpt valueSTE false false true 
 
-
+    /// Check whether a `MinMax` is valid in the 
+    /// sense that the lower limit never can exceed
+    /// the upper limit.
     let isValid ({ Min = min; Max = max }) =
         match min, max with
         | None, None -> true
         | Some _, None | None, Some _ -> true
         | Some v1, Some v2 ->
-            applyValue2 (<=?) (<?) (<?) (<?) v1 v2
+            match v1, v2 with
+            | Inclusive vu1, Inclusive vu2
+            | Exclusive vu1, Exclusive vu2
+            | Inclusive vu1, Exclusive vu2
+            | Exclusive vu1, Inclusive vu2 ->
+                vu1 |> ValueUnit.eqsGroup vu2 &&
+                applyValue2 (<=?) (<?) (<?) (<?) v1 v2
 
 
     let setMin min mm =
@@ -125,7 +139,9 @@ module MinMax =
         let mm_ = { mm with Max = max }
         if mm_ |> isValid then mm_ else mm
 
-
+    /// Set the min value to `min` only 
+    /// when the condition `cond` appies
+    /// to the `MinMax` `mm`.
     let setMinCond cond min (mm : MinMax) =
         match mm.Min, mm.Max with
         | Some m, Some max ->
@@ -148,6 +164,9 @@ module MinMax =
                 |> setMin (Some min)
 
 
+    /// Set the max value to `max` only 
+    /// when the condition `cond` appies
+    /// to the `MinMax` `mm`.
     let setMaxCond cond max (mm : MinMax) =
         match mm.Min, mm.Max with
         | Some min, Some m ->
@@ -169,7 +188,9 @@ module MinMax =
                 mm
                 |> setMax (Some max)
         
-
+    /// Calculate the resulting `MinMax` value
+    /// based on a list of `MinMax` values accoring
+    /// to a conditioning rule `cond`.
     let foldCond cond (mms : MinMax list) =
         let condMax m1 m2 = cond m2 m1
         mms |> List.fold (fun acc mm ->
@@ -184,12 +205,17 @@ module MinMax =
         ) empty
      
 
+    /// Calculate the smallest range from
+    /// a list of `MinMax` values.
     let foldMinimize = foldCond valueLT
      
 
+    /// Calculate the largest range from
+    /// a list of `MinMax` values.
     let foldMaximize = foldCond valueST
 
-
+    /// Check whether a value `v` is in 
+    /// the range of a `MinMax` `mm`.
     let inRange v (mm : MinMax) =
         match mm.Min, mm.Max with
         | None, None -> true
@@ -199,6 +225,8 @@ module MinMax =
             (valueLTE v v1) && (valueSTE v v2)
 
 
+    /// perform a calculation `op` to
+    /// 2 values `v1` and `v2`.
     let calcValue op v1 v2 =
         match v1, v2 with
         | Inclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Inclusive
@@ -207,6 +235,8 @@ module MinMax =
         | Exclusive v1, Inclusive v2 -> v1 |> op <| v2 |> Exclusive  
 
 
+    /// Perform a calculation for `Value` types
+    /// of the `MinMax` values `mm1` and `mm2`.
     let calc op (mm1 : MinMax) (mm2 : MinMax) =
         let c m1 m2 =
             match m1, m2 with
@@ -220,6 +250,8 @@ module MinMax =
         }
 
 
+    /// Convert the units of the `ValueUnit` values
+    /// in a `MinMax` `mm` to unit `u`.
     let convertTo u (mm : MinMax) =
         let convert =
             applyValue1 (ValueUnit.convertTo u) (ValueUnit.convertTo u)
@@ -236,6 +268,8 @@ module MinMax =
         }
         
 
+    /// Set the units of the `ValueUnit` values
+    /// in a `MinMax` `mm` to unit `u`.
     let withUnit u (mm : MinMax) =
         let convert =
             applyValue1 
@@ -253,7 +287,9 @@ module MinMax =
                 | Some v -> v |> convert
         }
 
-
+    
+    /// Extension methods for the `Value` type
+    /// to enable lenses.
     type Value with
     
         static member Inclusive_ =
@@ -286,6 +322,8 @@ module MinMax =
         static member (/) (v1, v2) = calcValue (/) v1 v2
 
     
+    /// Extension methods for the `MinMax` type
+    /// to enable lenses.
     type MinMax with
     
         static member Min_ :
@@ -303,7 +341,8 @@ module MinMax =
             
         static member (/) (mm1, mm2) = calc (/) mm1 mm2
 
-            
+    /// Contains the lenses for the `Value` and 
+    /// the `MinMax` type.
     module Optics =
     
     
@@ -379,25 +418,28 @@ module MinMax =
             )
         
     
+    /// The dto object to represent a `MinMax` type
     module Dto =
 
         type Dto () =
             member val Min = 0. with get, set
+            member val MinUnit = "" with get, set
+            member val HasMin = false with get, set
             member val MinIncl = true with get, set
             member val Max = 0. with get, set
+            member val HasMax = false with get, set
             member val MaxIncl = true with get, set
-            member val Unit = "" with get, set
+            member val MaxUnit = "" with get, set
 
         let dto () = Dto ()
 
         let fromDto (dto : Dto) =
-            let opt f v = 
+            let opt f u v = 
                 if v = 0. then None 
                 else 
                     let vu = 
-                        dto.Unit
-                        |> ValueUnit.unitFromString
-                        |> Option.bind (ValueUnit.fromFloat v)
+                        u
+                        |> ValueUnit.fromFloat v
                     match vu with 
                     | None -> None
                     | Some v -> 
@@ -407,18 +449,48 @@ module MinMax =
             let inclusive = opt inclusive
             let exclusive = opt exclusive
 
-            let min, max =
-                match dto.MinIncl, dto.MaxIncl with
-                | false, false -> 
-                    dto.Min |> exclusive, dto.Max |> exclusive
-                | true, true -> 
-                    dto.Min |> inclusive, dto.Max |> inclusive
-                | true, false -> 
-                    dto.Min |> inclusive, dto.Max |> exclusive
-                | false, true -> 
-                    dto.Min |> exclusive, dto.Max |> inclusive
+            match dto.HasMin, dto.HasMax with
+            | false, false -> empty |> Some
+            | true, false -> 
+                match dto.MinUnit |> ValueUnit.unitFromString with
+                | None -> None
+                | Some u ->
+                    let min = 
+                        match dto.MinIncl with
+                        | true  -> dto.Min |> inclusive u
+                        | false -> dto.Min |> exclusive u
+                    create min None |> Some
+            | false, true -> 
+                match dto.MaxUnit |> ValueUnit.unitFromString with
+                | None -> None
+                | Some u ->
+                    let max = 
+                        match dto.MaxIncl with
+                        | true  -> dto.Max |> inclusive u
+                        | false -> dto.Max |> exclusive u
+                    create None max |> Some
+            | true, true ->
+                match dto.MinUnit |> ValueUnit.unitFromString,
+                      dto.MaxUnit |> ValueUnit.unitFromString with
+                | None,   None
+                | Some _, None 
+                | None,   Some _ -> None
+                | Some u1, Some u2 ->
+
+                    let min, max =
+                        match dto.MinIncl, dto.MaxIncl with
+                        | false, false -> 
+                            dto.Min |> exclusive u1, dto.Max |> exclusive u2
+                        | true, true -> 
+                            dto.Min |> inclusive u1, dto.Max |> inclusive u2
+                        | true, false -> 
+                            dto.Min |> inclusive u1, dto.Max |> exclusive u2
+                        | false, true -> 
+                            dto.Min |> exclusive u1, dto.Max |> inclusive u2
             
-            create min max
+                    create min max
+                    |> (fun mm -> if mm |> isValid then mm |> Some else None)
+
 
         let toDto (minmax : MinMax) =
             let dto = dto ()
@@ -450,8 +522,11 @@ module MinMax =
                         dto.MaxIncl <- true
                         v1, v2
                 dto.Min  <- v1 |> get |> fst
+                dto.MinUnit <- v1 |> get |> snd
+                dto.HasMin <- true
                 dto.Max  <- v2 |> get |> fst
-                dto.Unit <- v1 |> get |> snd
+                dto.MaxUnit <- v2 |> get |> snd
+                dto.HasMax <- true
                 dto
             | Some m, None ->
                 let v1 =
@@ -463,7 +538,8 @@ module MinMax =
                         dto.MinIncl <- false
                         v1
                 dto.Min  <- v1 |> get |> fst
-                dto.Unit <- v1 |> get |> snd
+                dto.MinUnit <- v1 |> get |> snd
+                dto.HasMin <- true
                 dto
             | None, Some m ->
                 let v2 =
@@ -475,16 +551,20 @@ module MinMax =
                         dto.MaxIncl <- false
                         v2
                 dto.Max  <- v2 |> get |> fst
-                dto.Unit <- v2 |> get |> snd
+                dto.MaxUnit <- v2 |> get |> snd
+                dto.HasMax <- true
                 dto
                 
 
-
+    
     let valueToString = function
         | Inclusive vu -> sprintf "incl %s" (vu |> ValueUnit.toStringPrec 2)
         | Exclusive vu -> sprintf "excl %s" (vu |> ValueUnit.toStringPrec 2)
 
 
+    /// Turn a `MinMax` to a string with
+    /// `mins` and `maxs` as annotations
+    /// for resp. the min and max value.
     let toString mins maxs { Min = min; Max = max } =
         let vuToStr vu = 
             let milliGram = ValueUnit.Units.Mass.milliGram
@@ -557,3 +637,21 @@ module MinMax =
             Option.bind (applyValue1 c c >> Some)
             
         { Min = min |> convert; Max = max |> convert } |> toString "van" "tot"  
+
+    
+    module Tests =
+
+        let tests () =
+            let dto = Dto.dto ()
+            dto
+            |> Dto.fromDto
+
+            dto.Min <- 1.
+            dto.MinUnit <- "mg[Mass]"
+            dto.HasMin <- true
+            dto.MinIncl <- false
+            dto.Max <- 2.
+            dto.MaxUnit <- "ml[Volume]"
+            dto.HasMax <- true
+            dto
+            |> Dto.fromDto

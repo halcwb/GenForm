@@ -19,6 +19,13 @@ module ValueUnit =
     /// the number without the unit.
     let getValue vu = let v, _ = vu |> ValueUnit.get in v
 
+    let getUnit vu = let _, u = vu |> ValueUnit.get in u
+
+    let eqsGroup vu1 vu2 = 
+        let u1 = vu1 |> getUnit
+        let u2 = vu2 |> getUnit
+        u1 |> ValueUnit.Group.eqsGroup u2
+
     let unitFromString = Units.fromString
     let unitToString = Units.toString Units.Localization.English Units.Short
 
