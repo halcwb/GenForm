@@ -422,83 +422,64 @@ module MinMax =
     module Dto =
 
         type Dto () =
-            member val Min = 0. with get, set
-            member val MinUnit = "" with get, set
+            member val Min = ValueUnit.Dto.dto () with get, set
             member val HasMin = false with get, set
             member val MinIncl = true with get, set
-            member val Max = 0. with get, set
+            member val Max = ValueUnit.Dto.dto () with get, set
             member val HasMax = false with get, set
             member val MaxIncl = true with get, set
-            member val MaxUnit = "" with get, set
 
         let dto () = Dto ()
 
         let fromDto (dto : Dto) =
-            let opt f u v = 
-                if v = 0. then None 
-                else 
-                    let vu = 
-                        u
-                        |> ValueUnit.fromFloat v
-                    match vu with 
-                    | None -> None
-                    | Some v -> 
-                        v
-                        |> f 
-                        |> Some
-            let inclusive = opt inclusive
-            let exclusive = opt exclusive
 
             match dto.HasMin, dto.HasMax with
             | false, false -> empty |> Some
             | true, false -> 
-                match dto.MinUnit |> ValueUnit.unitFromString with
+                match dto.Min |> ValueUnit.Dto.fromDto with
                 | None -> None
-                | Some u ->
+                | Some vu ->
                     let min = 
                         match dto.MinIncl with
-                        | true  -> dto.Min |> inclusive u
-                        | false -> dto.Min |> exclusive u
+                        | true  -> inclusive vu
+                        | false -> exclusive vu
+                        |> Some
                     create min None |> Some
             | false, true -> 
-                match dto.MaxUnit |> ValueUnit.unitFromString with
+                match dto.Max |> ValueUnit.Dto.fromDto with
                 | None -> None
-                | Some u ->
+                | Some vu ->
                     let max = 
                         match dto.MaxIncl with
-                        | true  -> dto.Max |> inclusive u
-                        | false -> dto.Max |> exclusive u
+                        | true  -> inclusive vu
+                        | false -> exclusive vu
+                        |> Some
                     create None max |> Some
             | true, true ->
-                match dto.MinUnit |> ValueUnit.unitFromString,
-                      dto.MaxUnit |> ValueUnit.unitFromString with
+                match dto.Min |> ValueUnit.Dto.fromDto,
+                      dto.Max |> ValueUnit.Dto.fromDto with
                 | None,   None
                 | Some _, None 
                 | None,   Some _ -> None
-                | Some u1, Some u2 ->
+                | Some vu1, Some vu2 ->
 
                     let min, max =
                         match dto.MinIncl, dto.MaxIncl with
                         | false, false -> 
-                            dto.Min |> exclusive u1, dto.Max |> exclusive u2
+                            exclusive vu1, exclusive vu2
                         | true, true -> 
-                            dto.Min |> inclusive u1, dto.Max |> inclusive u2
+                            inclusive vu1, inclusive vu2
                         | true, false -> 
-                            dto.Min |> inclusive u1, dto.Max |> exclusive u2
+                            inclusive vu1, exclusive vu2
                         | false, true -> 
-                            dto.Min |> exclusive u1, dto.Max |> inclusive u2
+                            exclusive vu1, inclusive vu2
             
-                    create min max
+                    create (Some min) (Some max)
                     |> (fun mm -> if mm |> isValid then mm |> Some else None)
 
 
         let toDto (minmax : MinMax) =
             let dto = dto ()
-            let get vu =
-                let v, u = 
-                    ValueUnit.get vu
-                v |> BigRational.ToDouble, 
-                u |> ValueUnit.unitToString
                 
             match minmax.Min, minmax.Max with
             | None, None -> dto
@@ -521,11 +502,9 @@ module MinMax =
                         dto.MinIncl <- false
                         dto.MaxIncl <- true
                         v1, v2
-                dto.Min  <- v1 |> get |> fst
-                dto.MinUnit <- v1 |> get |> snd
+                dto.Min <- v1 |> ValueUnit.Dto.toDtoDutchShort
                 dto.HasMin <- true
-                dto.Max  <- v2 |> get |> fst
-                dto.MaxUnit <- v2 |> get |> snd
+                dto.Max <- v2 |> ValueUnit.Dto.toDtoDutchShort
                 dto.HasMax <- true
                 dto
             | Some m, None ->
@@ -537,8 +516,7 @@ module MinMax =
                     | Exclusive v1 ->
                         dto.MinIncl <- false
                         v1
-                dto.Min  <- v1 |> get |> fst
-                dto.MinUnit <- v1 |> get |> snd
+                dto.Min <- v1 |> ValueUnit.Dto.toDtoDutchShort
                 dto.HasMin <- true
                 dto
             | None, Some m ->
@@ -550,8 +528,7 @@ module MinMax =
                     | Exclusive v2 ->
                         dto.MaxIncl <- false
                         v2
-                dto.Max  <- v2 |> get |> fst
-                dto.MaxUnit <- v2 |> get |> snd
+                dto.Max <- v2 |> ValueUnit.Dto.toDtoDutchShort
                 dto.HasMax <- true
                 dto
                 
@@ -642,16 +619,44 @@ module MinMax =
     module Tests =
 
         let tests () =
+            let (|>!) x f = 
+                x |> printfn  "%A"
+                f x
+
+            // Create dto and there and back again
             let dto = Dto.dto ()
             dto
             |> Dto.fromDto
+            |>! ignore
 
-            dto.Min <- 1.
-            dto.MinUnit <- "mg[Mass]"
+            // Add min and max to dto and there and back again
+            dto.Min.Value <- 1.
+            dto.Min.Unit <- "mg"
+            dto.Min.Group <- "mass"
             dto.HasMin <- true
             dto.MinIncl <- false
-            dto.Max <- 2.
-            dto.MaxUnit <- "ml[Volume]"
+            dto.Max.Value <- 2.
+            dto.Max.Unit <- "g"
+            dto.Max.Group <- "mass"
             dto.HasMax <- true
             dto
-            |> Dto.fromDto
+            |>! Dto.fromDto
+            |>! Option.bind (Dto.toDto >> Some)
+            |>! Option.bind (Dto.fromDto >> Some)
+            |>! ignore
+            
+            // Add min > and max to dto and there and back again
+            dto.Min.Value <- 1.
+            dto.Min.Unit <- "g"
+            dto.Min.Group <- "mass"
+            dto.HasMin <- true
+            dto.MinIncl <- false
+            dto.Max.Value <- 2.
+            dto.Max.Unit <- "mg"
+            dto.Max.Group <- "mass"
+            dto.HasMax <- true
+            dto
+            |>! Dto.fromDto
+            |>! Option.bind (Dto.toDto >> Some)
+            |>! Option.bind (Dto.fromDto >> Some)
+            |>! ignore

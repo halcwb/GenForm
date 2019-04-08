@@ -1,7 +1,6 @@
 ﻿namespace Informedica.GenForm.Lib
 
 
-
 module Patient = 
 
     open Informedica.GenUtils.Lib
@@ -184,6 +183,12 @@ module Patient =
     | Female -> "vrouw"
     | Undetermined -> ""
 
+    let stringToGender s = 
+        match s with
+        | _ when s |> String.toLower |> String.trim = "man" -> Male
+        | _ when s |> String.toLower |> String.trim = "vrouw" -> Female
+        | _  -> Undetermined
+
 
     let toString ({ GestAge = ga; Age = age; Weight = wght; BSA = bsa; Gender = gen }) =
         let (>+) sl sr = 
@@ -204,3 +209,106 @@ module Patient =
         >+ ("BSA: ", bsa |> mmToStr)
         >+ ("Geslacht: ", gen |> genderToString)
         |> String.removeTrailingEOL
+
+
+    module Dto =
+        
+        type Dto () =
+            member val GestAge = MinMax.Dto.dto() with get ,set
+            member val Age = MinMax.Dto.dto () with get ,set
+            member val Weight = MinMax.Dto.dto () with get ,set
+            member val BSA = MinMax.Dto.dto () with get ,set
+            member val Gender = "" with get, set
+
+
+        let dto () = Dto ()
+
+        let toDto { GestAge = gestAge; Age = age; Weight = wght; BSA = bsa; Gender = gnd } =
+            let dto = dto ()
+        
+            dto.GestAge <- gestAge |> MinMax.Dto.toDto
+            dto.Age <- age |> MinMax.Dto.toDto
+            dto.Weight <- wght |> MinMax.Dto.toDto
+            dto.BSA <- bsa |> MinMax.Dto.toDto
+            dto.Gender <- gnd |> genderToString
+
+            dto
+            
+
+        let fromDto (dto : Dto) =
+            let gestAge = dto.GestAge |> MinMax.Dto.fromDto
+            let age = dto.Age |> MinMax.Dto.fromDto
+            let wght = dto.Weight |> MinMax.Dto.fromDto
+            let bsa = dto.BSA |> MinMax.Dto.fromDto
+            let gnd = dto.Gender |> stringToGender
+            
+            match gestAge, age, wght, bsa with
+            | Some gestAge, Some age, Some wght, Some bsa ->
+                {
+                    GestAge = gestAge
+                    Age = age
+                    Weight = wght
+                    BSA = bsa
+                    Gender = gnd
+                } |> Some
+
+            | _ -> None
+
+    module PatientTests =
+
+        let tests () =
+
+            let (|>!) x f =
+                printfn "result: %A" x
+                x |> f
+
+            let dto = Dto.dto ()
+
+            dto
+            |> Dto.fromDto
+            |>! Option.bind (Dto.toDto >> Some)
+            |>! ignore
+
+            dto.Age.HasMin <- true
+            dto.Age.Min.Value <- 1.
+            dto.Age.Min.Unit <- "maand"
+            dto.Age.Min.Group <- "Time"
+            dto.Age.Min.Language <- "dutch"
+            dto.Age.Min.Short <- true
+            dto.Age.MinIncl <- true
+
+            dto.Age 
+            |> MinMax.Dto.fromDto
+            |>! ignore
+
+            dto
+            |> Dto.fromDto
+            |>! ignore
+
+            // group defaults to general when no unit can be found in group
+            // ToDo: need to fix this behaviour
+            dto.Age.HasMin <- true
+            dto.Age.Min.Value <- 1.
+            dto.Age.Min.Unit <- "m"
+            dto.Age.Min.Group <- "Time"
+            dto.Age.Min.Language <- "dutch"
+            dto.Age.Min.Short <- true
+            dto.Age.MinIncl <- true
+
+            dto.Age 
+            |> MinMax.Dto.fromDto
+            |>! ignore
+
+            // need to check for the correct units
+            // ToDo!!
+            dto.Age.HasMin <- true
+            dto.Age.Min.Value <- 1.
+            dto.Age.Min.Unit <- "g"
+            dto.Age.Min.Group <- "Mass"
+            dto.Age.Min.Language <- "dutch"
+            dto.Age.Min.Short <- true
+            dto.Age.MinIncl <- true
+
+            dto.Age 
+            |> MinMax.Dto.fromDto
+            |>! ignore

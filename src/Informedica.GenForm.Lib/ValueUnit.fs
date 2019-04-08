@@ -37,6 +37,18 @@ module ValueUnit =
         |> Units.toString Units.Dutch Units.Short
         |> String.remBr
 
+    let readableStringToWeightUnit s =
+        sprintf "%s[Weight]" s
+        |> Units.fromString
+
+    let readableStringToBSAUnit s =
+        sprintf "%s[BSA]" s
+        |> Units.fromString
+
+    let readableStringToTimeUnit s =
+        sprintf "%s[Time]" s
+        |> Units.fromString
+
     /// Map a unit `u` to a `ValueUnit.Unit`
     /// using a mapping `m`.
     let unitFromMappedString m u = 
@@ -217,9 +229,91 @@ module ValueUnit =
         let hour = Units.Time.hour
 
     
+    module Dto =
+
+        [<Literal>]
+        let english = "english"
+
+        [<Literal>]
+        let dutch = "dutch"
+        
+        type Dto () = 
+            member val Value = 0. with get, set
+            member val Unit = "" with get, set
+            member val Group = "" with get, set
+            member val Short = true with get, set
+            member val Language = "" with get, set
+
+        let dto () = Dto ()
+
+        let toString (dto : Dto) =
+            sprintf "%A %s" dto.Value dto.Unit
+
+        let toDto short lang vu =
+            let isLang s l = 
+                l 
+                |> String.trim 
+                |> String.toLower 
+                |> (fun l -> s |> String.startsWith l)
+            let l =
+                match lang with
+                | _ when lang |> isLang english ->
+                    ValueUnit.Units.English |> Some
+                | _ when lang |> isLang dutch ->
+                    ValueUnit.Units.Dutch |> Some
+                | _ -> None
+            
+            match l with
+            | None -> None
+            | Some l ->
+                let s = 
+                    if short then ValueUnit.Units.Short
+                    else ValueUnit.Units.Long
+                
+                let v, u = vu |> get
+                let v = v |> BigRational.toFloat
+                let g = 
+                    u 
+                    |> ValueUnit.Group.unitToGroup 
+                    |> ValueUnit.Group.toString
+                let u = 
+                    u 
+                    |> ValueUnit.Units.toString l s
+                    |> String.remBr
+
+                let dto = dto ()
+                dto.Value <- v
+                dto.Unit <- u
+                dto.Group <- g
+                dto.Language <- lang
+                dto.Short <- short
+
+                dto |> Some
+
+        let toDtoDutchShort vu  =  vu |>toDto true dutch    |> Option.get
+        let toDtoDutcLong vu    =  vu |>toDto false dutch   |> Option.get
+        let toDtoEnglisShort vu =  vu |>toDto true english  |> Option.get
+        let toDtoEnglisLong vu  =  vu |>toDto false english |> Option.get
+
+        let fromDto (dto: Dto) =
+            let v = dto.Value |> BigRational.fromFloat
+            let u = 
+                sprintf "%s[%s]" dto.Unit dto.Group
+                |> ValueUnit.Units.fromString
+            match v, u with
+            | Some v, Some u -> 
+                v 
+                |> ValueUnit.create u
+                |> Some
+            | _ -> None
+
     module ValueUnitTests =
 
         let tests () =
+
+            let (|>!) x f =
+                printfn "%A" x
+                f x
 
             createValueUnit (Mapping.GStandMap) 10. "milligram"         
             |> printfn "Create value unit 10 milligram using GStand mapping: %A"
@@ -249,9 +343,20 @@ module ValueUnit =
                     |> ValueUnit.Units.toString Units.Localization.English Units.Short
                     |> printfn "ValueUnit unit string: %s"
                 | None -> ()
-                printfn "ValueUnit: %A" (valueUnitFromAppUnitString 1.5 s)
-                match (valueUnitFromAppUnitString 1.5 s) |> (Option.bind (valueUnitToAppUnitString >> Some)) with
+                let vu = valueUnitFromAppUnitString 1.5 s
+                match vu with
+                | Some vu ->
+                    printfn "ValueUnit: %A" vu
+                    vu
+                    |> Dto.toDtoDutcLong 
+                    |> (fun dto -> dto |> Dto.toString |> printfn "dto: %s"; dto)
+                    |> Dto.fromDto
+                    |>! ignore
+
+                | None -> ()
+                match vu |> (Option.bind (valueUnitToAppUnitString >> Some)) with
                 | Some (_, u) -> 
                     if u = "" then printfn "Cannot parse: %s" s
                 | None -> ()
             )
+

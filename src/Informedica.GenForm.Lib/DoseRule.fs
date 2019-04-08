@@ -14,6 +14,13 @@ module DoseRule =
     open Aether.Operators
 
 
+    /// Models a medication dose range with lower and upper limits
+    /// * Norm : the 'normal' non adjusted upper and lower limits
+    /// * NormWeight : the 'normal' by weight adjusted upper and lower limits
+    /// * NormBSA : the 'normal' by bsa adjusted upper and lower limits
+    /// * Abs : the 'absolute' non adjusted upper and lower limits
+    /// * AbsWeight : the 'absolute' by weight adjusted upper and lower limits
+    /// * AbsBSA : the 'absolute' by bsa adjusted upper and lower limits
     module DoseRange =
 
 
@@ -343,7 +350,122 @@ module DoseRule =
             )
         
 
+        module Dto = 
 
+            type Dto () = 
+                member val Norm = MinMax.Dto.dto () with get, set
+                member val NormWeight = MinMax.Dto.dto () with get, set
+                member val NormWeightUnit = "" with get, set
+                member val NormBSA = MinMax.Dto.dto () with get, set
+                member val NormBSAUnit = ""
+                member val Abs = MinMax.Dto.dto () with get, set
+                member val AbsWeight = MinMax.Dto.dto () with get, set
+                member val AbsWeightUnit = "" with get, set
+                member val AbsBSA = MinMax.Dto.dto () with get, set
+                member val AbsBSAUnit = "" with get, set
+
+            let dto () = Dto ()
+
+            let toDto (dr: DoseRange) =
+                let dto = dto ()
+                let unstr = snd >> ValueUnit.unitToReadableString
+                let grstr = snd >> ValueUnit.Group.unitToGroup >> ValueUnit.Group.toString
+
+                dto.Norm <- dr.Norm |> MinMax.Dto.toDto
+                dto.NormWeight <- dr.NormWeight |> fst |> MinMax.Dto.toDto
+                dto.NormWeightUnit <- dr.NormWeight |> unstr
+                dto.NormBSA <- dr.NormBSA |> fst  |> MinMax.Dto.toDto
+                dto.Abs <- dr.Abs |> MinMax.Dto.toDto
+                dto.AbsWeight <- dr.AbsWeight |> fst  |> MinMax.Dto.toDto
+                dto.AbsWeightUnit <- dr.AbsWeight |> unstr
+                dto.AbsBSA <- dr.AbsBSA |> fst |> MinMax.Dto.toDto
+                dto.AbsBSAUnit <- dr.AbsBSA |> unstr
+                
+                dto
+
+            let fromDto (dto: Dto) =
+                let set f o x =
+                    match x |> f with | Some x -> x | None -> o
+                
+                let setug u g o mm =
+                    if u |> String.isNullOrWhiteSpace || g |> String.isNullOrWhiteSpace then o
+                    else
+                        match
+                            sprintf "%s[%s]" u g
+                            |> ValueUnit.Units.fromString with
+                        | None -> o
+                        | Some u ->
+                            match mm |> MinMax.Dto.fromDto with
+                            | Some mm -> (mm, u) 
+                            | None -> o
+
+                {   empty with
+                        Norm = dto.Norm |> set MinMax.Dto.fromDto empty.Norm
+                        NormWeight = 
+                            dto.NormWeight 
+                            |> setug dto.NormWeightUnit "weight" empty.NormWeight
+                        NormBSA = 
+                            dto.NormBSA 
+                            |> setug dto.NormBSAUnit "bsa" empty.NormBSA
+                        Abs = dto.Abs |> set MinMax.Dto.fromDto empty.Abs
+                        AbsWeight = 
+                            dto.AbsWeight 
+                            |> setug dto.AbsWeightUnit "weight" empty.AbsWeight
+                        AbsBSA = 
+                            dto.AbsBSA 
+                            |> setug dto.AbsBSAUnit "bsa" empty.AbsBSA
+                }
+
+
+        module DoseRangeTests =
+
+            let (|>!) x f =
+                printfn "%A" x
+                x |> f
+
+            let tests () =
+                let dto = Dto.dto ()
+
+                dto.Norm.HasMin <- true
+                dto.Norm.Min.Value <- 1.
+                dto.Norm.Min.Unit <- "mg"
+                dto.Norm.Min.Group <- "mass"
+
+                dto.Norm.HasMax <- true
+                dto.Norm.Max.Value <- 10.
+                dto.Norm.Max.Unit <- "mg"
+                dto.Norm.Max.Group <- "mass"
+
+                dto.NormWeight.HasMin <- true
+                dto.NormWeight.Min.Value <- 0.01
+                dto.NormWeight.Min.Unit <- "mg"
+                dto.NormWeight.Min.Group <- "mass"
+                dto.NormWeightUnit <- "kg"
+
+                dto.NormWeight.HasMax <- true
+                dto.NormWeight.Max.Value <- 1.
+                dto.NormWeight.Max.Unit <- "mg"
+                dto.NormWeight.Max.Group <- "mass"
+                dto.NormWeightUnit <- "kg"
+
+                dto
+                |>! Dto.fromDto
+                |>! Dto.toDto
+                |>! Dto.fromDto
+                |>! ignore
+
+
+    /// Models a drug dosage. For each combination
+    /// of a drug, indication there is one dosage.
+    /// The indication is identified by the name of 
+    /// the dosage. Per dosage the following `DoseRange`
+    /// items can be defined:
+    /// * StartDosage: dosage at the start
+    /// * SingleDosage: dosage per administration
+    /// * RateDosage: dosage rate, has a rate unit
+    /// * TotalDosage: dosage per time period, has a `Frequency`
+    /// The frequency is defined by a list of possible frequencies
+    /// per time period and/or a minimal interval
     module Dosage =
 
         module ValueUnit = Informedica.GenUnits.Lib.ValueUnit
@@ -356,6 +478,7 @@ module DoseRule =
         /// Dosage
         type Dosage =
             {
+                /// Indentifies the indication
                 Name : string
                 /// Dosage at the start
                 StartDosage : DoseRange
@@ -1068,10 +1191,589 @@ module DoseRule =
             )
 
 
+        module Dto =
+
+            open MathNet.Numerics
+        
+            type Dto () =
+                member val Name = "" with get, set
+                member val StartDosage = DoseRange.Dto.dto () with get, set
+                member val SingleDosage = DoseRange.Dto.dto () with get, set
+                member val DoseRate = DoseRange.Dto.dto () with get, set
+                member val DoseRateUnit = "" with get, set
+                member val TotalDosage = DoseRange.Dto.dto () with get, set
+                member val TotalDosageFrequencyValues : float list = [] with get, set
+                member val TotalDosageFrequencyUnit = "" with get, set
+                member val TotalDosageHasMinimalPeriod = false with get, set
+                member val TotalDosageMinimalPeriod = ValueUnit.Dto.dto () with get, set
+                member val GStandRules : string list = [] with get, set
+                member val PedFormRules : string list = [] with get, set
+
+        
+            let dto () = Dto ()
+
+            let toDto (ds : Dosage) =
+                let dto = dto ()
+
+                dto.Name <- ds.Name
+                dto.StartDosage <- ds.StartDosage |> DoseRange.Dto.toDto
+                dto.SingleDosage <- ds.SingleDosage |> DoseRange.Dto.toDto
+                dto.DoseRate <- ds.RateDosage |> fst |> DoseRange.Dto.toDto
+                dto.DoseRateUnit <- ds.RateDosage |> snd |> ValueUnit.unitToReadableString
+                dto.TotalDosage <- ds.TotalDosage |> fst |> DoseRange.Dto.toDto
+                match ds.TotalDosage |> snd  with
+                | { Frequencies = freqs; TimeUnit = u; MinimalInterval = vu } ->
+                    dto.TotalDosageFrequencyValues <-
+                        freqs
+                        |> List.map BigRational.toFloat
+                    dto.TotalDosageFrequencyUnit <-
+                        u
+                        |> ValueUnit.unitToReadableString
+                    match vu with
+                    | None -> ()
+                    | Some vu -> 
+                        dto.TotalDosageHasMinimalPeriod <- true
+                        dto.TotalDosageMinimalPeriod <- vu |> ValueUnit.Dto.toDtoDutchShort
+                ds.Rules
+                |> List.iter (fun r ->
+                    match r with
+                    | GStandRule s  -> dto.GStandRules  <- [s] |> List.append dto.GStandRules
+                    | PedFormRule s -> dto.PedFormRules <- [s] |> List.append dto.PedFormRules
+                )
+
+                dto
+
+
+            let fromDto (dto: Dto) =
+                {   empty with
+                        Name = dto.Name
+                        StartDosage  = dto.StartDosage  |> DoseRange.Dto.fromDto
+                        SingleDosage = dto.SingleDosage |> DoseRange.Dto.fromDto
+                        RateDosage =
+                            match dto.DoseRateUnit |> ValueUnit.readableStringToTimeUnit with
+                            | None -> empty.RateDosage
+                            | Some u -> 
+                                dto.DoseRate |> DoseRange.Dto.fromDto, u
+                        TotalDosage =
+                            match dto.TotalDosageFrequencyUnit |> ValueUnit.readableStringToTimeUnit with
+                            | None -> empty.TotalDosage
+                            | Some u ->
+                                dto.TotalDosage |> DoseRange.Dto.fromDto,
+                                {   Frequencies = 
+                                        dto.TotalDosageFrequencyValues 
+                                        |> List.map BigRational.fromFloat
+                                        |> List.filter Option.isSome
+                                        |> List.map Option.get
+                                    TimeUnit = u
+                                    MinimalInterval = 
+                                        if dto.TotalDosageHasMinimalPeriod |> not then None
+                                        else
+                                            dto.TotalDosageMinimalPeriod
+                                            |> ValueUnit.Dto.fromDto
+                                }
+                        Rules =
+                            dto.GStandRules
+                            |> List.map GStandRule
+                            |> List.append (dto.PedFormRules |> List.map PedFormRule)
+                }
+
+
+
+    module PatientDosage =
+
+        type Dosage = Dosage.Dosage
+        type Patient = Patient.Patient
+
+        type PatientDosage =
+            {
+                // The patient group the doserules applies
+                Patient : Patient
+                // List of shapes that have a dosage
+                ShapeDosage : Dosage
+                // List of substances that have a dosage
+                SubstanceDosages : Dosage list            
+            }
+
+        let create pat =
+            { Patient = pat; ShapeDosage = Dosage.empty; SubstanceDosages = [] }
+
+
+        type PatientDosage with
+    
+            static member Patient_ :
+                (PatientDosage -> Patient) * (Patient -> PatientDosage -> PatientDosage) =
+                (fun pd -> pd.Patient) ,
+                (fun pat pd -> { pd with Patient = pat })
+    
+            static member ShapeDosage_ :
+                (PatientDosage -> Dosage) * (Dosage -> PatientDosage -> PatientDosage) =
+                (fun pd -> pd.ShapeDosage) ,
+                (fun sd pd -> { pd with ShapeDosage = sd })
+    
+            static member SubstanceDosages_ :
+                (PatientDosage -> Dosage list) * (Dosage list -> PatientDosage -> PatientDosage) =
+                (fun sd -> sd.SubstanceDosages) ,
+                (fun d sd -> { sd with SubstanceDosages = d })
+
+
+
+        module Optics =
+
+
+            let setPatient = Optic.set PatientDosage.Patient_
+
+            let getPatient = Optic.get PatientDosage.Patient_
+
+            let setShapeDosage = Optic.set PatientDosage.ShapeDosage_
+
+            let getShapeDosage = Optic.get PatientDosage.ShapeDosage_
+
+            let setSubstanceDosages = Optic.set PatientDosage.SubstanceDosages_
+
+            let getSubstanceDosages = Optic.get PatientDosage.SubstanceDosages_
+
+
+
+        module Dto =
+            
+
+            type Dto () =
+                    // The patient group the doserules applies
+                    member val Patient = Patient.Dto.dto () with get, set
+                    // List of shapes that have a dosage
+                    member val ShapeDosage = Dosage.Dto.dto () with get, set
+                    // List of substances that have a dosage
+                    member val SubstanceDosages : Dosage.Dto.Dto list = [] with get, set            
+
+            let dto () = Dto ()
+
+            let fromDto (dto : Dto) = 
+                match 
+                    dto.Patient
+                    |> Patient.Dto.fromDto with
+                | None -> None
+                | Some p -> 
+                    p
+                    |> create
+                    |> Optics.setShapeDosage (dto.ShapeDosage |> Dosage.Dto.fromDto)
+                    |> Optics.setSubstanceDosages (dto.SubstanceDosages |> List.map Dosage.Dto.fromDto)
+                    |> Some
+
+
+            let toDto (pd : PatientDosage) =
+                let dto = dto ()
+
+                dto.Patient <- pd.Patient |> Patient.Dto.toDto
+                dto.ShapeDosage <- pd.ShapeDosage |> Dosage.Dto.toDto
+                dto.SubstanceDosages <-
+                    pd.SubstanceDosages
+                    |> List.map Dosage.Dto.toDto
+                
+                dto
+
+
+
+    module ShapeDosage =
+
+
+        module TradeProduct =
+
+
+            type TradeProduct = { HPK : int; Label : string }
+    
+            let create hpk label = { HPK = hpk; Label = label }
+
+            let apply f (x: TradeProduct) = x |> f
+
+            let get = apply id
+
+            let label tp = (tp |> get).Label
+
+            let hpk tp = (tp |> get).HPK
+
+            
+            type TradeProduct with
+
+                static member HPK_ :
+                    (TradeProduct -> int) * (int -> TradeProduct -> TradeProduct) =
+                    (fun tp -> tp.HPK) ,
+                    (fun hpk tp -> { tp with HPK = hpk })
+
+
+                static member Label_ :
+                    (TradeProduct -> string) * (string -> TradeProduct -> TradeProduct) =
+                    (fun tp -> tp.Label) ,
+                    (fun lbl tp -> { tp with Label = lbl })
+
+            
+            module Optics =
+
+                let setHPK = Optic.set TradeProduct.HPK_
+
+                let getHPK = Optic.get TradeProduct.HPK_
+
+                let setLabel = Optic.set TradeProduct.Label_
+
+                let getLabel = Optic.get TradeProduct.Label_
+
+
+            module Dto =
+
+
+                type Dto () =
+                    member val HPK = 0 with get, set
+                    member val Label = "" with get, set
+
+
+                let dto () = Dto ()
+
+
+                let toDto (tp: TradeProduct) =
+                    let dto = dto ()
+                    
+                    dto.HPK <- tp.HPK
+                    dto.Label <- tp.Label
+                    
+                    dto
+
+
+                let fromDto (dto: Dto) =
+                    {   HPK = dto.HPK
+                        Label = dto.Label
+                    }
+
+
+
+        module GenericProduct =
+
+            
+            type GenericProduct = { GPK : int; Label : string }
+            
+            let create gpk label = { GPK = gpk; Label = label }
+
+            let apply f (x : GenericProduct) = x |> f
+
+            let get = apply id
+
+            let lablel gp = (gp |> get).Label
+            
+            let gpk gp = (gp |> get).GPK
+
+
+            type GenericProduct with
+
+                static member GPK_ :
+                    (GenericProduct -> int) * (int -> GenericProduct -> GenericProduct) =
+                    (fun tp -> tp.GPK) ,
+                    (fun hpk tp -> { tp with GPK = hpk })
+
+
+                static member Label_ :
+                    (GenericProduct -> string) * (string -> GenericProduct -> GenericProduct) =
+                    (fun tp -> tp.Label) ,
+                    (fun lbl tp -> { tp with Label = lbl })
+
+            
+            module Optics =
+
+                let setGPK = Optic.set GenericProduct.GPK_
+
+                let getGPK = Optic.get GenericProduct.GPK_
+
+                let setLabel = Optic.set GenericProduct.Label_
+
+                let getLabel = Optic.get GenericProduct.Label_
+
+
+            module Dto =
+
+
+                type Dto () =
+                    member val GPK = 0 with get, set
+                    member val Label = "" with get, set
+
+
+                let dto () = Dto ()
+
+
+                let toDto (gp: GenericProduct) =
+                    let dto = dto ()
+                    
+                    dto.GPK <- gp.GPK
+                    dto.Label <- gp.Label
+                    
+                    dto
+
+
+                let fromDto (dto: Dto) =
+                    {   GPK = dto.GPK
+                        Label = dto.Label
+                    }
+
+
+
+        type PatientDosage = PatientDosage.PatientDosage
+        type TradeProduct = TradeProduct.TradeProduct
+        type GenericProduct = GenericProduct.GenericProduct
+
+
+        type ShapeDosage =
+            {
+                // Name of the shape the doserule applies to
+                Shape : String list
+                // TradeProducts the doserule applies to
+                TradeProducts : TradeProduct list
+                // GenericProducts the doserule applies to
+                GenericProducts : GenericProduct list
+                // Patients to wich the doserule applies to
+                PatientDosages : PatientDosage list
+            }
+
+        let create shp gps tps =        
+            if shp |> List.exists String.isNullOrWhiteSpace then None
+            else 
+                { Shape = shp; GenericProducts = gps; TradeProducts = tps; PatientDosages = [] }
+                |> Some
+
+
+        let genericProductLabel = GenericProduct.lablel
+
+
+        let tradeProductLabel = TradeProduct.label
+
+
+        type ShapeDosage with
+    
+            static member Shape_ :
+                (ShapeDosage -> string list) * (string list -> ShapeDosage -> ShapeDosage) =
+                (fun rd -> rd.Shape) ,
+                (fun s rd -> { rd with Shape = s })
+
+            static member TradeProducts_ :
+                (ShapeDosage -> TradeProduct list) * (TradeProduct list -> ShapeDosage -> ShapeDosage) =
+                (fun sd -> sd.TradeProducts) ,
+                (fun tps sd -> { sd with TradeProducts = tps |> List.distinct })
+
+            static member GenericProducts_ :
+                (ShapeDosage -> GenericProduct list) * (GenericProduct list -> ShapeDosage -> ShapeDosage) =
+                (fun sd -> sd.GenericProducts) ,
+                (fun tps sd -> { sd with GenericProducts = tps |> List.distinct })
+            
+            static member PatientDosages_ :
+                (ShapeDosage -> PatientDosage list) * (PatientDosage list -> ShapeDosage -> ShapeDosage) =
+                (fun rd -> rd.PatientDosages) ,
+                (fun pdl rd -> { rd with PatientDosages = pdl }) 
+
+
+        module Optics =
+
+            let setShape = Optic.set ShapeDosage.Shape_
+
+            let getShape = Optic.get ShapeDosage.Shape_
+
+            let setTradeProducts = Optic.set ShapeDosage.TradeProducts_
+
+            let getTradeProducts = Optic.get ShapeDosage.TradeProducts_
+
+            let setGenericProducts = Optic.set ShapeDosage.GenericProducts_
+
+            let getGenericProducts = Optic.get ShapeDosage.GenericProducts_
+
+            let setPatientDosages = Optic.set ShapeDosage.PatientDosages_
+
+            let getPatientDosages = Optic.get ShapeDosage.PatientDosages_
+
+
+        module Dto =
+
+
+            type Dto () =
+                member val Shape : string list = [] with get, set
+                member val TradeProducts : TradeProduct.Dto.Dto list = [] with get, set
+                member val GenericProducts : GenericProduct.Dto.Dto list = [] with get, set
+                member val PatientDosages : PatientDosage.Dto.Dto list = [] with get, set
+
+            
+            let dto () = Dto ()
+
+            let toDto (sd : ShapeDosage) =
+                let dto = dto ()
+
+                dto.Shape <- sd.Shape
+                dto.GenericProducts <- 
+                    sd.GenericProducts
+                    |> List.map GenericProduct.Dto.toDto
+                dto.TradeProducts <- 
+                    sd.TradeProducts
+                    |> List.map TradeProduct.Dto.toDto
+
+                dto
+
+
+            let fromDto (dto : Dto) =
+                create [] [] []
+                |> Option.bind ((Optics.setShape dto.Shape) >> Some)
+                |> Option.bind 
+                    ((Optics.setGenericProducts (dto.GenericProducts 
+                                                 |> List.map GenericProduct.Dto.fromDto)) >> Some)
+                |> Option.bind 
+                    ((Optics.setTradeProducts (dto.TradeProducts 
+                                                 |> List.map TradeProduct.Dto.fromDto)) >> Some)
+                |> Option.bind 
+                    ((Optics.setPatientDosages (dto.PatientDosages 
+                                                |> List.map PatientDosage.Dto.fromDto
+                                                |> List.filter Option.isSome
+                                                |> List.map Option.get)) >> Some)
+
+
+
+    module RouteDosage =
+
+        type private ShapeDosage = ShapeDosage.ShapeDosage
+
+        type RouteDosage =
+            {
+                // Administration route
+                Route : string
+                // The dosage rules per shape
+                ShapeDosages : ShapeDosage list
+            } 
+
+        let create rt =
+            if rt |> String.isNullOrWhiteSpace then None
+            else 
+                { Route = rt; ShapeDosages = [] } 
+                |> Some
+
+         
+        type RouteDosage with
+    
+            static member Route_ :
+                (RouteDosage -> string) * (string -> RouteDosage -> RouteDosage) =
+                (fun rd -> rd.Route) ,
+                (fun s rd -> { rd with Route = s })
+            
+            static member ShapeDosages_ :
+                (RouteDosage -> ShapeDosage list) * (ShapeDosage list -> RouteDosage -> RouteDosage) =
+                (fun rd -> rd.ShapeDosages) ,
+                (fun pdl rd -> { rd with ShapeDosages = pdl })            
+
+
+        module Optics =
+
+            let setRoute = Optic.set RouteDosage.Route_
+
+            let getRoute = Optic.get RouteDosage.Route_
+
+            let setShapeDosages = Optic.set RouteDosage.ShapeDosages_
+
+            let getShapeDosages = Optic.get RouteDosage.ShapeDosages_
+
+
+        module Dto =
+
+            type Dto () =
+                member val Route = "" with get, set
+                member val ShapeDosages : ShapeDosage.Dto.Dto list = [] with get, set
+
+
+            let dto () = Dto ()
+
+
+            let toDto (rd : RouteDosage) =
+                let dto = dto ()
+
+                dto.Route <- rd.Route
+                dto.ShapeDosages <- 
+                    rd.ShapeDosages
+                    |> List.map ShapeDosage.Dto.toDto
+
+                dto
+
+            
+            let fromDto (dto : Dto) =
+                create dto.Route
+                |> Option.bind (Optics.setShapeDosages (dto.ShapeDosages 
+                                                        |> List.map ShapeDosage.Dto.fromDto
+                                                        |> List.filter Option.isSome
+                                                        |> List.map Option.get) >> Some)
+
+
+
+    module IndicationDosage =
+
+        type RouteDosage = RouteDosage.RouteDosage
+
+        type IndicationDosage =
+            {
+                // The indication(-s) the dose rule applies to
+                Indications : string list
+                // The dosage rules per administration route
+                RouteDosages : RouteDosage list
+            }
+
+        let create inds =
+            { Indications = inds; RouteDosages = [] }
+            
+        
+        type IndicationDosage with
+    
+            static member Indications_ :
+                (IndicationDosage -> string list) * (string list -> IndicationDosage -> IndicationDosage) =
+                (fun inds -> inds.Indications) ,
+                (fun sl inds -> { inds with Indications = sl })
+    
+            static member RouteDosages_ :
+                (IndicationDosage -> RouteDosage list) * (RouteDosage list -> IndicationDosage -> IndicationDosage) =
+                (fun inds -> inds.RouteDosages) ,
+                (fun rdl inds -> { inds with RouteDosages = rdl })
+
+
+        module Optics =
+            
+            let setIndications = Optic.set IndicationDosage.Indications_
+
+            let getIndications = Optic.get IndicationDosage.Indications_
+
+            let setRouteDosages = Optic.set IndicationDosage.RouteDosages_
+
+            let getRouteDosages = Optic.get IndicationDosage.RouteDosages_
+
+
+        module Dto =
+
+            type Dto () =
+                member val Indications : string list = [] with get, set
+                member val RouteDosages : RouteDosage.Dto.Dto list = [] with get, set
+
+            
+            let dto () = Dto ()
+
+
+            let toDto (id : IndicationDosage) =
+                let dto = dto ()
+                
+                dto.Indications <- id.Indications 
+                dto.RouteDosages <- 
+                    id.RouteDosages
+                    |> List.map RouteDosage.Dto.toDto
+
+                dto
+
+            
+            let fromDto (dto : Dto) =
+                create []
+                |> Optics.setRouteDosages (dto.RouteDosages 
+                                           |> List.map RouteDosage.Dto.fromDto
+                                           |> List.filter Option.isSome
+                                           |> List.map Option.get)
+
+
     type Dosage = Dosage.Dosage
     type MinMax = MinMax.MinMax
     type Patient = Patient.Patient
-
+    type IndicationDosage = IndicationDosage.IndicationDosage
+    
 
     /// Doserule
     type DoseRule =
@@ -1093,42 +1795,6 @@ module DoseRule =
             // The doserules per indication(-s)
             IndicationsDosages : IndicationDosage list
         }
-    and IndicationDosage =
-        {
-            // The indication(-s) the dose rule applies to
-            Indications : string list
-            // The dosage rules per administration route
-            RouteDosages : RouteDosage list
-        }
-    and RouteDosage =
-        {
-            // Administration route
-            Route : string
-            // The dosage rules per shape
-            ShapeDosages : ShapeDosage list
-        } 
-    and ShapeDosage =
-        {
-            // Name of the shape the doserule applies to
-            Shape : String list
-            // TradeProducts the doserule applies to
-            TradeProducts : TradeProduct list
-            // GenericProducts the doserule applies to
-            GenericProducts : GenericProduct list
-            // Patients to wich the doserule applies to
-            PatientDosages : PatientDosage list
-        }
-    and PatientDosage =
-        {
-            // The patient group the doserules applies
-            Patient : Patient
-            // List of shapes that have a dosage
-            ShapeDosage : Dosage
-            // List of substances that have a dosage
-            SubstanceDosages : Dosage list            
-        }
-    and TradeProduct = { HPK : int; Label : string }
-    and GenericProduct = { GPK : int; Label : string }
 
     
     let apply f (dr : DoseRule) = f dr
@@ -1150,36 +1816,26 @@ module DoseRule =
         }
 
 
-    let createIndicationDosage inds =
-        { Indications = inds; RouteDosages = [] }
+    let createIndicationDosage = IndicationDosage.create
             
 
-    let createRouteDosage rt =
-        if rt |> String.isNullOrWhiteSpace then None
-        else 
-            { Route = rt; ShapeDosages = [] } 
-            |> Some
+    let createRouteDosage = RouteDosage.create
 
 
-    let createShapeDosage shp gps tps =        
-        if shp |> List.exists String.isNullOrWhiteSpace then None
-        else 
-            { Shape = shp; GenericProducts = gps; TradeProducts = tps; PatientDosages = [] }
-            |> Some
+    let createShapeDosage = ShapeDosage.create
+
+
+    let createPatientDosage = PatientDosage.create
 
 
     let createDosage n = Dosage.empty |> (Optic.set Dosage.Name_) n
 
 
-    let createPatientDosage pat =
-        { Patient = pat; ShapeDosage = Dosage.empty; SubstanceDosages = [] }
-
-
     let createSubstanceDosage sn =
         if sn |> String.isNullOrWhiteSpace then None
-        else sn |> createDosage |> Some
-            
+        else sn |> createDosage |> Some            
         
+
     let indxIndications inds (dr : DoseRule) =
         dr.IndicationsDosages
         |> List.tryFindIndex (fun id -> id.Indications = inds)       
@@ -1241,79 +1897,13 @@ module DoseRule =
                         |> List.prepend [ indd ]
             }
 
-    let genericProductLabel { GPK = _ ; Label = lbl } = lbl
+
+    let genericProductLabel = ShapeDosage.genericProductLabel
 
 
-    let tradeProductLabel { HPK = _ ; Label = lbl } = lbl
- 
-
-    type PatientDosage with
-    
-        static member Patient_ :
-            (PatientDosage -> Patient) * (Patient -> PatientDosage -> PatientDosage) =
-            (fun pd -> pd.Patient) ,
-            (fun pat pd -> { pd with Patient = pat })
-    
-        static member ShapeDosage_ :
-            (PatientDosage -> Dosage) * (Dosage -> PatientDosage -> PatientDosage) =
-            (fun pd -> pd.ShapeDosage) ,
-            (fun sd pd -> { pd with ShapeDosage = sd })
-    
-        static member SubstanceDosages_ :
-            (PatientDosage -> Dosage list) * (Dosage list -> PatientDosage -> PatientDosage) =
-            (fun sd -> sd.SubstanceDosages) ,
-            (fun d sd -> { sd with SubstanceDosages = d })
+    let tradeProductLabel = ShapeDosage.tradeProductLabel
 
 
-    type ShapeDosage with
-    
-        static member Shape_ :
-            (ShapeDosage -> string list) * (string list -> ShapeDosage -> ShapeDosage) =
-            (fun rd -> rd.Shape) ,
-            (fun s rd -> { rd with Shape = s })
-
-        static member TradeProducts_ :
-            (ShapeDosage -> TradeProduct list) * (TradeProduct list -> ShapeDosage -> ShapeDosage) =
-            (fun sd -> sd.TradeProducts) ,
-            (fun tps sd -> { sd with TradeProducts = tps |> List.distinct })
-
-        static member GenericProducts_ :
-            (ShapeDosage -> GenericProduct list) * (GenericProduct list -> ShapeDosage -> ShapeDosage) =
-            (fun sd -> sd.GenericProducts) ,
-            (fun tps sd -> { sd with GenericProducts = tps |> List.distinct })
-            
-        static member PatientDosages_ :
-            (ShapeDosage -> PatientDosage list) * (PatientDosage list -> ShapeDosage -> ShapeDosage) =
-            (fun rd -> rd.PatientDosages) ,
-            (fun pdl rd -> { rd with PatientDosages = pdl })            
- 
-        
-    type RouteDosage with
-    
-        static member Route_ :
-            (RouteDosage -> string) * (string -> RouteDosage -> RouteDosage) =
-            (fun rd -> rd.Route) ,
-            (fun s rd -> { rd with Route = s })
-            
-        static member ShapeDosages_ :
-            (RouteDosage -> ShapeDosage list) * (ShapeDosage list -> RouteDosage -> RouteDosage) =
-            (fun rd -> rd.ShapeDosages) ,
-            (fun pdl rd -> { rd with ShapeDosages = pdl })            
-            
-        
-    type IndicationDosage with
-    
-        static member Indications_ :
-            (IndicationDosage -> string list) * (string list -> IndicationDosage -> IndicationDosage) =
-            (fun inds -> inds.Indications) ,
-            (fun sl inds -> { inds with Indications = sl })
-    
-        static member RouteDosages_ :
-            (IndicationDosage -> RouteDosage list) * (RouteDosage list -> IndicationDosage -> IndicationDosage) =
-            (fun inds -> inds.RouteDosages) ,
-            (fun rdl inds -> { inds with RouteDosages = rdl })
-
-    
     type DoseRule with
     
         static member Generic_ :
@@ -1338,7 +1928,11 @@ module DoseRule =
         
         module Patient = Patient.Optics
         module Dosage = Dosage.Optics
-    
+
+        type ShapeDosage = ShapeDosage.ShapeDosage
+        type RouteDosage = RouteDosage.RouteDosage
+        type PatientDosage = PatientDosage.PatientDosage
+
 
         let getGeneric = Optic.get DoseRule.Generic_
 
@@ -3092,7 +3686,7 @@ Synoniemen: {synonym}
 
 
     let toStringWithConfig (config : TextConfig) printRules (dr : DoseRule) =
-        let gpsToString (gps : GenericProduct list) = 
+        let gpsToString (gps : ShapeDosage.GenericProduct list) = 
             gps
             |> List.map (fun gp -> gp.Label)
             |> String.concat "\n      "
@@ -3148,3 +3742,73 @@ Synoniemen: {synonym}
 
 
     let toString = toStringWithConfig mdConfig
+
+    module Dto =
+
+
+        type Dto () =
+            // Generic the doserule applies to
+            member val Generic = "" with get, set
+            // List of synonyms for the generic
+            member val Synomyms : string list = [] with get, set
+            // The ATC code
+            member val ATC = "" with get, set
+            // ATCTherapyGroup the doserule applies to
+            member val ATCTherapyGroup = "" with get, set
+            // ATCTherapySubGroup the doserule applies to
+            member val ATCTherapySubGroup = "" with get, set
+            // The generic group the doserule applies to
+            member val GenericGroup = "" with get, set
+            // The generic subgroup the doserule applies to
+            member val GenericSubGroup = "" with get, set
+            // The doserules per indication(-s)
+            member val Indications : IndicationDosage.Dto.Dto list = [] with get, set
+
+
+        let dto () = Dto ()
+
+
+        let toDto (dr : DoseRule) =
+            let dto = dto ()
+
+            dto.Generic <- dr.Generic
+            dto.Synomyms <- dr.Synonyms
+            dto.ATC <- dr.ATC
+            dto.ATCTherapyGroup <- dr.ATCTherapyGroup
+            dto.ATCTherapySubGroup <- dr.ATCTherapySubGroup
+            dto.GenericGroup <- dr.GenericGroup
+            dto.GenericSubGroup <- dr.GenericSubGroup
+            dto.Indications <-
+                dr.IndicationsDosages
+                |> List.map IndicationDosage.Dto.toDto
+
+            dto
+
+        let fromDto (dto : Dto) =
+            let gen = dto.Generic
+            let syn = dto.Synomyms
+            let atc = dto.ATC
+            let thg = dto.ATCTherapyGroup
+            let sub = dto.ATCTherapySubGroup
+            let ggp = dto.GenericGroup
+            let gsg = dto.GenericSubGroup
+
+            dto.Indications
+            |> List.map IndicationDosage.Dto.fromDto
+            |> create gen syn atc thg sub ggp gsg
+
+
+    module DoseRuleTests =
+        
+        let (|>!) x f = 
+            printfn "%A" x
+            x |> f
+
+        let test () =
+            
+            let dto = Dto.dto ()
+
+
+            dto
+            |>! Dto.fromDto
+            |>! ignore
