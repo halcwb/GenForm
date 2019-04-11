@@ -1199,17 +1199,20 @@ module ValueUnit =
             let dels = "#"
 
             let ufs s =
-                match s |> String.split " " with
+                match s |> String.trim |> String.split " " with
                 | [ug] ->
                     match Units.fromString ug with
                     | Some (u') -> u' |> setUnitValue 1N
                     | None      -> failwith <| sprintf "Not a valid unit: %s" ug
 
                 | [v;ug] -> 
-                    let v' = v |> BigRational.Parse
-                    match Units.fromString ug with
-                    | Some (u') -> u' |> setUnitValue v'
-                    | None     -> failwith <| sprintf "Not a valid unit: %s" ug
+                    match v |> BigRational.tryParse with
+                    | None -> 
+                        failwith <| sprintf "Cannot parse string: %s with value: %s" s v
+                    | Some v' ->
+                        match Units.fromString ug with
+                        | Some (u') -> u' |> setUnitValue v'
+                        | None     -> failwith <| sprintf "Not a valid unit: %s" ug
                 | _ -> failwith <| sprintf "Cannot parse string %s" s
 
                 |> UnitItem.UnitItem
@@ -1243,14 +1246,19 @@ module ValueUnit =
 
         match s |> String.split " " with
         | vs::rest ->
-            let v = vs |> BigRational.Parse
-            let u = 
-                rest
-                |> String.concat " "
-                |> String.trim
-                |> fs
-            (v, u) |> ValueUnit
-        | _ -> failwith <| sprintf "Cannot parse string %s" s
+            match vs |> BigRational.tryParse with
+            | None ->
+                failwith <| sprintf "Cannot parse string %s" s
+            | Some v ->
+                let u = 
+                    rest
+                    |> String.concat " "
+                    |> String.trim
+                    |> fs
+                (v, u) |> ValueUnit
+        | _ -> 
+            if s = "" then failwith "Cannot parse empty string"
+            else failwith <| sprintf "Cannot parse string %s" s
 
         
 

@@ -139,14 +139,25 @@ module GStand =
             | Some (_, _, c) -> vu |> ValueUnit.convertTo c
             | None -> vu
 
-        let s = fr.Frequency |> string
+        let s = 
+            match fr.Frequency |> BigRational.fromFloat with
+            | Some br -> br |> string
+            | None -> ""
         let s = s + " X[Count]"
 
         fr.Time
         |> parseTimeString
         |> (fun s' -> 
-            match s' |> String.split " " with
-            | [v;u] -> s + "/" + v + " " + u
+            match s' |> String.trim |> String.split " " with
+            | [v;u] -> 
+                let br =
+                    match v |> Double.tryParse with
+                    | Some d -> 
+                        match d |> BigRational.fromFloat with 
+                        | Some s ->  s |> string
+                        | None -> ""
+                    | None -> ""
+                s + "/" + br + " " + u
             | [u]   -> 
                 if u |> String.isNullOrWhiteSpace then s
                 else 
