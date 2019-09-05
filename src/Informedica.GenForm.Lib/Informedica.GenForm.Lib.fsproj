@@ -3,6 +3,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="paket.references" />
     <None Include="scripts\references.fsx" />
     <None Include="scripts\Scripts.fsx" />
     <None Include="scripts\GenForm3.fsx" />

@@ -5,6 +5,7 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="paket.references" />
     <Compile Include="ValueUnit.fs" />
     <Compile Include="Main.fs" />
     <None Include="Scripts\references.fsx" />

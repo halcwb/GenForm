@@ -1,29 +1,56 @@
-redirects force
-framework: auto-detect
-generate_load_scripts: true
-storage: none
+group Server
+    source https://api.nuget.org/v3/index.json
+    framework: netcoreapp2.2
+    storage: none
 
-source https://api.nuget.org/v3/index.json
+    nuget FSharp.Core
+    nuget Saturn
+    nuget Thoth.Json.Giraffe
 
-nuget Markdig
-nuget NETStandard.Library
+group Client
+    source https://api.nuget.org/v3/index.json
+    framework: netstandard2.0
+    storage: none
 
-nuget MathNet.Numerics.FSharp
-nuget Expecto
-nuget FsCheck
-nuget Expecto.FsCheck
+    nuget Fable.Core ~> 3
+    nuget Fable.Elmish ~> 3
+    nuget Fable.Elmish.Debugger ~> 3
+    nuget Fable.Elmish.HMR ~> 4
+    nuget Fable.Elmish.React ~> 3
+    nuget Thoth.Fetch ~> 1
+    nuget Fable.React ~> 5
+	nuget Fable.MaterialUI
 
-nuget Microsoft.AspNetCore.Cors
-nuget Microsoft.AspNetCore.Hosting
-nuget Microsoft.AspNetCore.Diagnostics
-nuget Microsoft.AspNetCore.Server.Kestrel
-nuget Microsoft.AspNetCore.Server.IISIntegration
-nuget Microsoft.AspNetCore.TestHost
-nuget Microsoft.Extensions.Logging.Console
-nuget Microsoft.Extensions.Logging.Debug
-nuget Microsoft.Extensions.DependencyInjection
-nuget Giraffe
+group Library
+    source https://api.nuget.org/v3/index.json
+    framework: netstandard2.0
+    storage: none
 
-nuget Newtonsoft.Json
-nuget Aether
-nuget FSharp.Quotations.Evaluator
+	nuget Markdig
+	nuget MathNet.Numerics.FSharp
+	nuget Newtonsoft.Json
+	nuget Aether
+	nuget FSharp.Quotations.Evaluator
+
+
+group Build
+    source https://api.nuget.org/v3/index.json
+    framework: netstandard2.0
+    storage: none
+
+    nuget FSharp.Core
+    nuget Fake.Core.ReleaseNotes
+    nuget Fake.Core.Target
+    nuget Fake.DotNet.Cli
+    nuget Fake.IO.FileSystem
+
+group Test
+    source https://api.nuget.org/v3/index.json
+    framework: netstandard2.0
+    storage: none
+
+	nuget Expecto
+	nuget Expecto.BenchmarkDotNet
+	nuget Expecto.FsCheck
+	nuget Expecto.Hopac
+	nuget FSharp.Quotations.Evaluator

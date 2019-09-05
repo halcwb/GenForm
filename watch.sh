@@ -1,1 +1,1 @@
-dotnet run watch --project src/Informedica.GenForm.Service/Informedica.GenForm.Service.fsproj
+dotnet run watch --project src/Informedica.GenForm.Server/Informedica.GenForm.Server.fsproj

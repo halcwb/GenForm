@@ -70,8 +70,8 @@ publishnuget.cmd
 !/src/Informedica.GenForm.Lib/
 !/src/Informedica.GenForm.Lib/Utils/
 !/src/Informedica.GenForm.Lib/Scripts/
-!/src/Informedica.GenForm.Service/
-!/src/Informedica.GenForm.Service/Scripts/
+!/src/Informedica.GenForm.Server/
+!/src/Informedica.GenForm.Server/Scripts/
 
 # Add test files
 !/tests/
@@ -83,8 +83,8 @@ publishnuget.cmd
 !/tests/Informedica.GenProduct.Tests/Scripts/
 !/tests/Informedica.GenForm.Lib.Tests/
 !/tests/Informedica.GenForm.Lib.Tests/Scripts/
-!/tests/Informedica.GenForm.Service.Tests/
-!/tests/Informedica.GenForm.Service.Tests/Scripts/
+!/tests/Informedica.GenForm.Server.Tests/
+!/tests/Informedica.GenForm.Server.Tests/Scripts/
 
 # Ignore generated documentation files
 /docs/content/**/*.md

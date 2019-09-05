@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\src\Informedica.GenUtils.Lib\Informedica.GenUtils.Lib.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="paket.references" />
     <Compile Include="Reflection.fs" />
     <Compile Include="Double.fs" />
     <Compile Include="String.fs" />
