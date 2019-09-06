@@ -72,6 +72,7 @@ publishnuget.cmd
 !/src/Informedica.GenForm.Lib/Scripts/
 !/src/Informedica.GenForm.Server/
 !/src/Informedica.GenForm.Server/Scripts/
+!/src/Informedica.GenForm.Client/
 
 # Add test files
 !/tests/

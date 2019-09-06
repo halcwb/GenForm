@@ -4,15 +4,10 @@ module Main =
     
     open System
     open System.IO
-    open Microsoft.AspNetCore.Builder
-    open Microsoft.AspNetCore.Hosting
     open Microsoft.AspNetCore.Http
-    open Microsoft.AspNetCore.Cors.Infrastructure
-    open Microsoft.Extensions.Logging
-    open Microsoft.Extensions.DependencyInjection
     open Giraffe
+    open Saturn
 
-    open Newtonsoft
     open Informedica.GenUtils.Lib.BCL
     open Informedica.GenForm.Lib
 
@@ -107,65 +102,85 @@ module Main =
             route "/html" >=> handleHtml ]
 
 
-    // ---------------------------------
-    // Error handler
-    // ---------------------------------
+    let tryGetEnv = System.Environment.GetEnvironmentVariable >> function null | "" -> None | x -> Some x
 
-    let errorHandler (ex : Exception) (logger : ILogger) =
-        logger.LogError(EventId(), ex, "An unhandled exception has occurred while executing the request.")
-        clearResponse >=> setStatusCode 500 >=> text ex.Message
+    let publicPath = Path.GetFullPath "../Client/public"
 
-    // ---------------------------------
-    // Config and Main
-    // ---------------------------------
+    let port =
+        "SERVER_PORT"
+        |> tryGetEnv |> Option.map uint16 |> Option.defaultValue 8085us
 
-    let configureCors (builder : CorsPolicyBuilder) =
-        builder.WithOrigins("http://localhost:8080")
-               .AllowAnyMethod()
-               .AllowAnyHeader()
-               |> ignore
 
-    let configureApp (app : IApplicationBuilder) =
-        let env = app.ApplicationServices.GetService<IHostingEnvironment>()
-        (match env.IsDevelopment() with
-        | true  -> app.UseDeveloperExceptionPage()
-        | false -> app.UseGiraffeErrorHandler errorHandler)
-            .UseStaticFiles()
-            .UseCors(configureCors)
-            .UseGiraffe(webApp)
-            
+    let app = application {
+        url ("http://0.0.0.0:" + port.ToString() + "/")
+        use_router webApp
+        memory_cache
+        use_static publicPath
+        use_json_serializer(Thoth.Json.Giraffe.ThothSerializer())
+        use_gzip
+    }
 
-    let configureServices (services : IServiceCollection) =
-        services.AddCors()    |> ignore
-        services.AddGiraffe() |> ignore
+    run app
 
-    let configureLogging (builder : ILoggingBuilder) =
-        let filter (l : LogLevel) = l.Equals LogLevel.Error
-        builder.AddFilter(filter).AddConsole().AddDebug() |> ignore
 
-    [<EntryPoint>]
-    let main _ =
-        // Load GenForm
-        let dt = DateTime.now ()
-        printfn "loading GenForm: %s" (dt.ToString("hh:mm"))
-        Dto.loadGenForm ()
-        let time = DateTime.now () - dt
-        printfn "ready in: %i seconds" (time.Seconds)
+    //// ---------------------------------
+    //// Error handler
+    //// ---------------------------------
 
-        let contentRoot = Directory.GetCurrentDirectory()
-        let webRoot     = Path.Combine(contentRoot, "WebRoot")
+    //let errorHandler (ex : Exception) (logger : ILogger) =
+    //    logger.LogError(EventId(), ex, "An unhandled exception has occurred while executing the request.")
+    //    clearResponse >=> setStatusCode 500 >=> text ex.Message
 
-        let endpoints =
-            [ EndpointConfiguration.Default ]
+    //// ---------------------------------
+    //// Config and Main
+    //// ---------------------------------
 
-        WebHostBuilder()
-            .UseKestrel(fun o -> o.ConfigureEndpoints endpoints)
-            .UseContentRoot(contentRoot)
-            .UseIISIntegration()
-            .UseWebRoot(webRoot)
-            .Configure(Action<IApplicationBuilder> configureApp)
-            .ConfigureServices(configureServices)
-            .ConfigureLogging(configureLogging)
-            .Build()
-            .Run()
-        0
+    //let configureCors (builder : CorsPolicyBuilder) =
+    //    builder.WithOrigins("http://localhost:8085")
+    //           .AllowAnyMethod()
+    //           .AllowAnyHeader()
+    //           |> ignore
+
+    //let configureApp (app : IApplicationBuilder) =
+    //    let env = app.ApplicationServices.GetService<IHostingEnvironment>()
+    //    (match env.IsDevelopment() with
+    //    | true  -> app.UseDeveloperExceptionPage()
+    //    | false -> app.UseGiraffeErrorHandler errorHandler)
+    //        .UseStaticFiles()
+    //        .UseCors(configureCors)
+    //        .UseGiraffe(webApp)
+
+    //let configureServices (services : IServiceCollection) =
+    //    services.AddCors()    |> ignore
+    //    services.AddGiraffe() |> ignore
+
+    //let configureLogging (builder : ILoggingBuilder) =
+    //    let filter (l : LogLevel) = l.Equals LogLevel.Error
+    //    builder.AddFilter(filter).AddConsole().AddDebug() |> ignore
+
+    //[<EntryPoint>]
+    //let main _ =
+    //    // Load GenForm
+    //    let dt = DateTime.now ()
+    //    printfn "loading GenForm: %s" (dt.ToString("hh:mm"))
+    //    Dto.loadGenForm ()
+    //    let time = DateTime.now () - dt
+    //    printfn "ready in: %i seconds" (time.Seconds)
+
+    //    let contentRoot = Directory.GetCurrentDirectory()
+    //    let webRoot     = Path.Combine(contentRoot, "../Client/public/")
+
+    //    let endpoints =
+    //        [ EndpointConfiguration.Default ]
+
+    //    WebHostBuilder()
+    //        .UseKestrel(fun o -> o.ConfigureEndpoints endpoints)
+    //        .UseContentRoot(contentRoot)
+    //        .UseIISIntegration()
+    //        .UseWebRoot(webRoot)
+    //        .Configure(Action<IApplicationBuilder> configureApp)
+    //        .ConfigureServices(configureServices)
+    //        .ConfigureLogging(configureLogging)
+    //        .Build()
+    //        .Run()
+    //    0

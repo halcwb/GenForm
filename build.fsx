@@ -12,6 +12,7 @@ open Fake.Core
 open Fake.DotNet
 open Fake.IO
 
+Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 Target.initEnvironment ()
 
 let serverPath = Path.getFullName "./src/Informedica.GenForm.Server"
@@ -62,7 +63,8 @@ let openBrowser url =
 
 Target.create "Clean" (fun _ ->
     [ deployDir
-      clientDeployPath ]
+      clientDeployPath
+      serverDataPath ]
     |> Shell.cleanDirs
 )
 
@@ -75,7 +77,7 @@ Target.create "InstallClient" (fun _ ->
 )
 
 Target.create "CopyDataDir" (fun _ ->
-    Shell.copyDir dataDir serverDataPath FileFilter.allFiles
+    Shell.copyDir serverDataPath dataDir FileFilter.allFiles
 )
 
 Target.create "Build" (fun _ ->
@@ -120,6 +122,7 @@ let buildDocker tag =
 
 Target.create "Bundle" (fun _ ->
     let serverDir = Path.combine deployDir "Server"
+    let serverDataDir = Path.combine serverDir "data"
     let clientDir = Path.combine deployDir "Client"
     let publicDir = Path.combine clientDir "public"
 
@@ -127,6 +130,8 @@ Target.create "Bundle" (fun _ ->
     runDotNet publishArgs serverPath
 
     Shell.copyDir publicDir clientDeployPath FileFilter.allFiles
+    Shell.copyDir serverDataDir dataDir FileFilter.allFiles
+
 )
 
 let dockerUser = "halcwb"
@@ -149,6 +154,7 @@ open Fake.Core.TargetOperators
 
 "Clean"
     ==> "InstallClient"
+    ==> "CopyDataDir"
     ==> "Run"
 
 Target.runOrDefaultWithArguments "Build"
