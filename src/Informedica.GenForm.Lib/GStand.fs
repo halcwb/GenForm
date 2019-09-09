@@ -38,7 +38,6 @@ module GStand =
     type Dosage = DoseRule.Dosage.Dosage
     
 
-
     let groupByFst xs = 
         xs
         |> Seq.groupBy fst

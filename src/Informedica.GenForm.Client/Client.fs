@@ -12,75 +12,66 @@ open Fable.MaterialUI.Core
 open Fable.MaterialUI.Props
 open Fable.MaterialUI.Themes
 
+open Extensions.Fable.MaterialUI.Core
 
-module Speech =
-
-    open Fable.Core
-
-    [<Emit("window.speechSynthesis.speak(new SpeechSynthesisUtterance($0));")>]
-    let speak s = ()
-
-
-module Timer =
-
-    open Browser
-    
-    type Model = 
-        {
-            Start : DateTime
-            Current: DateTime
-        }
-
-    type Msg = Tick of DateTime
-
-    let tick dispatch =
-        window.setInterval(fun _ ->
-            dispatch (Tick DateTime.Now)
-        , 1000) |> ignore
-
-    let init () =
-        let now = DateTime.Now
-        {
-            Start = now
-            Current = now
-        }
-
-    let secondsPast model =
-        (model.Current - model.Start).Duration()
-
-    let update (Tick next) model =
-        { model with Current = next }
-        
+open Views
 
 // == HELPER FUNCTIONS ==
 
 
 // === MODEL ===
 
-type Model = 
-    { 
-        HelloWorld : string
-        Test : string option
-    }
-
 type Msg =
-    | HelloWorld
-    | GetTest of string
+    | Reset of NavBar.Msg
+    | MainGroupsFetched of string list
+    | MainGroupSelect of string
+    | TherapyGroupsFetched of string list
+    | TherapyGroupSelect of string
+    | SubGroupsFetched of string list
+    | SubGroupSelect of string
+    | PharmacoGroupsFetched of string list
+    | PharmacoGroupSelect of string
+    | GenericsFetched of string list
+    | GenericSelect of string
 
+
+type Model = 
+    | EmptyModel
+    | MainGroups of StringList
+    | TherapyGroups of StringList
+    | SubGroups of StringList
+    | PharmacoGroups of StringList
+    | Generics of StringList
+and StringList = (string list)
+
+let fetchStringList (key, value) =
+    let url = sprintf "/api?%s=%s" key value
+    promise {
+        let! response = Fetch.fetch url []
+        let! grps = response.json<string[]>()
+        return (grps |> Array.toList)
+    }
 
 let init () : Model * Cmd<Msg> =
-    { HelloWorld = "Hello World"; Test = None  }, Cmd.none
+    EmptyModel, Cmd.OfPromise.perform fetchStringList ("main", "") MainGroupsFetched
 
-let fetchTest () =
-    promise {
-        let! response = Fetch.fetch "/test" []
-        return! response.text()
-    }
 
 let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
+    let fetch k v m = model, Cmd.OfPromise.perform fetchStringList (k, v) m
     match msg with
-    | HelloWorld  -> model, Cmd.OfPromise.perform fetchTest () GetTest
-    | GetTest s -> { model with Test = Some s }, Cmd.none
+    | Reset _ -> init ()
+    | MainGroupsFetched gl ->     gl |> MainGroups, Cmd.none
+    | TherapyGroupsFetched gl ->  gl |> TherapyGroups, Cmd.none
+    | SubGroupsFetched gl ->      gl |> SubGroups, Cmd.none
+    | PharmacoGroupsFetched gl -> gl |> PharmacoGroups, Cmd.none
+    | GenericsFetched gl ->       gl |> Generics, Cmd.none
+    | MainGroupSelect s ->        fetch "tgp" s TherapyGroupsFetched
+    | TherapyGroupSelect s ->     fetch "sub" s SubGroupsFetched
+    | SubGroupSelect s ->         fetch "phg" s PharmacoGroupsFetched
+    | PharmacoGroupSelect s ->    fetch "gen" s GenericsFetched
+    | GenericSelect s -> 
+        printfn "selected: %s" s
+        model, Cmd.none
 
 
 // === STYLES ===
@@ -89,15 +80,41 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
 
 // === VIEW FUNCIONS ===
 
+let filler = 
+    div [ Style [ (FlexGrow 1) ] ] [ ]
 
+let headerBar dispatch =
+    Views.NavBar.view "GenForm" dispatch
+
+let createList dispatch xs =
+    let typo s =
+        typography [ TypographyProp.Align TypographyAlign.Left
+                     TypographyProp.Variant TypographyVariant.Button ] [ str s ]
+    xs 
+    |> List.map (fun x ->
+        button [ OnClick (fun _ -> x |> dispatch) ] [ typo x ]
+        |> List.singleton
+        |> listItem [ Style [ (FlexGrow 1) ]]
+    )
+    |> list [ Style [ CSSProp.MarginTop "80px" ] ]
+ 
 let view (model : Model) (dispatch : Msg -> unit) =
+    let content =
+        match model with
+        | MainGroups xs ->     xs |> createList (MainGroupSelect >> dispatch)
+        | TherapyGroups xs ->  xs |> createList (TherapyGroupSelect >> dispatch)
+        | SubGroups xs ->      xs |> createList (SubGroupSelect >> dispatch)
+        | PharmacoGroups xs -> xs |> createList (PharmacoGroupSelect >> dispatch)
+        | Generics xs ->       xs |> createList (GenericSelect >> dispatch)
+        | EmptyModel -> div [] []
 
     div [ ]
         [ 
-            yield button [ OnClick (fun _ -> HelloWorld |> dispatch) ] [ str "Test"]
-            yield typography [] [ str model.HelloWorld ]
-            match model.Test with | Some s -> yield typography [] [ str s ] | None -> ()
-        ]  
+            headerBar dispatch
+            content
+        ] 
+    |> (fun el -> container [ MaxWidth ContainerMaxWidth.Sm ] [el])
+    
 
 
 #if DEBUG

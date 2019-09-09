@@ -116,9 +116,11 @@ Target.create "Run" (fun _ ->
     |> ignore
 )
 
+
 let buildDocker tag =
     let args = sprintf "build -t %s ." tag
     runTool "docker" args __SOURCE_DIRECTORY__
+
 
 Target.create "Bundle" (fun _ ->
     let serverDir = Path.combine deployDir "Server"

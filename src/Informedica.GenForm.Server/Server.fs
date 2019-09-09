@@ -15,7 +15,43 @@ module Main =
     open Informedica.GenForm.Lib
     open Informedica.GenProduct.Lib
 
+    module GPP = GenPresProduct
+    module ATC = ATCGroup
         
+    let getMain     (atc: ATCGroup.ATCGroup) = atc.AnatomicalGroup
+    let getTherapy  (atc: ATCGroup.ATCGroup) = atc.TherapeuticMainGroup 
+    let getSub      (atc: ATCGroup.ATCGroup) = atc.TherapeuticSubGroup 
+    let getPharmaco (atc: ATCGroup.ATCGroup) = atc.PharmacologicalGroup 
+    let getGeneric  (atc: ATCGroup.ATCGroup) = 
+        sprintf "%s %s" atc.Generic atc.Shape
+
+    let getMainGroups () =
+        ATC.get ()
+        |> Array.map (fun atc ->
+            atc.AnatomicalGroup
+        )
+        |> Array.distinct
+        |> Array.sort
+
+    let getGroups (get1 : ATCGroup.ATCGroup -> string)
+                  (get2 : ATCGroup.ATCGroup -> string) 
+                  (v : string) =
+        ATC.get ()
+        |> Array.collect (fun atc ->
+            let g = (atc |> get1).ToLower()
+            if v.ToLower() = g then
+                [| (atc |> get2) |]
+            else Array.empty
+        )
+        |> Array.distinct
+        |> Array.sort
+
+    let getTherapyGroups =  getGroups getMain     getTherapy
+    let getSubGroups =      getGroups getTherapy  getSub
+    let getPharmacoGroups = getGroups getSub      getPharmaco
+    let getGenerics =       getGroups getPharmaco getGeneric
+        
+
     type RuleRequest () =
         member val age = 0. with get, set
         member val wth = 0. with get, set
@@ -48,37 +84,12 @@ module Main =
         }
         
 
-
-    let testDto =
-        {
-            Dto.dto with
-                AgeInMo = 12.
-                WeightKg = 10.
-                GPK = 9504
-                Route = "oraal"
-        }
-
-
-    let handleTestRequest =
-        fun (next : HttpFunc) (ctx : HttpContext) ->    
-            testDto
-            |> (fun dto -> printfn "request: %A" dto; dto)
-            |> Dto.processDto
-            |> (fun dto' -> printfn "response: %A" dto'; dto')
-            |> (fun dto' -> 
-                    match dto' with 
-                    | _ -> json dto' next ctx
-                    //| Some r -> json r next ctx
-                    //| None   -> json dto next ctx
-                )
-
-
     let processRuleRequest rr =
         rr
         |> toDto
-        |> (fun dto -> printfn "request: %A" dto; dto)
+        |> (fun dto -> printfn "request: %A" dto.GPK; dto)
         |> Dto.processDto
-        |> (fun dto' -> printfn "response: %A" dto'; dto')
+        |> (fun dto' -> printfn "response: %A" dto'.Label; dto')
 
 
     let handleRequest =
@@ -95,11 +106,38 @@ module Main =
             |> (fun dto' -> Giraffe.ResponseWriters.htmlString dto'.Text next ctx)
 
 
+    let handleApi = 
+        fun (next: HttpFunc) (ctx : HttpContext) ->
+            [ "main"; "tgp"; "sub"; "phg"; "gen" ]
+            |> List.fold (fun acc k ->
+                acc
+                |> function 
+                | Some _, Some _ -> acc
+                | _, _ ->
+                    k
+                    |> ctx.TryGetQueryStringValue
+                    |> fun v -> 
+                        printfn "request %s: %A" k v
+                        (Some k, v)
+            ) (None, None)
+            |> function 
+            | Some k, Some _ when k = "main" -> getMainGroups ()
+            | Some k, Some v when k = "tgp"  -> getTherapyGroups v
+            | Some k, Some v when k = "sub"  -> getSubGroups v
+            | Some k, Some v when k = "phg"  -> getPharmacoGroups v
+            | Some k, Some v when k = "gen"  -> getGenerics v
+            | _, _ -> Array.empty
+            |> fun xs -> 
+                printfn "returning %i items" (xs |> Array.length)
+                json xs next ctx
+
+
     let webApp =
         choose [
-            route "/test"    >=> handleTestRequest  // json Dto.testDto
             route "/request" >=> handleRequest
-            route "/html" >=> handleHtml ]
+            route "/api" >=> handleApi
+            route "/html" >=> handleHtml 
+        ]
 
 
     let tryGetEnv = System.Environment.GetEnvironmentVariable >> function null | "" -> None | x -> Some x

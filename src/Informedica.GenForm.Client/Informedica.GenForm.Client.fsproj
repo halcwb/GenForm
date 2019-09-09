@@ -4,8 +4,19 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Informedica.GenForm.Lib\Informedica.GenForm.Lib.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="paket.references" />
+    <Compile Include="Extensions/Fable.MaterialUI.fs" />
+    <Compile Include="Views/NavBar.fs" />
     <Compile Include="Client.fs" />
+    <None Include="index.html" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Views\" />
+    <Folder Include="public\" />
+    <Folder Include="Extensions\" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
