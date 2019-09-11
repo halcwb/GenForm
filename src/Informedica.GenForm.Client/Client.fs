@@ -18,6 +18,12 @@ open Views
 
 // == HELPER FUNCTIONS ==
 
+type DangerousInnerHtml =
+    { __html : string }
+
+
+let innerHtml s = 
+    div [ DangerouslySetInnerHTML { __html = s } ] []
 
 // === MODEL ===
 
@@ -33,16 +39,18 @@ type Msg =
     | PharmacoGroupSelect of string
     | GenericsFetched of string list
     | GenericSelect of string
+    | RulesFetched of string list
 
 
 type Model = 
-    | EmptyModel
-    | MainGroups of StringList
-    | TherapyGroups of StringList
-    | SubGroups of StringList
-    | PharmacoGroups of StringList
-    | Generics of StringList
-and StringList = (string list)
+    | Loading
+    | MainGroups of string list
+    | TherapyGroups of string list
+    | SubGroups of string list
+    | PharmacoGroups of string list
+    | Generics of string list
+    | Rules of string list
+
 
 let fetchStringList (key, value) =
     let url = sprintf "/api?%s=%s" key value
@@ -52,12 +60,13 @@ let fetchStringList (key, value) =
         return (grps |> Array.toList)
     }
 
+
 let init () : Model * Cmd<Msg> =
-    EmptyModel, Cmd.OfPromise.perform fetchStringList ("main", "") MainGroupsFetched
+    Loading, Cmd.OfPromise.perform fetchStringList ("main", "") MainGroupsFetched
 
 
 let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
-    let fetch k v m = model, Cmd.OfPromise.perform fetchStringList (k, v) m
+    let fetch k v m = Loading, Cmd.OfPromise.perform fetchStringList (k, v) m
     match msg with
     | Reset _ -> init ()
     | MainGroupsFetched gl ->     gl |> MainGroups, Cmd.none
@@ -65,13 +74,12 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
     | SubGroupsFetched gl ->      gl |> SubGroups, Cmd.none
     | PharmacoGroupsFetched gl -> gl |> PharmacoGroups, Cmd.none
     | GenericsFetched gl ->       gl |> Generics, Cmd.none
+    | RulesFetched rl ->          rl |> Rules, Cmd.none
     | MainGroupSelect s ->        fetch "tgp" s TherapyGroupsFetched
     | TherapyGroupSelect s ->     fetch "sub" s SubGroupsFetched
     | SubGroupSelect s ->         fetch "phg" s PharmacoGroupsFetched
     | PharmacoGroupSelect s ->    fetch "gen" s GenericsFetched
-    | GenericSelect s -> 
-        printfn "selected: %s" s
-        model, Cmd.none
+    | GenericSelect s ->          fetch "rul" s RulesFetched
 
 
 // === STYLES ===
@@ -106,7 +114,13 @@ let view (model : Model) (dispatch : Msg -> unit) =
         | SubGroups xs ->      xs |> createList (SubGroupSelect >> dispatch)
         | PharmacoGroups xs -> xs |> createList (PharmacoGroupSelect >> dispatch)
         | Generics xs ->       xs |> createList (GenericSelect >> dispatch)
-        | EmptyModel -> div [] []
+        | Rules xs ->
+            xs
+            |> List.map innerHtml
+            |> div [ Style [ CSSProp.MarginTop "80px"; CSSProp.MarginBottom "20px" ] ]
+        | Loading -> typography [ Style [ CSSProp.MarginTop "80px"; CSSProp.MarginBottom "20px" ]
+                                  TypographyProp.Variant TypographyVariant.H2 ] 
+                                [ str "Loading..." ]
 
     div [ ]
         [ 

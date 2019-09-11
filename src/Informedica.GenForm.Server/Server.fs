@@ -1,5 +1,101 @@
 ﻿namespace Informedica.GenForm.Service
 
+
+module GStandExt =
+
+    open Informedica.GenForm.Lib
+
+    open GStand
+    open Informedica.GenUtils.Lib.BCL
+
+    module Dosage = DoseRule.Dosage
+    
+    module RF = Informedica.GenProduct.Lib.RuleFinder 
+    module DR = Informedica.GenProduct.Lib.DoseRule
+    module GPP = Informedica.GenProduct.Lib.GenPresProduct
+
+    let cfg = { UseAll = true ; IsRate = false ; SubstanceUnit = None ; TimeUnit = None }
+
+    let cfgmcg = { cfg with SubstanceUnit = (Some ValueUnit.Units.mcg) }
+
+    let createWithCfg cfg = GStand.createDoseRules cfg None None None None
+
+    let createDoseRules = createWithCfg cfg
+    
+    let createCont su tu = 
+        let cfg = { cfg with IsRate = true ; SubstanceUnit = su ; TimeUnit = tu }
+        GStand.createDoseRules cfg None None None None
+
+    let mdText = """
+## _Stofnaam_: {generic}
+Synoniemen: {synonym}
+
+---
+
+### _ATC code_: {atc}
+
+### _Therapeutische groep_: {thergroup} 
+
+### _Therapeutische subgroep_: {thersub}
+
+### _Generiek groep_: {gengroup}
+
+### _Generiek subgroep_: {gensub}
+
+"""
+
+    let mdIndicationText = """
+
+---
+
+### _Indicatie_: {indication}
+"""
+
+
+    let mdRouteText = """
+* _Route_: {route}
+"""
+
+    let mdShapeText = """
+  * _Vorm_: {shape}
+  * _Producten_: 
+  * {products}
+"""
+
+    let mdPatientText = """
+    * _Patient_: __{patient}__
+"""
+
+    let mdDosageText = """
+      {dosage}
+
+"""
+
+
+    let mdConfig = 
+        {
+            DoseRule.mdConfig with
+                MainText = mdText
+                IndicationText = mdIndicationText
+                RouteText = mdRouteText
+                ShapeText = mdShapeText
+                PatientText = mdPatientText
+                DosageText = mdDosageText
+        }
+
+
+    let toStr = DoseRule.toStringWithConfig mdConfig false
+
+    let printDoseRules rs = 
+        rs
+        |> Seq.map (fun dr -> 
+            dr 
+            |> toStr
+            |> Markdown.toHtml
+        )
+
+
+
 module Main =
     
     open System
@@ -17,13 +113,19 @@ module Main =
 
     module GPP = GenPresProduct
     module ATC = ATCGroup
+
+    let atcToGen (atc : ATCGroup.ATCGroup) =
+        atc.Routes
+        |> String.splitAt ','
+        |> Array.map (fun r ->
+            sprintf "%s %s %s" atc.Generic (r.Trim()) atc.Shape
+        )
         
-    let getMain     (atc: ATCGroup.ATCGroup) = atc.AnatomicalGroup
-    let getTherapy  (atc: ATCGroup.ATCGroup) = atc.TherapeuticMainGroup 
-    let getSub      (atc: ATCGroup.ATCGroup) = atc.TherapeuticSubGroup 
-    let getPharmaco (atc: ATCGroup.ATCGroup) = atc.PharmacologicalGroup 
-    let getGeneric  (atc: ATCGroup.ATCGroup) = 
-        sprintf "%s %s" atc.Generic atc.Shape
+    let getMain     (atc: ATCGroup.ATCGroup) = atc.AnatomicalGroup      |> Array.singleton
+    let getTherapy  (atc: ATCGroup.ATCGroup) = atc.TherapeuticMainGroup |> Array.singleton
+    let getSub      (atc: ATCGroup.ATCGroup) = atc.TherapeuticSubGroup  |> Array.singleton
+    let getPharmaco (atc: ATCGroup.ATCGroup) = atc.PharmacologicalGroup |> Array.singleton
+    let getGeneric  (atc: ATCGroup.ATCGroup) = atc |> atcToGen
 
     let getMainGroups () =
         ATC.get ()
@@ -33,14 +135,17 @@ module Main =
         |> Array.distinct
         |> Array.sort
 
-    let getGroups (get1 : ATCGroup.ATCGroup -> string)
-                  (get2 : ATCGroup.ATCGroup -> string) 
+    let getGroups (get1 : ATCGroup.ATCGroup -> string[])
+                  (get2 : ATCGroup.ATCGroup -> string[]) 
                   (v : string) =
         ATC.get ()
         |> Array.collect (fun atc ->
-            let g = (atc |> get1).ToLower()
+            let g = 
+                match atc |> get1 with
+                | [|g|] -> g.ToLower()
+                | _ -> ""
             if v.ToLower() = g then
-                [| (atc |> get2) |]
+                atc |> get2
             else Array.empty
         )
         |> Array.distinct
@@ -51,6 +156,24 @@ module Main =
     let getPharmacoGroups = getGroups getSub      getPharmaco
     let getGenerics =       getGroups getPharmaco getGeneric
         
+    let getRules v =
+        ATC.get ()
+        |> Array.tryFind (fun atc ->
+            atc
+            |> atcToGen
+            |> Array.exists ((=) v)
+        )
+        |> function 
+        | None -> Array.empty
+        | Some atc -> 
+            let r =
+                atc.Routes
+                |> String.splitAt ','
+                |> Array.find (fun s -> v |> String.contains s)
+            GStandExt.createDoseRules atc.Generic atc.Shape r
+            |> GStandExt.printDoseRules
+            |> Seq.toArray
+
 
     type RuleRequest () =
         member val age = 0. with get, set
@@ -108,7 +231,7 @@ module Main =
 
     let handleApi = 
         fun (next: HttpFunc) (ctx : HttpContext) ->
-            [ "main"; "tgp"; "sub"; "phg"; "gen" ]
+            [ "main"; "tgp"; "sub"; "phg"; "gen"; "rul" ]
             |> List.fold (fun acc k ->
                 acc
                 |> function 
@@ -126,6 +249,7 @@ module Main =
             | Some k, Some v when k = "sub"  -> getSubGroups v
             | Some k, Some v when k = "phg"  -> getPharmacoGroups v
             | Some k, Some v when k = "gen"  -> getGenerics v
+            | Some k, Some v when k = "rul"  -> getRules v
             | _, _ -> Array.empty
             |> fun xs -> 
                 printfn "returning %i items" (xs |> Array.length)
@@ -158,67 +282,8 @@ module Main =
         use_gzip
     }
 
-    run app
+    do
+        Dto.loadGenForm ()
+        run app
 
 
-    //// ---------------------------------
-    //// Error handler
-    //// ---------------------------------
-
-    //let errorHandler (ex : Exception) (logger : ILogger) =
-    //    logger.LogError(EventId(), ex, "An unhandled exception has occurred while executing the request.")
-    //    clearResponse >=> setStatusCode 500 >=> text ex.Message
-
-    //// ---------------------------------
-    //// Config and Main
-    //// ---------------------------------
-
-    //let configureCors (builder : CorsPolicyBuilder) =
-    //    builder.WithOrigins("http://localhost:8085")
-    //           .AllowAnyMethod()
-    //           .AllowAnyHeader()
-    //           |> ignore
-
-    //let configureApp (app : IApplicationBuilder) =
-    //    let env = app.ApplicationServices.GetService<IHostingEnvironment>()
-    //    (match env.IsDevelopment() with
-    //    | true  -> app.UseDeveloperExceptionPage()
-    //    | false -> app.UseGiraffeErrorHandler errorHandler)
-    //        .UseStaticFiles()
-    //        .UseCors(configureCors)
-    //        .UseGiraffe(webApp)
-
-    //let configureServices (services : IServiceCollection) =
-    //    services.AddCors()    |> ignore
-    //    services.AddGiraffe() |> ignore
-
-    //let configureLogging (builder : ILoggingBuilder) =
-    //    let filter (l : LogLevel) = l.Equals LogLevel.Error
-    //    builder.AddFilter(filter).AddConsole().AddDebug() |> ignore
-
-    //[<EntryPoint>]
-    //let main _ =
-    //    // Load GenForm
-    //    let dt = DateTime.now ()
-    //    printfn "loading GenForm: %s" (dt.ToString("hh:mm"))
-    //    Dto.loadGenForm ()
-    //    let time = DateTime.now () - dt
-    //    printfn "ready in: %i seconds" (time.Seconds)
-
-    //    let contentRoot = Directory.GetCurrentDirectory()
-    //    let webRoot     = Path.Combine(contentRoot, "../Client/public/")
-
-    //    let endpoints =
-    //        [ EndpointConfiguration.Default ]
-
-    //    WebHostBuilder()
-    //        .UseKestrel(fun o -> o.ConfigureEndpoints endpoints)
-    //        .UseContentRoot(contentRoot)
-    //        .UseIISIntegration()
-    //        .UseWebRoot(webRoot)
-    //        .Configure(Action<IApplicationBuilder> configureApp)
-    //        .ConfigureServices(configureServices)
-    //        .ConfigureLogging(configureLogging)
-    //        .Build()
-    //        .Run()
-    //    0

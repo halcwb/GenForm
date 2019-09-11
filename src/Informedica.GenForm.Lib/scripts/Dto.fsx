@@ -1,7 +1,7 @@
 
 #I __SOURCE_DIRECTORY__
 
-#load "./../../../.paket/load/netstandard2.0/main.group.fsx"
+#load "./../../../.paket/load/netstandard2.0/Library/library.group.fsx"
 
 #r "./../../Informedica.GenUtils.Lib/bin/Debug/netstandard2.0/Informedica.GenUtils.Lib.dll"
 #r "./../../Informedica.GenUnits.Lib/bin/Debug/netstandard2.0/Informedica.GenUnits.Lib.dll"
@@ -38,11 +38,12 @@ Environment.CurrentDirectory <-
 #load "./../Dto.fs"
 
 
-
+open Informedica.GenUtils.Lib
+open Informedica.GenUtils.Lib.BCL
 open Informedica.GenProduct.Lib
 open Informedica.GenForm.Lib
 
-
+File.exists "data/cache/README.md"
 
 // List all products that have no app route
 GenPresProduct.get true
@@ -121,3 +122,147 @@ GenPresProduct.get true
 |> Seq.toList
 
 
+// Write all possible Generic Products to a file
+let createFormularium () =
+    let headers =
+        [
+            "GPK"
+            "ATC"
+            "MainGroup"
+            "SubGroup"
+            "Generic"
+            "Product"
+            "Label"
+            "Shape"
+            "Route"
+            "Quantity"
+            "QuantityUnit"
+            "Multiple"
+            "Unit"
+        ]
+
+    GenPresProduct.get true
+    |> Array.collect (fun gpp ->
+        gpp.GenericProducts
+        |> Array.collect (fun gp ->
+            gp.PrescriptionProducts
+            |> Array.collect (fun pp ->
+                pp.TradeProducts
+                |> function 
+                | _ when pp.TradeProducts |> Array.isEmpty -> "" |> Array.singleton
+                | _ -> pp.TradeProducts 
+                       |> Array.map (fun tp -> tp.Label)
+                |> Array.collect (fun prd ->
+                    gp.Route
+                    |> function 
+                    | _ when gp.Route |> Array.isEmpty -> "" |> Array.singleton
+                    | _ -> gp.Route
+                    |> Array.map (fun rte ->
+                        let gpk = gp.Id |> string
+                        let atc = gp.ATC.Trim()
+                        let grp = 
+                            ATCGroup.get ()
+                            |> Array.tryFind (fun g -> 
+                                g.ATC5.Trim() |> String.startsWith atc ||
+                                atc |> String.startsWith (g.ATC5.Trim())
+                            )
+                        let mng = 
+                            match grp with
+                            | Some x -> x.TherapeuticMainGroup
+                            | None -> ""
+                        let sbg = 
+                            match grp with
+                            | Some x -> x.TherapeuticSubGroup
+                            | None -> ""
+                        let gen = gpp.Name
+                        let lbl = gp.Label
+                        let shp = gpp.Shape
+                        let qty, qun, mun = 
+                            if gp.Substances |> Array.length = 1 |> not then "", "", ""
+                            else 
+                                let subst =
+                                    (gp.Substances |> Array.head)
+                                (sprintf "%A" subst.SubstanceQuantity), 
+                                (sprintf "%s/%s" subst.SubstanceUnit subst.ShapeUnit), 
+                                subst.SubstanceUnit
+                        let qty = qty |> String.replace "." ","
+                        let mqt = qty
+                        [ gpk; atc; mng; sbg; gen; prd; lbl; shp; rte; qty; qun; mqt; mun ]
+                        |> String.concat ";"
+                    )
+                )
+            )
+        )
+    )
+    |> Array.append (headers |> String.concat ";" |> Array.singleton)
+
+
+// Each entry should have atc groups
+createFormularium ()
+|> Array.filter (fun r ->
+    let xs = r |> String.splitAt ';'
+    xs.[2] = "" || xs.[3] = ""
+)
+
+// Write all possible Generic Products to a file
+let writeFormulariumToFile file =
+    createFormularium ()
+    |> String.concat "\n"
+    |> File.writeTextToFile file
+    
+
+writeFormulariumToFile "formularium.csv"
+
+ATCGroup.get ()
+|> Array.map (fun g ->
+    g.ATC5, g.TherapeuticMainGroup
+)
+|> Array.sortBy fst
+|> Array.iter (printfn "%A")
+
+// Check if there are GenPresProducts 
+// without GenericProducts, shouldn't be
+GenPresProduct.get true
+|> Array.exists (fun gpp ->
+    gpp.GenericProducts |> Array.isEmpty
+)
+
+// Check whether there are GenericProducts 
+// without PrescriptionProducts
+GenPresProduct.get true
+|> Array.exists (fun gpp ->
+    gpp.GenericProducts
+    |> Array.exists (fun gp ->
+        gp.PrescriptionProducts |> Array.isEmpty
+    )
+)
+
+
+// Get the PrescriptionProducts 
+// without TradeProducts
+GenPresProduct.get true
+|> Array.collect (fun gpp ->
+    gpp.GenericProducts
+    |> Array.collect (fun gp ->
+        gp.PrescriptionProducts 
+        |> Array.filter (fun pp ->
+            pp.TradeProducts
+            |> Array.isEmpty
+        )
+    )
+)
+
+
+GenPresProduct.get true
+|> Array.filter (fun gpp ->
+    gpp.Name |> String.toLower |> String.contains "meropenem"
+)
+
+GenericProduct.get []
+|> Array.filter (fun gp ->
+    gp.Name |> String.toLower |> String.contains "cidofovir"
+)
+
+GenPresProduct.get true |> ignore
+ATCGroup.load () 
+(fun () -> printfn "Loading dose rules.. "; DoseRule.load (); printfn "ready loading doserules") ()

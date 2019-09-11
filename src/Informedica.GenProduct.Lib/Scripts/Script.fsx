@@ -37,14 +37,14 @@ ConsumerProduct.get(100)
 |> printf "%A"
 
 // GenPres product
-GenPresProduct.getAssortment ()
+GenPresProduct.get true
 |> Seq.sortBy (fun gpp -> gpp.Name, gpp.Shape, gpp.Route)
 |> Seq.map (fun gpp -> gpp.Name + ", " + gpp.Shape + ", " + (gpp.Route |> String.concat "/"))
 //|> Seq.take 10
 |> Seq.iter (fun n -> printfn "%s" n)
 
 
-GenPresProduct.filter "paracetamol" "" ""
+GenPresProduct.filter true "paracetamol" "" ""
 |> Array.map GenPresProduct.toString
 |> Array.iter (printfn "%s")
 
@@ -68,7 +68,7 @@ DoseRule.get()
 
 // Get all dose rules for the filter
 RuleFinder.createFilter None None None None "gentamicine" "" ""
-|> RuleFinder.find
+|> RuleFinder.find true
 |> RuleFinder.convertToResult
 |> ignore
 
@@ -110,7 +110,7 @@ DoseRule.get()
 
 
 
-GenPresProduct.filter "morfine" "" "iv"
+GenPresProduct.filter true "morfine" "" "iv"
 |> Array.collect (fun gpp -> 
     gpp.GenericProducts
 )
@@ -119,7 +119,7 @@ GenPresProduct.filter "morfine" "" "iv"
 )
 
 // Get alle names and displaynames
-GenPresProduct.getAssortment ()
+GenPresProduct.get true
 |> Array.map (fun gpp -> gpp.Name, gpp.DisplayName)
 |> Array.iter (fun (nm, dpn) ->
     printfn "%s, %s" nm dpn
@@ -127,7 +127,7 @@ GenPresProduct.getAssortment ()
 
 // Get all dose rules for age 12 months weight 10 kg paracetamol rect
 RuleFinder.createFilter (Some 12.) (Some 10.) None None "paracetamol" "" ""
-|> RuleFinder.find
+|> RuleFinder.find true
 |> Array.map (fun r -> DoseRule.toString ", " r |> printfn "%s"; r)
 |> RuleFinder.convertToResult
 
@@ -142,10 +142,10 @@ DoseRule.get ()
     |> printfn "%s"
 )
 
-GenPresProduct.getAssortment ()
+GenPresProduct.get true
 |> Array.iter (fun gpp ->
     let dbls = 
-        GenPresProduct.getAssortment ()
+        GenPresProduct.get true
         |> Array.filter (fun gpp_ -> gpp.Name = gpp_.Name && gpp.Shape = gpp_.Shape)
     if dbls |> Array.length > 1 then 
         dbls 
@@ -154,7 +154,7 @@ GenPresProduct.getAssortment ()
         )
 )
 
-GenPresProduct.getAssortment ()
+GenPresProduct.get true
 |> Array.collect (fun gpp ->
     gpp.GenericProducts 
     |> Array.collect (fun gp ->
@@ -185,7 +185,7 @@ GenPresProduct.getRoutes()
 )
 
 RuleFinder.createFilter None None None None "diclofenac" "" ""
-|> RuleFinder.find
+|> RuleFinder.find true
 |> Array.map (fun dr -> 
     (dr.Routes |> Array.map RuleFinder.createRoute, dr)
 )
@@ -227,4 +227,13 @@ DoseRule.get ()
 |> Array.map (DoseRule.toString ", ")
 |> Array.iter (printfn "%s")
 
+Zindex.BST711T.records ()
+|> Array.map (fun r ->
+    Names.getName r.GPNMNR Names.Full
+)
+|> Array.filter (fun n ->
+    n |> String.toLower |> String.contains "meropenem"
+)
 
+GenPresProduct.get true
+|> Array.length

@@ -139,9 +139,13 @@ module Dto =
 
 
     let loadGenForm () =
-        GPP.load false
+        printfn "Start loading GenPresProducts ..."
+        GPP.load true
+        printfn "Start loading DoseRules ..."
         DR.load ()
+        printfn "Start loading ATCGroups ..."
         ATC.load ()
+        printfn "Finisched loading"
 
 
     let find (dto : Dto) =

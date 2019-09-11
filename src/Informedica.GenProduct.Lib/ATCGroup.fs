@@ -108,7 +108,7 @@ module ATCGroup =
                     )
                     |> Array.distinct
                     |> Array.map (fun tdw ->
-                        Names.getThes tdw Names.Route Names.TwentyFive
+                        Names.getThes tdw Names.Route Names.Fifty
                     )
                     |> Array.fold (fun a s ->
                             if a = "" then s
@@ -165,6 +165,7 @@ module ATCGroup =
             FilePath.groupCache
             |> Json.getCache
         else 
+            printfn "No cache creating group.cache"
             let grps = GenPresProduct.getGPKS true |> parse
             grps |> Json.cache FilePath.groupCache
             grps
