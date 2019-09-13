@@ -2,6 +2,4 @@ group Server
     FSharp.Core
     Saturn
     Thoth.Json.Giraffe
-
-group Library
 	MathNet.Numerics.FSharp

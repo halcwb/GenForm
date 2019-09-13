@@ -6,17 +6,19 @@ group Server
     nuget FSharp.Core
     nuget Saturn
     nuget Thoth.Json.Giraffe
+	nuget MathNet.Numerics.FSharp
 
 group Client
     source https://api.nuget.org/v3/index.json
     framework: netstandard2.0
     storage: none
 
-    nuget Fable.Core ~> 3
+    nuget FSharp.Core
     nuget Fable.Elmish ~> 3
     nuget Fable.Elmish.Debugger ~> 3
     nuget Fable.Elmish.HMR ~> 4
     nuget Fable.Elmish.React ~> 3
+	nuget Fable.Elmish.Browser
     nuget Thoth.Fetch ~> 1
     nuget Fable.React ~> 5
 	nuget Fable.MaterialUI
@@ -31,7 +33,6 @@ group Library
 	nuget Newtonsoft.Json
 	nuget Aether
 	nuget FSharp.Quotations.Evaluator
-
 
 group Build
     source https://api.nuget.org/v3/index.json

@@ -1,13 +1,13 @@
 module Client
 
 open System
-open Elmish
-open Elmish.React
 open Fable.React
 open Fable.React.Props
-open Fetch.Types
-open Thoth.Fetch
-open Thoth.Json
+
+open Elmish
+open Elmish.React
+
+
 open Fable.MaterialUI.Core
 open Fable.MaterialUI.Props
 open Fable.MaterialUI.Themes
@@ -61,12 +61,67 @@ let fetchStringList (key, value) =
     }
 
 
-let init () : Model * Cmd<Msg> =
+module Navigation =
+
+    open Elmish.UrlParser
+
+    [<RequireQualifiedAccess>]
+    type Page =
+        | MainGroups
+        | TherapyGroups of string
+        | SubGroups of string
+        | PharmacoGroups of string
+        | Generics of string
+        | Rules of string
+
+    let toHash = function
+        | Page.MainGroups -> "#main"
+        | Page.TherapyGroups s -> "#thg" + "/" + s
+        | Page.SubGroups s -> "#sub" + "/" + s
+        | Page.PharmacoGroups s -> "#phg" + "/" + s
+        | Page.Generics s -> "#gen" + "/" + s
+        | Page.Rules s -> "#rul" + "/" + s
+
+    let pageParser =
+        oneOf [
+            map Page.MainGroups (s "main")
+            map Page.TherapyGroups (s "thg" </> str)
+            map Page.SubGroups (s "sub" </> str)
+            map Page.PharmacoGroups (s "phg" </> str)
+            map Page.Generics (s "gen" </> str)
+            map Page.Rules (s "rul" </> str)
+        ]
+
+    let urlParser location = 
+        printfn "parsing location: %A" location 
+        parseHash pageParser location
+
+    let urlUpdate (result: Page Option) model =
+        printfn "url changed to: %A" result
+        let fetch k v m =
+            printfn "going to fetch %s %s" k v
+            Loading, Cmd.OfPromise.perform fetchStringList (k, v) m
+
+        match result with
+        | Some Page.MainGroups -> fetch "main" "" MainGroupsFetched
+        | Some (Page.TherapyGroups s) -> fetch "tgp" s TherapyGroupsFetched
+        | Some (Page.SubGroups s) -> fetch "sub" s SubGroupsFetched
+        | Some (Page.PharmacoGroups s)  -> fetch "phg" s PharmacoGroupsFetched
+        | Some (Page.Generics s) -> fetch "gen" s GenericsFetched
+        | Some (Page.Rules s) -> fetch "rul" s RulesFetched
+        | None -> model, Cmd.none
+
+
+let init _ : Model * Cmd<Msg> =
     Loading, Cmd.OfPromise.perform fetchStringList ("main", "") MainGroupsFetched
 
 
 let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
-    let fetch k v m = Loading, Cmd.OfPromise.perform fetchStringList (k, v) m
+    let nav p= 
+        model,
+        Navigation.toHash p
+        |> Elmish.Navigation.Navigation.newUrl
+
     match msg with
     | Reset _ -> init ()
     | MainGroupsFetched gl ->     gl |> MainGroups, Cmd.none
@@ -75,11 +130,11 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
     | PharmacoGroupsFetched gl -> gl |> PharmacoGroups, Cmd.none
     | GenericsFetched gl ->       gl |> Generics, Cmd.none
     | RulesFetched rl ->          rl |> Rules, Cmd.none
-    | MainGroupSelect s ->        fetch "tgp" s TherapyGroupsFetched
-    | TherapyGroupSelect s ->     fetch "sub" s SubGroupsFetched
-    | SubGroupSelect s ->         fetch "phg" s PharmacoGroupsFetched
-    | PharmacoGroupSelect s ->    fetch "gen" s GenericsFetched
-    | GenericSelect s ->          fetch "rul" s RulesFetched
+    | MainGroupSelect s ->        s |> Navigation.Page.TherapyGroups |> nav
+    | TherapyGroupSelect s ->     s |> Navigation.Page.SubGroups |> nav
+    | SubGroupSelect s ->         s |> Navigation.Page.PharmacoGroups |> nav
+    | PharmacoGroupSelect s ->    s |> Navigation.Page.Generics |> nav
+    | GenericSelect s ->          s |> Navigation.Page.Rules |> nav
 
 
 // === STYLES ===
@@ -133,11 +188,12 @@ let view (model : Model) (dispatch : Msg -> unit) =
 
 #if DEBUG
 open Elmish.Debug
-open Elmish.HMR
+//open Elmish.HMR
 #endif
 
 Program.mkProgram init update view
 //|> Program.withSubscription subscription
+|> Elmish.Navigation.Program.toNavigable Navigation.urlParser Navigation.urlUpdate
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
