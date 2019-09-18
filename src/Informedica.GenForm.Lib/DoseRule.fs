@@ -1133,7 +1133,7 @@ module DoseRule =
                 if s |> String.isNullOrWhiteSpace ||
                    s |> String.isNullOrWhiteSpace then ""
                 else
-                    sprintf "%s x / %s" s fu
+                    sprintf "%s x/%s" s fu
             )
 
 
@@ -3689,7 +3689,7 @@ Synoniemen: {synonym}
         let gpsToString (gps : ShapeDosage.GenericProduct list) = 
             gps
             |> List.map (fun gp -> gp.Label)
-            |> String.concat "\n      "
+            |> String.concat ", "
 
         config.MainText
         |> String.replace "{generic}" dr.Generic

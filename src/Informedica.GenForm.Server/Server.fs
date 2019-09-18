@@ -22,10 +22,6 @@ module GStandExt =
 
     let createDoseRules = createWithCfg cfg
     
-    let createCont su tu = 
-        let cfg = { cfg with IsRate = true ; SubstanceUnit = su ; TimeUnit = tu }
-        GStand.createDoseRules cfg None None None None
-
     let mdText = """
 ## _Stofnaam_: {generic}
 Synoniemen: {synonym}
@@ -53,24 +49,20 @@ Synoniemen: {synonym}
 
 
     let mdRouteText = """
-* _Route_: {route}
 """
 
     let mdShapeText = """
-  * _Vorm_: {shape}
-  * _Producten_: 
-  * {products}
+{products}
 """
 
     let mdPatientText = """
-    * _Patient_: __{patient}__
+_Patient_: __{patient}__
 """
 
     let mdDosageText = """
-      {dosage}
+{dosage}
 
 """
-
 
     let mdConfig = 
         {
@@ -121,6 +113,15 @@ module Main =
             sprintf "%s %s %s" atc.Generic (r.Trim()) atc.Shape
         )
         
+    let queryGenerics s =
+        ATC.get ()
+        |> Array.filter (fun g ->
+            g.Generic |> String.startsWithCapsInsens s
+        )
+        |> Array.sortBy (fun g -> g.Generic, g.Shape, g.Routes)
+        |> Array.collect atcToGen
+        |> Array.distinct
+
     let getMain     (atc: ATCGroup.ATCGroup) = atc.AnatomicalGroup      |> Array.singleton
     let getTherapy  (atc: ATCGroup.ATCGroup) = atc.TherapeuticMainGroup |> Array.singleton
     let getSub      (atc: ATCGroup.ATCGroup) = atc.TherapeuticSubGroup  |> Array.singleton
@@ -231,7 +232,7 @@ module Main =
 
     let handleApi = 
         fun (next: HttpFunc) (ctx : HttpContext) ->
-            [ "main"; "tgp"; "sub"; "phg"; "gen"; "rul" ]
+            [ "main"; "tgp"; "sub"; "phg"; "gen"; "rul"; "qry" ]
             |> List.fold (fun acc k ->
                 acc
                 |> function 
@@ -250,6 +251,7 @@ module Main =
             | Some k, Some v when k = "phg"  -> getPharmacoGroups v
             | Some k, Some v when k = "gen"  -> getGenerics v
             | Some k, Some v when k = "rul"  -> getRules v
+            | Some k, Some v when k = "qry"  -> queryGenerics v
             | _, _ -> Array.empty
             |> fun xs -> 
                 printfn "returning %i items" (xs |> Array.length)

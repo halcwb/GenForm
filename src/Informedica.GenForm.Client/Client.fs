@@ -40,6 +40,7 @@ type Msg =
     | GenericsFetched of string list
     | GenericSelect of string
     | RulesFetched of string list
+    | Search of string
 
 
 type Model = 
@@ -73,14 +74,22 @@ module Navigation =
         | PharmacoGroups of string
         | Generics of string
         | Rules of string
+        | Search of string
 
-    let toHash = function
-        | Page.MainGroups -> "#main"
-        | Page.TherapyGroups s -> "#thg" + "/" + s
-        | Page.SubGroups s -> "#sub" + "/" + s
-        | Page.PharmacoGroups s -> "#phg" + "/" + s
-        | Page.Generics s -> "#gen" + "/" + s
-        | Page.Rules s -> "#rul" + "/" + s
+    let toHash p = 
+        match p with
+        | Page.MainGroups -> "main", ""
+        | Page.TherapyGroups s -> "thg", s
+        | Page.SubGroups s -> "sub", s
+        | Page.PharmacoGroups s -> "phg", s
+        | Page.Generics s -> "gen", s
+        | Page.Rules s -> "rul", s
+        | Page.Search s -> "qry", s
+        |> fun (s1, s2) ->
+            if s2 = "" then sprintf "#%s" s1
+            else 
+                let s2 = s2.Replace("/", "%2F")
+                sprintf "#%s/%s" s1 s2
 
     let pageParser =
         oneOf [
@@ -90,6 +99,7 @@ module Navigation =
             map Page.PharmacoGroups (s "phg" </> str)
             map Page.Generics (s "gen" </> str)
             map Page.Rules (s "rul" </> str)
+            map Page.Search (s "qry" </> str)
         ]
 
     let urlParser location = 
@@ -109,6 +119,7 @@ module Navigation =
         | Some (Page.PharmacoGroups s)  -> fetch "phg" s PharmacoGroupsFetched
         | Some (Page.Generics s) -> fetch "gen" s GenericsFetched
         | Some (Page.Rules s) -> fetch "rul" s RulesFetched
+        | Some (Page.Search s) -> fetch "qry" s GenericsFetched
         | None -> model, Cmd.none
 
 
@@ -122,19 +133,29 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
         Navigation.toHash p
         |> Elmish.Navigation.Navigation.newUrl
 
+    let fetched c s gl =
+        match gl with
+        | [g] -> model, g |> s |> Cmd.ofMsg
+        | _   -> gl |> c, Cmd.none
+        
+
     match msg with
     | Reset _ -> init ()
-    | MainGroupsFetched gl ->     gl |> MainGroups, Cmd.none
-    | TherapyGroupsFetched gl ->  gl |> TherapyGroups, Cmd.none
-    | SubGroupsFetched gl ->      gl |> SubGroups, Cmd.none
-    | PharmacoGroupsFetched gl -> gl |> PharmacoGroups, Cmd.none
-    | GenericsFetched gl ->       gl |> Generics, Cmd.none
+    | MainGroupsFetched gl ->     gl |> fetched MainGroups MainGroupSelect
+    | TherapyGroupsFetched gl ->  gl |> fetched TherapyGroups TherapyGroupSelect
+    | SubGroupsFetched gl ->      gl |> fetched SubGroups SubGroupSelect
+    | PharmacoGroupsFetched gl -> gl |> fetched  PharmacoGroups PharmacoGroupSelect
+    | GenericsFetched gl ->       gl |> fetched Generics GenericSelect
     | RulesFetched rl ->          rl |> Rules, Cmd.none
     | MainGroupSelect s ->        s |> Navigation.Page.TherapyGroups |> nav
     | TherapyGroupSelect s ->     s |> Navigation.Page.SubGroups |> nav
     | SubGroupSelect s ->         s |> Navigation.Page.PharmacoGroups |> nav
     | PharmacoGroupSelect s ->    s |> Navigation.Page.Generics |> nav
     | GenericSelect s ->          s |> Navigation.Page.Rules |> nav
+    | Search s ->
+        printfn "search: %s" s
+        if s = "" then init ()
+        else s |> Navigation.Page.Search |> nav
 
 
 // === STYLES ===
@@ -149,6 +170,16 @@ let filler =
 let headerBar dispatch =
     Views.NavBar.view "GenForm" dispatch
 
+
+let searchInput dispatch =
+    let lbl = typography [] [ str "Zoeken..." ]
+    let onInput = OnInput(fun e -> e.Value |> Search |> dispatch)
+    textField [ onInput 
+                MaterialProp.Label lbl
+                HTMLAttr.Type "search"
+                Style [ Display DisplayOptions.Flex ] ] [ ]
+ 
+
 let createList dispatch xs =
     let typo s =
         typography [ TypographyProp.Align TypographyAlign.Left
@@ -157,9 +188,9 @@ let createList dispatch xs =
     |> List.map (fun x ->
         button [ OnClick (fun _ -> x |> dispatch) ] [ typo x ]
         |> List.singleton
-        |> listItem [ Style [ (FlexGrow 1) ]]
+        |> listItem [ ]
     )
-    |> list [ Style [ CSSProp.MarginTop "80px" ] ]
+    |> list []
  
 let view (model : Model) (dispatch : Msg -> unit) =
     let content =
@@ -172,10 +203,14 @@ let view (model : Model) (dispatch : Msg -> unit) =
         | Rules xs ->
             xs
             |> List.map innerHtml
-            |> div [ Style [ CSSProp.MarginTop "80px"; CSSProp.MarginBottom "20px" ] ]
-        | Loading -> typography [ Style [ CSSProp.MarginTop "80px"; CSSProp.MarginBottom "20px" ]
-                                  TypographyProp.Variant TypographyVariant.H2 ] 
+            |> div []
+        | Loading -> typography [ TypographyProp.Variant TypographyVariant.H2 ] 
                                 [ str "Loading..." ]
+        |> fun el -> 
+            div [ Style [ CSSProp.MarginTop "80px"
+                          CSSProp.MarginBottom "20px" ] 
+                ]
+                [ searchInput dispatch; el ]
 
     div [ ]
         [ 

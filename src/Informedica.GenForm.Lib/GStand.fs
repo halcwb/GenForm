@@ -617,6 +617,7 @@ module GStand =
                         RF.createFilter age wght bsa gpk gpp.Name gpp.Shape r
                         |> RF.find cfg.UseAll
                         |> getPatients cfg
+                        |> Seq.sortBy (fun (pat, _, _) -> pat.Age.Min, pat.Weight.Min)
                         |> Seq.collect (fun (pat, sds, dsrs) ->
                             let gps = dsrs |> Seq.collect (fun dr -> dr.GenericProduct |> Seq.map (fun gp -> gp.Id, gp.Name))
                             let tps = dsrs |> Seq.collect (fun dr -> dr.TradeProduct |> Seq.map (fun tp   -> tp.Id, tp.Name))
