@@ -19,20 +19,24 @@ module GenericProduct =
         }
     and Substance = 
         {
+            SubstanceId : int
             SubstanceName : string
             SubstanceQuantity : float
             SubstanceUnit : string
+            GenericId : int
             GenericName : string
             GenericQuantity : float
             GenericUnit : string
             ShapeUnit : string
         }
 
-    let createSubstance sn sq su gn gq gu un =
+    let createSubstance si sn sq su gi gn gq gu un =
         {
+            SubstanceId = si   
             SubstanceName = sn
             SubstanceQuantity = sq
             SubstanceUnit = su
+            GenericId = gi
             GenericName = gn
             GenericQuantity = gq
             GenericUnit = gu
@@ -52,14 +56,13 @@ module GenericProduct =
             PrescriptionProducts = ps
         }
 
-
-    let getRoutes (p : Zindex.BST711T.BST711T) =
-
+    let getRoutes (gp : Zindex.BST711T.BST711T) =
+        // try to get the 'enkelvoudige toedieningsweg' 
         let rt =
             Zindex.BST051T.records ()
             |> Array.filter (fun r -> 
                 r.MUTKOD <> 1 && 
-                r.GPKODE = p.GPKODE
+                r.GPKODE = gp.GPKODE
             )
             |> Array.collect (fun r ->
                 Zindex.BST031T.records ()
@@ -84,10 +87,62 @@ module GenericProduct =
 
         if rt |> Array.isEmpty |> not then rt
         else 
-            [| Names.getThes p.GPKTWG Names.Route Names.Fifty |]
+            [| Names.getThes gp.GPKTWG Names.Route Names.Fifty |]
 
-                        
-    let private _get gpks = 
+
+    let getSubstances log un (gp : Zindex.BST711T.BST711T) hpks =
+        Zindex.BST715T.records ()
+        |> Array.filter (fun gs ->
+            gs.GSKODE = gp.GSKODE &&
+            gs.MUTKOD <> 1 &&
+            gs.GNMWHS = "W"
+        )
+        |> Array.collect (fun gs ->
+            Zindex.BST750T.records ()
+            |> Array.filter (fun gn ->
+                gn.MUTKOD <> 1 && gs.GNNKPK = gn.GNGNK
+            )
+            |> Array.map (fun gn -> gs, gn)
+        )
+        |> Array.collect (fun (gs, gn) ->
+            let stam =
+                Zindex.BST750T.records ()
+                |> Array.find (fun s -> s.GNGNK = gn.GNSTAM)
+
+            match hpks with
+            | _ when hpks |> Array.isEmpty -> 
+                let un1 = Names.getThes gs.XNMOME Names.GenericUnit Names.Fifty
+                createSubstance gn.GNSTAM stam.GNGNAM gs.GNMOMH un1 gn.GNGNK gn.GNGNAM gs.GNMOMH un1 un
+                |> Array.singleton
+            | _  ->
+                hpks
+                |> Array.collect (fun hpk -> 
+                    Zindex.BST701T.records ()
+                    |> Array.filter (fun ig ->
+                        ig.HPKODE = hpk && 
+                        ig.GNGNK = gn.GNGNK &&
+                        ig.MUTKOD <> 1                    
+                    )
+                    |> function 
+                    | igs when igs |> Array.isEmpty -> 
+                        Zindex.BST701T.records ()
+                        |> Array.filter (fun ig ->
+                            ig.HPKODE = hpk && 
+                            ig.GNSTAM = gn.GNSTAM &&
+                            ig.MUTKOD <> 1                    
+                        )
+                    | igs -> igs
+                    |> Array.map (fun ig ->
+                        let un1 = Names.getThes ig.XNMINE Names.GenericUnit Names.Fifty
+                        let un2 = Names.getThes gs.XNMOME Names.GenericUnit Names.Fifty
+                        createSubstance ig.GNSTAM stam.GNGNAM ig.GNMINH un1 gn.GNGNK gn.GNGNAM gs.GNMOMH un2 un
+                    )
+                )
+        )
+        |> Array.distinct
+
+
+    let private _get log gpks =
         Zindex.BST711T.records ()
         |> Array.filter (fun gp -> 
             gp.MUTKOD <> 1 &&
@@ -107,86 +162,23 @@ module GenericProduct =
                         atc.ATCODE = gp.ATCODE
                     ) with
                 | Some atc' -> atc'.ATOMS
-                | None     -> ""
+                | None      -> ""
             let sh = Names.getThes gp.GPKTVR Names.Shape Names.Fifty
             let rt = getRoutes gp
             let ps = PrescriptionProduct.get gp.GPKODE
             let un = Names.getThes gp.XPEHHV Names.ShapeUnit Names.Fifty
-            let ss = 
-                let gss =
-                    Zindex.BST715T.records ()
-                    |> Array.filter (fun gs ->
-                        gs.GSKODE = gp.GSKODE &&
-                        gs.MUTKOD <> 1 &&
-                        gs.GNMWHS = "W"
-                    )
 
-                let gns = 
-                    Zindex.BST750T.records ()
-                    |> Array.filter (fun gn ->
-                        gn.MUTKOD <> 1 &&
-                        gss |> Array.exists(fun gs -> gs.GNNKPK = gn.GNGNK)
-                    )
-
-                query {
-                    for gs in gss do
-                    join gn in gns
-                        on (gs.GNNKPK = gn.GNGNK) 
-                    // Get substance name and concentration
-                    let cn =
-                        let hps =
-                            Zindex.BST051T.records ()
-                            |> Array.filter (fun pr ->
-                                pr.GPKODE = gp.GPKODE
-                            ) 
-                            |> Array.collect (fun pr ->
-                                Zindex.BST031T.records ()
-                                |> Array.filter (fun hp ->
-                                    hp.MUTKOD <> 1 &&
-                                    hp.PRKODE = pr.PRKODE
-                                )
-                            )
-
-                        let gns' =
-                            Zindex.BST750T.records ()
-                            |> Array.filter (fun gn' ->
-                                gn.GNGNAM.Contains(gn'.GNGNAM)
-                            )
-
-
-                        query {
-                            for ig in (Zindex.BST701T.records ()
-                                       |> Array.filter (fun r -> r.GNMWHS = "W")) do
-                            join gn' in gns'
-                                on (ig.GNSTAM = gn'.GNGNK)
-                            join hp in hps 
-                                on (ig.HPKODE = hp.HPKODE)
-                            
-                            let u = Names.getThes ig.XNMINE Names.GenericUnit Names.Fifty
-                            
-                            select (gn'.GNGNAM, ig.GNMINH, u)
-                        } 
-                        |> Seq.toArray
-                                    
-                    let gu = Names.getThes gs.XNMOME Names.GenericUnit Names.Fifty
-
-                    select 
-                     (
-                        if cn |> Array.isEmpty then
-                            createSubstance gn.GNGNAM  gs.GNMOMH gu gn.GNGNAM gs.GNMOMH gu un
-                        else 
-                            let sn, sq, su = cn |> Array.head
-                            createSubstance sn sq su gn.GNGNAM gs.GNMOMH gu un
-                     )
-                     
-                }
-                |> Seq.distinct
-                |> Seq.toArray
-                
+            let ss =
+                ps
+                |> Array.collect (fun pp ->
+                    pp.TradeProducts
+                    |> Array.map (fun tp -> tp.Id)
+                )
+                |> getSubstances log un gp
 
             create gp.GPKODE nm lb gp.ATCODE an sh rt ss ps
         )
 
-    let get : int list -> GenericProduct [] = Memoization.memoize _get
+    let get : int list -> GenericProduct [] = Memoization.memoize (_get (fun _ -> ()))
 
-
+    let getWithLog = _get

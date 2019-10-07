@@ -23,7 +23,7 @@ namespace Informedica.GenProduct.Lib
 /// <para>BST760T: Bestand 760 Enkelvoudige toedieningswegen HPK</para>
 /// <para>BST801T: Bestand 801 ATC codes</para>
 /// <para>BST902T: Bestand 902 Thesauri totaal</para>
-/// <para>BST920T: Bestand 920 Teksten (oud, zonder blok structuur)</para>
+/// <para>BST921T: Bestand 921 Tekstblokken ASCII (vervangt 920)</para>
 /// </summary>
 module Zindex =
 
@@ -681,10 +681,15 @@ module Zindex =
     /// <para> --------------- </para>
     /// <para> 0.	MUTKOD: 	Mutatiecode </para>
     /// <para> 1.	HPKODE: 	Handels Product Kenmerken (HPK) code </para>
-    /// <para> 2.	GNMWHS: 	Aanduiding werkzaam/hulpstof (W/H) </para>
-    /// <para> 3.	GNMINH: 	Hoeveelheid werkzame stof </para>
-    /// <para> 4.	XNMINE: 	Eenh.hoeveelheid werkzame stof kode </para>
-    /// <para> 5.	GNSTAM: 	Stamnaamcode (SNK) </para>
+    /// <para> 2.	GNVOLG: 	Volgnummer </para>
+    /// <para> 3.	GNMWHS: 	Aanduiding werkzaam/hulpstof (W/H) </para>
+    /// <para> 4.	GNGNK: 	GeneriekeNaamKode (GNK) </para>
+    /// <para> 5.	GNMINH: 	Hoeveelheid werkzame stof </para>
+    /// <para> 6.	THMINE: 	Eenh. hvh werkz.stof - thesaurus 1 </para>
+    /// <para> 7.	XNMINE: 	Eenh.hoeveelheid werkzame stof kode </para>
+    /// <para> 8.	GNSTAM: 	Stamnaamcode (SNK) </para>
+    /// <para> 9.	THSTWG: 	Stamtoedieningsweg - thesaurus 58 </para>
+    /// <para> 10.	SSKTWG: 	Stamtoedieningsweg code </para>
     /// </summary>
     module BST701T =
 
@@ -694,31 +699,41 @@ module Zindex =
             {
                 MUTKOD : int
                 HPKODE : int
+                GNVOLG : int
                 GNMWHS : string
+                GNGNK : int
                 GNMINH : float
+                THMINE : int
                 XNMINE : int
                 GNSTAM : int
+                THSTWG : int
+                SSKTWG : int
             }
 
 
-        let create mutkod hpkode gnmwhs gnminh xnmine gnstam  =
+        let create mutkod hpkode gnvolg gnmwhs gngnk gnminh thmine xnmine gnstam thstwg ssktwg  =
             {
                 MUTKOD = mutkod |> ((Parser.parseValue "N" "") >> Int32.parse)
                 HPKODE = hpkode |> ((Parser.parseValue "N" "(7+1)") >> Int32.parse)
+                GNVOLG = gnvolg |> ((Parser.parseValue "N" "") >> Int32.parse)
                 GNMWHS = gnmwhs |> String.trim
+                GNGNK = gngnk |> ((Parser.parseValue "N" "(5+1)") >> Int32.parse)
                 GNMINH = gnminh |> ((Parser.parseValue "N" "(9,3)") >> Double.parse)
+                THMINE = thmine |> ((Parser.parseValue "N" "") >> Int32.parse)
                 XNMINE = xnmine |> ((Parser.parseValue "N" "") >> Int32.parse)
                 GNSTAM = gnstam |> ((Parser.parseValue "N" "(5+1)") >> Int32.parse)
+                THSTWG = thstwg |> ((Parser.parseValue "N" "") >> Int32.parse)
+                SSKTWG = ssktwg |> ((Parser.parseValue "N" "") >> Int32.parse)
             }
 
     
         let posl = BST001T.getPosl name
 
-        let pickList = [1;2;4;6;8;9]
+        let pickList = [1;2;3;4;5;6;7;8;9;10;11]
          
         let _records _ =
             Parser.getData name posl pickList
-            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5))
+            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5) (xs |> Array.item 6) (xs |> Array.item 7) (xs |> Array.item 8) (xs |> Array.item 9) (xs |> Array.item 10))
 
         let records : unit -> BST701T [] = Memoization.memoize _records
 
@@ -935,9 +950,18 @@ module Zindex =
     /// <para> 0.	MUTKOD: 	Mutatiecode </para>
     /// <para> 1.	GNGNK: 	GeneriekeNaamKode (GNK) </para>
     /// <para> 2.	GNGNAM: 	Generieke naam </para>
-    /// <para> 3.	GNFORM: 	Bruto formule </para>
-    /// <para> 4.	GNMOLE: 	Molekuulgewicht (echt) </para>
-    /// <para> 5.	GNMOLS: 	Molekuulgewicht voor samenstelling </para>
+    /// <para> 3.	GNSTAM: 	Stamnaamcode (SNK) </para>
+    /// <para> 4.	GNNKPK: 	Volledige generieke naam kode </para>
+    /// <para> 5.	GNSTNT: 	Kode stamnaam toegestaan </para>
+    /// <para> 6.	GNWZHS: 	Kode werkzaam bestanddeel/hulpstof </para>
+    /// <para> 7.	GNSTKD: 	Informatorium stof kode </para>
+    /// <para> 8.	GNCAS: 	CAS nummer </para>
+    /// <para> 9.	GNFORM: 	Bruto formule </para>
+    /// <para> 10.	GNMOLE: 	Molekuulgewicht (echt) </para>
+    /// <para> 11.	GNMOLI: 	Molekuulgewicht indicator </para>
+    /// <para> 12.	GNMOLS: 	Molekuulgewicht voor samenstelling </para>
+    /// <para> 13.	GNSGEW: 	Soortelijk gewicht </para>
+    /// <para> 14.	GNVOOR: 	Voorkeurseenheid </para>
     /// </summary>
     module BST750T =
 
@@ -948,30 +972,48 @@ module Zindex =
                 MUTKOD : int
                 GNGNK : int
                 GNGNAM : string
+                GNSTAM : int
+                GNNKPK : int
+                GNSTNT : string
+                GNWZHS : string
+                GNSTKD : int
+                GNCAS : int
                 GNFORM : string
                 GNMOLE : float
+                GNMOLI : string
                 GNMOLS : float
+                GNSGEW : float
+                GNVOOR : string
             }
 
 
-        let create mutkod gngnk gngnam gnform gnmole gnmols  =
+        let create mutkod gngnk gngnam gnstam gnnkpk gnstnt gnwzhs gnstkd gncas gnform gnmole gnmoli gnmols gnsgew gnvoor  =
             {
                 MUTKOD = mutkod |> ((Parser.parseValue "N" "") >> Int32.parse)
                 GNGNK = gngnk |> ((Parser.parseValue "N" "(5+1)") >> Int32.parse)
                 GNGNAM = gngnam |> String.trim
+                GNSTAM = gnstam |> ((Parser.parseValue "N" "(5+1)") >> Int32.parse)
+                GNNKPK = gnnkpk |> ((Parser.parseValue "N" "(5+1)") >> Int32.parse)
+                GNSTNT = gnstnt |> String.trim
+                GNWZHS = gnwzhs |> String.trim
+                GNSTKD = gnstkd |> ((Parser.parseValue "N" "") >> Int32.parse)
+                GNCAS = gncas |> ((Parser.parseValue "N" "(8+1)") >> Int32.parse)
                 GNFORM = gnform |> String.trim
                 GNMOLE = gnmole |> ((Parser.parseValue "N" "(8,4)") >> Double.parse)
+                GNMOLI = gnmoli |> String.trim
                 GNMOLS = gnmols |> ((Parser.parseValue "N" "(8,4)") >> Double.parse)
+                GNSGEW = gnsgew |> ((Parser.parseValue "N" "(2,5)") >> Double.parse)
+                GNVOOR = gnvoor |> String.trim
             }
 
     
         let posl = BST001T.getPosl name
 
-        let pickList = [1;2;3;10;11;13]
+        let pickList = [1;2;3;4;5;6;7;8;9;10;11;12;13;14;15]
          
         let _records _ =
             Parser.getData name posl pickList
-            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5))
+            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5) (xs |> Array.item 6) (xs |> Array.item 7) (xs |> Array.item 8) (xs |> Array.item 9) (xs |> Array.item 10) (xs |> Array.item 11) (xs |> Array.item 12) (xs |> Array.item 13) (xs |> Array.item 14))
 
         let records : unit -> BST750T [] = Memoization.memoize _records
 
@@ -1115,47 +1157,59 @@ module Zindex =
 
     
     /// <summary>
-    /// <para> Tabel: BST920T: Bestand 920 Teksten (oud, zonder blok structuur) </para>
+    /// <para> Tabel: BST921T: Bestand 921 Tekstblokken ASCII (vervangt 920) </para>
     /// <para> --------------- </para>
     /// <para> 0.	MUTKOD: 	Mutatiecode </para>
-    /// <para> 1.	TXMOD: 	Tekstmodule </para>
-    /// <para> 2.	TXKODE: 	Tekst nivo kode </para>
-    /// <para> 3.	TXSRTT: 	Tekstsoort </para>
-    /// <para> 4.	TXRGL: 	Tekst </para>
+    /// <para> 1.	THMODU: 	Thesaurus verwijzing tekstmodule (=103) </para>
+    /// <para> 2.	TXMODU: 	Tekstmodule </para>
+    /// <para> 3.	THTSRT: 	Thesaurus verwijzing tekstsoort (=104) </para>
+    /// <para> 4.	TXTSRT: 	Tekstsoort </para>
+    /// <para> 5.	TXKODE: 	Tekst nivo kode </para>
+    /// <para> 6.	TXBLNR: 	Tekstbloknummer </para>
+    /// <para> 7.	TXRGLN: 	Tekstregelnummer </para>
+    /// <para> 8.	TXTEXT: 	Tekst </para>
     /// </summary>
-    module BST920T =
+    module BST921T =
 
-        let name = "BST920T"
+        let name = "BST921T"
 
-        type BST920T =
+        type BST921T =
             {
                 MUTKOD : int
-                TXMOD : int
+                THMODU : int
+                TXMODU : int
+                THTSRT : int
+                TXTSRT : int
                 TXKODE : int
-                TXSRTT : int
-                TXRGL : string
+                TXBLNR : int
+                TXRGLN : int
+                TXTEXT : string
             }
 
 
-        let create mutkod txmod txkode txsrtt txrgl  =
+        let create mutkod thmodu txmodu thtsrt txtsrt txkode txblnr txrgln txtext  =
             {
                 MUTKOD = mutkod |> ((Parser.parseValue "N" "") >> Int32.parse)
-                TXMOD = txmod |> ((Parser.parseValue "N" "") >> Int32.parse)
+                THMODU = thmodu |> ((Parser.parseValue "N" "") >> Int32.parse)
+                TXMODU = txmodu |> ((Parser.parseValue "N" "") >> Int32.parse)
+                THTSRT = thtsrt |> ((Parser.parseValue "N" "") >> Int32.parse)
+                TXTSRT = txtsrt |> ((Parser.parseValue "N" "") >> Int32.parse)
                 TXKODE = txkode |> ((Parser.parseValue "N" "") >> Int32.parse)
-                TXSRTT = txsrtt |> ((Parser.parseValue "N" "") >> Int32.parse)
-                TXRGL = txrgl |> String.trim
+                TXBLNR = txblnr |> ((Parser.parseValue "N" "") >> Int32.parse)
+                TXRGLN = txrgln |> ((Parser.parseValue "N" "") >> Int32.parse)
+                TXTEXT = txtext |> String.trim
             }
 
     
         let posl = BST001T.getPosl name
 
-        let pickList = [1;3;4;6;8]
+        let pickList = [1;2;3;4;5;6;7;8;9]
          
         let _records _ =
             Parser.getData name posl pickList
-            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4))
+            |> Array.map (fun xs -> create  (xs |> Array.item 0) (xs |> Array.item 1) (xs |> Array.item 2) (xs |> Array.item 3) (xs |> Array.item 4) (xs |> Array.item 5) (xs |> Array.item 6) (xs |> Array.item 7) (xs |> Array.item 8))
 
-        let records : unit -> BST920T [] = Memoization.memoize _records
+        let records : unit -> BST921T [] = Memoization.memoize _records
 
     
 

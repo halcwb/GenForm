@@ -23,10 +23,10 @@
     <Compile Include="DoseRule.fs" />
     <Compile Include="ATCGroup.fs" />
     <Compile Include="RuleFinder.fs" />
-    <None Include="Scripts/references.fsx" />
-    <None Include="Scripts/Script.fsx" />
     <None Include="Scripts/gencoderefs.fsx" />
     <None Include="Scripts/GenCode.fsx" />
+    <None Include="Scripts/references.fsx" />
+    <None Include="Scripts/Script.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Scripts/" />

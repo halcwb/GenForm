@@ -23,6 +23,7 @@ module GStandExt =
     let createDoseRules = createWithCfg cfg
     
     let mdText = """
+
 ## _Stofnaam_: {generic}
 Synoniemen: {synonym}
 
@@ -49,6 +50,7 @@ Synoniemen: {synonym}
 
 
     let mdRouteText = """
+#### _Route_: {route}
 """
 
     let mdShapeText = """
@@ -83,6 +85,7 @@ _Patient_: __{patient}__
         |> Seq.map (fun dr -> 
             dr 
             |> toStr
+            |> (fun s -> s + "\n\n---")
             |> Markdown.toHtml
         )
 
@@ -112,15 +115,48 @@ module Main =
         |> Array.map (fun r ->
             sprintf "%s %s %s" atc.Generic (r.Trim()) atc.Shape
         )
-        
-    let queryGenerics s =
-        ATC.get ()
-        |> Array.filter (fun g ->
-            g.Generic |> String.startsWithCapsInsens s
+
+
+    let search n =
+        let contains s2 s1 = 
+            s1
+            |> String.toLower
+            |> String.contains (s2 |> String.toLower)
+
+        GenPresProduct.get true
+        |> Array.filter (fun gpp ->
+            gpp.Name |> contains n ||
+            gpp.GenericProducts
+            |> Array.exists (fun gp ->
+                gp.Name |> contains n ||
+                gp.PrescriptionProducts
+                |> Array.exists (fun pp ->
+                    pp.TradeProducts
+                    |> Array.exists (fun tp ->
+                        tp.Label
+                        |> contains n
+                    )
+                )
+            )
         )
-        |> Array.sortBy (fun g -> g.Generic, g.Shape, g.Routes)
-        |> Array.collect atcToGen
-        |> Array.distinct
+        |> Array.collect (fun gpp ->
+            gpp.GenericProducts
+            |> Array.collect (fun gp ->
+                gp.ATC
+                |> ATCGroup.findByATC5 ()
+            )
+        )
+        
+
+    let queryGenerics s =
+        if s |> String.length < 3 then Array.empty 
+        else
+            s
+            |> search
+            |> Array.sortBy (fun g -> g.Generic, g.Routes, g.Shape)
+            |> Array.collect atcToGen
+            |> Array.distinct
+
 
     let getMain     (atc: ATCGroup.ATCGroup) = atc.AnatomicalGroup      |> Array.singleton
     let getTherapy  (atc: ATCGroup.ATCGroup) = atc.TherapeuticMainGroup |> Array.singleton
@@ -252,7 +288,9 @@ module Main =
             | Some k, Some v when k = "gen"  -> getGenerics v
             | Some k, Some v when k = "rul"  -> getRules v
             | Some k, Some v when k = "qry"  -> queryGenerics v
-            | _, _ -> Array.empty
+            | x, y -> 
+                printfn "unrecognized request %A %A" x y
+                Array.empty
             |> fun xs -> 
                 printfn "returning %i items" (xs |> Array.length)
                 json xs next ctx

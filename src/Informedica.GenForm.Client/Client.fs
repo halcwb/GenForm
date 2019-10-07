@@ -16,7 +16,15 @@ open Extensions.Fable.MaterialUI.Core
 
 open Views
 
+
 // == HELPER FUNCTIONS ==
+
+module Debounce =
+    open Fable.Core
+
+    [<Import("default", "debounce"); Emit("$0($1, $2, $3)")>]
+    let debounce<'f> (_f: 'f) (_interval: int) (_immediate: bool)  : 'f = jsNative
+
 
 type DangerousInnerHtml =
     { __html : string }
@@ -154,8 +162,13 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
     | GenericSelect s ->          s |> Navigation.Page.Rules |> nav
     | Search s ->
         printfn "search: %s" s
-        if s = "" then init ()
-        else s |> Navigation.Page.Search |> nav
+        match s with
+        | _ when s |> String.IsNullOrEmpty -> init ()
+        | _ when s |> String.length < 3 -> model, Cmd.none
+        | _  ->
+            s 
+            |> Navigation.Page.Search 
+            |> nav
 
 
 // === STYLES ===
@@ -173,7 +186,14 @@ let headerBar dispatch =
 
 let searchInput dispatch =
     let lbl = typography [] [ str "Zoeken..." ]
-    let onInput = OnInput(fun e -> e.Value |> Search |> dispatch)
+    let onInput = 
+        let f = fun s ->
+            s 
+            |> Search
+            |> dispatch
+        let f = Debounce.debounce f 500 false
+        OnInput (fun e -> e.Value |> f)
+
     textField [ onInput 
                 MaterialProp.Label lbl
                 HTMLAttr.Type "search"
@@ -201,13 +221,16 @@ let view (model : Model) (dispatch : Msg -> unit) =
         | PharmacoGroups xs -> xs |> createList (PharmacoGroupSelect >> dispatch)
         | Generics xs ->       xs |> createList (GenericSelect >> dispatch)
         | Rules xs ->
-            xs
+            match xs with
+            | [] -> [ "# Geen doseer regels gevonden" ]
+            | _ ->
+                xs
             |> List.map innerHtml
-            |> div []
+            |> div [ Style [ CSSProp.MarginTop "20px" ] ]
         | Loading -> typography [ TypographyProp.Variant TypographyVariant.H2 ] 
                                 [ str "Loading..." ]
         |> fun el -> 
-            div [ Style [ CSSProp.MarginTop "80px"
+            div [ Style [ CSSProp.MarginTop "100px"
                           CSSProp.MarginBottom "20px" ] 
                 ]
                 [ searchInput dispatch; el ]
